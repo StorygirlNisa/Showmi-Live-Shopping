@@ -97,6 +97,45 @@ export interface CartItem {
   selectedVariant?: string;
 }
 
+export interface OrderItem {
+  productId: string;
+  sellerId: string;
+  sellerName?: string;
+  productImage?: string;
+  name: string;
+  quantity: number;
+  priceZAR: number;
+  status: 'awaiting_dispatch' | 'in_transit' | 'delivered' | 'confirmed';
+  courierPartner?: string;
+  trackingNumber?: string;
+  dispatchedAt?: string;
+  deliveredAt?: string;
+  confirmedAt?: string;
+}
+
+export interface Order {
+  id: string;
+  buyerId: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  shippingAddress: string;
+  city: string;
+  province: string;
+  postalCode: string;
+  items: OrderItem[];
+  subtotalZAR: number;
+  shippingZAR: number;
+  protectionFeeZAR: number;
+  totalZAR: number;
+  createdAt: string;
+  estimatedDeliveryDate: string;
+  protectionExpiresAt: string;
+  deliveryMethod: string;
+  paymentMethod: string;
+  confirmedAt?: string;
+}
+
 export interface OrderConfirmation {
   orderId: string;
   date: string;
@@ -104,6 +143,7 @@ export interface OrderConfirmation {
   customerEmail: string;
   customerPhone: string;
   shippingAddress: string;
+  city: string;
   province: string;
   postalCode: string;
   deliveryMethod: string;
@@ -111,8 +151,10 @@ export interface OrderConfirmation {
   items: CartItem[];
   subtotalZAR: number;
   shippingZAR: number;
+  protectionFeeZAR: number;
   totalZAR: number;
   estimatedDeliveryDate: string;
+  protectionExpiresAt: string;
 }
 
 export interface LivePromotion {

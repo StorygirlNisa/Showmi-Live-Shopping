@@ -18,14 +18,17 @@ import { SellerHostModeView } from './components/SellerHostModeView';
 import { ResponsivePreviewToolbar, ViewportMode } from './components/ResponsivePreviewToolbar';
 import { SearchResultsView } from './components/SearchResultsView';
 
-import { PRODUCTS, SELLERS, LIVE_SESSIONS, INITIAL_PROMOTIONS } from './data/mockData';
-import { Product, CartItem, StreamSnippet, LivePromotion } from './types';
+import { PRODUCTS, SELLERS, LIVE_SESSIONS, INITIAL_PROMOTIONS, INITIAL_ORDERS } from './data/mockData';
+import { Product, CartItem, StreamSnippet, LivePromotion, Order, OrderItem } from './types';
+import { MyOrdersView } from './components/MyOrdersView';
+import { OrderPlacementPayload } from './components/BasketCheckoutView';
 
 const STORAGE_KEYS = {
   PRODUCTS: 'showmi_products_v1',
   CART: 'showmi_cart_v1',
   SNIPPETS: 'showmi_snippets_v1',
   PROMOTIONS: 'showmi_promotions_v1',
+  ORDERS: 'showmi_orders_v1',
   USER_ROLE: 'showmi_user_role_v1',
   SELLER_ID: 'showmi_current_seller_id_v1',
   FOLLOWED_SELLERS: 'showmi_followed_sellers_v1'
@@ -107,7 +110,18 @@ export default function App() {
     return SELLERS.flatMap(s => s.snippets);
   });
 
-  // Dynamic promotions list with active terms and expiry dates
+  // Dynamic orders list, persisted to localStorage
+  const [ordersList, setOrdersList] = useState<Order[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.ORDERS);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Error loading orders from localStorage', e);
+    }
+    return INITIAL_ORDERS;
+  });
+
+  // Dynamic promotions list, persisted to localStorage
   const [promotionsList, setPromotionsList] = useState<LivePromotion[]>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.PROMOTIONS);
@@ -161,6 +175,15 @@ export default function App() {
     }
   }, [snippetsList]);
 
+  // Sync orders to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(ordersList));
+    } catch (e) {
+      console.error('Failed to save orders to localStorage', e);
+    }
+  }, [ordersList]);
+
   // Sync promotions to localStorage
   useEffect(() => {
     try {
@@ -175,9 +198,15 @@ export default function App() {
     setTimeout(() => setNotification(null), 2500);
   };
 
-  // Cart operations
   const handleAddToCart = (product: Product, quantity = 1) => {
     const currentProduct = productsList.find(p => p.id === product.id) || product;
+    
+    // Ownership check
+    if (userRole === 'seller' && currentSellerId === currentProduct.sellerId) {
+      showNotification('Sellers cannot purchase their own products');
+      return;
+    }
+
     if (currentProduct.stock <= 0) {
       showNotification(`${currentProduct.name} is currently out of stock`);
       return;
@@ -200,6 +229,13 @@ export default function App() {
 
   const handleBuyNow = (product: Product, quantity = 1) => {
     const currentProduct = productsList.find(p => p.id === product.id) || product;
+
+    // Ownership check
+    if (userRole === 'seller' && currentSellerId === currentProduct.sellerId) {
+      showNotification('Sellers cannot purchase their own products');
+      return;
+    }
+
     if (currentProduct.stock <= 0) {
       showNotification(`${currentProduct.name} is currently out of stock`);
       return;
@@ -230,11 +266,12 @@ export default function App() {
     setCartItems([]);
   };
 
-  // Order placement & inventory decrement
-  const handlePlaceOrder = (orderItems: CartItem[]) => {
+  // Order placement, inventory decrement & persistent storage
+  const handlePlaceOrder = (orderPayload: OrderPlacementPayload) => {
+    // 1. Decrement inventory
     setProductsList(prevProducts => {
       return prevProducts.map(prod => {
-        const purchased = orderItems.find(item => item.product.id === prod.id);
+        const purchased = orderPayload.items.find(item => item.product.id === prod.id);
         if (purchased) {
           const updatedStock = Math.max(0, prod.stock - purchased.quantity);
           return {
@@ -245,7 +282,109 @@ export default function App() {
         return prod;
       });
     });
-    showNotification('Order completed! Inventory updated across Showmi');
+
+    // 2. Construct persistent Order record
+    const newOrderRecord: Order = {
+      id: orderPayload.orderId,
+      buyerId: 'buyer-current',
+      customerName: orderPayload.customerName,
+      customerEmail: orderPayload.customerEmail,
+      customerPhone: orderPayload.customerPhone,
+      shippingAddress: orderPayload.shippingAddress,
+      city: orderPayload.city,
+      province: orderPayload.province,
+      postalCode: orderPayload.postalCode,
+      items: orderPayload.items.map(ci => ({
+        productId: ci.product.id,
+        sellerId: ci.product.sellerId,
+        sellerName: ci.product.sellerName,
+        productImage: ci.product.images[0],
+        name: ci.product.name,
+        quantity: ci.quantity,
+        priceZAR: ci.product.priceZAR,
+        status: 'awaiting_dispatch' as const
+      })),
+      subtotalZAR: orderPayload.subtotalZAR,
+      shippingZAR: orderPayload.shippingZAR,
+      protectionFeeZAR: orderPayload.protectionFeeZAR,
+      totalZAR: orderPayload.totalZAR,
+      createdAt: new Date().toISOString(),
+      estimatedDeliveryDate: orderPayload.estimatedDeliveryDate,
+      protectionExpiresAt: orderPayload.protectionExpiresAt,
+      deliveryMethod: orderPayload.deliveryMethod,
+      paymentMethod: orderPayload.paymentMethod
+    };
+
+    // 3. Add to ordersList (avoiding duplicates)
+    setOrdersList(prev => {
+      if (prev.some(o => o.id === newOrderRecord.id)) {
+        return prev;
+      }
+      return [newOrderRecord, ...prev];
+    });
+
+    showNotification(`Order #${newOrderRecord.id} saved & inventory updated!`);
+  };
+
+  // Seller dispatch & fulfillment status updates (scoped by seller ID)
+  const handleUpdateOrderItemStatus = (
+    orderId: string, 
+    productId: string, 
+    sellerId: string, 
+    newStatus: OrderItem['status'], 
+    tracking?: { courierPartner?: string; trackingNumber?: string }
+  ) => {
+    setOrdersList(prev => 
+      prev.map(order => {
+        if (order.id !== orderId) return order;
+        return {
+          ...order,
+          items: order.items.map(item => {
+            // Permission check: seller can only update their own items
+            if (item.productId === productId && item.sellerId === sellerId) {
+              return {
+                ...item,
+                status: newStatus,
+                courierPartner: tracking?.courierPartner || item.courierPartner,
+                trackingNumber: tracking?.trackingNumber || item.trackingNumber,
+                dispatchedAt: newStatus === 'in_transit' ? new Date().toISOString() : item.dispatchedAt,
+                deliveredAt: newStatus === 'delivered' ? new Date().toISOString() : item.deliveredAt,
+              };
+            }
+            return item;
+          })
+        };
+      })
+    );
+    showNotification(`Status updated: ${newStatus.replace('_', ' ')}`);
+  };
+
+  // Buyer receipt confirmation
+  const handleConfirmItemReceipt = (orderId: string, productId: string) => {
+    setOrdersList(prev =>
+      prev.map(order => {
+        if (order.id !== orderId) return order;
+        const now = new Date().toISOString();
+        const updatedItems = order.items.map(item => {
+          if (item.productId === productId) {
+            return {
+              ...item,
+              status: 'confirmed' as const,
+              confirmedAt: now
+            };
+          }
+          return item;
+        });
+
+        const allConfirmed = updatedItems.every(i => i.status === 'confirmed');
+        return {
+          ...order,
+          items: updatedItems,
+          confirmedAt: allConfirmed ? now : order.confirmedAt
+        };
+      })
+    );
+    showNotification('Delivery confirmed! 14-day buyer protection active');
   };
 
   // Snippet lifecycle handlers
@@ -317,6 +456,7 @@ export default function App() {
     localStorage.removeItem(STORAGE_KEYS.CART);
     localStorage.removeItem(STORAGE_KEYS.SNIPPETS);
     localStorage.removeItem(STORAGE_KEYS.PROMOTIONS);
+    localStorage.removeItem(STORAGE_KEYS.ORDERS);
     localStorage.removeItem(STORAGE_KEYS.USER_ROLE);
     localStorage.removeItem(STORAGE_KEYS.SELLER_ID);
     localStorage.removeItem(STORAGE_KEYS.FOLLOWED_SELLERS);
@@ -324,6 +464,7 @@ export default function App() {
     setCartItems([{ product: PRODUCTS[0], quantity: 1 }]);
     setSnippetsList(SELLERS.flatMap(s => s.snippets));
     setPromotionsList(INITIAL_PROMOTIONS);
+    setOrdersList(INITIAL_ORDERS);
     setUserRole('buyer');
     setCurrentSellerId(SELLERS[0].id);
     setFollowedSellerIds(SELLERS.map(s => s.id));
@@ -470,6 +611,7 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={handleTabChange}
         cartItems={cartItems}
+        ordersCount={ordersList.length}
         onOpenInfoModal={() => setIsSetupModalOpen(true)}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
@@ -580,6 +722,7 @@ export default function App() {
             products={productsList}
             snippets={snippetsList}
             promotions={promotionsList}
+            orders={ordersList}
             currentSellerId={currentSellerId}
             onSelectSeller={(id) => setCurrentSellerId(id)}
             onBackToShopping={() => setActiveTab('LIVE')}
@@ -592,17 +735,29 @@ export default function App() {
             onAddProduct={handleAddProduct}
             onUpdateProduct={handleUpdateProduct}
             onDeleteProduct={handleDeleteProduct}
+            onUpdateOrderItemStatus={handleUpdateOrderItemStatus}
+          />
+        ) : activeTab === 'My Orders' ? (
+          /* View: Buyer Orders & 14-day Protection Tracker */
+          <MyOrdersView
+            orders={ordersList}
+            onConfirmDelivery={handleConfirmItemReceipt}
+            onBackToShopping={() => setActiveTab('LIVE')}
+            onSelectProduct={handleSelectProduct}
           />
         ) : activeTab === 'Basket' ? (
           /* View: Basket & Checkout Preview */
           <BasketCheckoutView
             cartItems={cartItems}
+            productsList={productsList}
+            currentSellerId={userRole === 'seller' ? currentSellerId : undefined}
             onUpdateQuantity={handleUpdateQuantity}
             onRemoveItem={handleRemoveItem}
             onClearCart={handleClearCart}
             onBackToDiscover={() => setActiveTab('LIVE')}
             onSelectProduct={handleSelectProduct}
             onPlaceOrder={handlePlaceOrder}
+            onViewOrders={() => setActiveTab('My Orders')}
           />
         ) : activeTab === 'SA Makers' ? (
           /* View: Sellers / Makers Directory */

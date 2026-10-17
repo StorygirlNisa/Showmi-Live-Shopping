@@ -1,4 +1,4 @@
-import { Product, Seller, LiveSession, LivePromotion } from '../types';
+import { Product, Seller, LiveSession, LivePromotion, Order } from '../types';
 
 // Real high-fidelity local assets generated for Showmi
 import streamCapeImg from '../assets/images/stream_cape_botanics_1791709648933.jpg';
@@ -564,4 +564,89 @@ export const INITIAL_PROMOTIONS: LivePromotion[] = [
     isActive: true
   }
 ];
+
+export const INITIAL_ORDERS: Order[] = [
+  {
+    id: 'SHW-582914',
+    buyerId: 'buyer-current',
+    customerName: 'Nisa Bardien',
+    customerEmail: 'nisabardien@gmail.com',
+    customerPhone: '+27 82 555 1234',
+    shippingAddress: '14 Kloof Nek Road, Gardens',
+    city: 'Cape Town',
+    province: 'Western Cape',
+    postalCode: '8001',
+    items: [
+      {
+        productId: 'prod-marula-elixir',
+        sellerId: 'seller-cape-botanics',
+        sellerName: "Le'Khoi Botanical Roots",
+        productImage: productMarulaImg,
+        name: 'Cold-Pressed Marula Restorative Elixir (50ml)',
+        quantity: 1,
+        priceZAR: 420,
+        status: 'in_transit',
+        courierPartner: 'The Courier Guy',
+        trackingNumber: 'TCG-ZA-48291045',
+        dispatchedAt: new Date(Date.now() - 24 * 3600000).toISOString()
+      },
+      {
+        productId: 'prod-karoo-duffle',
+        sellerId: 'seller-karoo-leather',
+        sellerName: 'Karoo Heritage Leathercraft',
+        productImage: productKarooImg,
+        name: 'Karoo Heirloom Leather Weekender Duffle',
+        quantity: 1,
+        priceZAR: 3850,
+        status: 'awaiting_dispatch'
+      }
+    ],
+    subtotalZAR: 4270,
+    shippingZAR: 0,
+    protectionFeeZAR: Math.round(4270 * 0.08), // R 342
+    totalZAR: 4270 + 0 + Math.round(4270 * 0.08), // R 4612
+    createdAt: new Date(Date.now() - 36 * 3600000).toISOString(),
+    estimatedDeliveryDate: new Date(Date.now() + 2 * 24 * 3600000).toISOString(),
+    protectionExpiresAt: new Date(Date.now() + 16 * 24 * 3600000).toISOString(), // 14 days after estimated delivery!
+    deliveryMethod: 'Standard Door-to-Door Courier',
+    paymentMethod: 'Ozow Instant EFT (Simulated)'
+  },
+  {
+    id: 'SHW-319042',
+    buyerId: 'buyer-current',
+    customerName: 'Nisa Bardien',
+    customerEmail: 'nisabardien@gmail.com',
+    customerPhone: '+27 82 555 1234',
+    shippingAddress: '14 Kloof Nek Road, Gardens',
+    city: 'Cape Town',
+    province: 'Western Cape',
+    postalCode: '8001',
+    items: [
+      {
+        productId: 'prod-jozi-sneakers',
+        sellerId: 'seller-jozi-street',
+        sellerName: 'Jozi Streetwear & Sneaker Lab',
+        productImage: productJoziImg,
+        name: 'City Push Court Low Sneakers (Drop 04)',
+        quantity: 1,
+        priceZAR: 1950,
+        status: 'delivered',
+        courierPartner: 'The Courier Guy Express',
+        trackingNumber: 'TCG-ZA-89102452',
+        dispatchedAt: new Date(Date.now() - 72 * 3600000).toISOString(),
+        deliveredAt: new Date(Date.now() - 6 * 3600000).toISOString()
+      }
+    ],
+    subtotalZAR: 1950,
+    shippingZAR: 0,
+    protectionFeeZAR: Math.round(1950 * 0.08), // R 156
+    totalZAR: 1950 + 0 + Math.round(1950 * 0.08), // R 2106
+    createdAt: new Date(Date.now() - 4 * 24 * 3600000).toISOString(),
+    estimatedDeliveryDate: new Date(Date.now() - 1 * 24 * 3600000).toISOString(),
+    protectionExpiresAt: new Date(Date.now() + 13 * 24 * 3600000).toISOString(), // 14 days from estimated delivery date!
+    deliveryMethod: 'Standard Door-to-Door Courier',
+    paymentMethod: 'Capitec Pay (Simulated)'
+  }
+];
+
 

@@ -1,8 +1,8 @@
 import React from 'react';
-import { ShoppingBag, Store, Sparkles, ShieldCheck, Search, X } from 'lucide-react';
+import { ShoppingBag, Store, Sparkles, ShieldCheck, Search, X, Package } from 'lucide-react';
 import { CartItem, Seller } from '../types';
 
-export type MainTab = 'LIVE' | 'SA Makers' | 'Seller Studio';
+export type MainTab = 'LIVE' | 'SA Makers' | 'My Orders' | 'Seller Studio';
 export type AppTab = MainTab | 'Basket';
 
 interface NavigationProps {
@@ -16,6 +16,8 @@ interface NavigationProps {
   userRole: 'buyer' | 'seller';
   currentSeller?: Seller;
   onOpenSellerSignIn: () => void;
+  onSwitchToBuyer?: () => void;
+  ordersCount?: number;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
@@ -28,13 +30,15 @@ export const Navigation: React.FC<NavigationProps> = ({
   onClearSearch,
   userRole,
   currentSeller,
-  onOpenSellerSignIn
+  onOpenSellerSignIn,
+  onSwitchToBuyer,
+  ordersCount = 0
 }) => {
   const totalItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const cartSubtotal = cartItems.reduce((sum, item) => sum + item.product.priceZAR * item.quantity, 0);
 
-  // Tabs displayed in order: LIVE, SA Makers, Seller Studio
-  const tabs: { id: MainTab; label: string; icon: React.ReactNode; isLive?: boolean }[] = [
+  // Tabs displayed in order: LIVE, SA Makers, My Orders, Seller Studio
+  const tabs: { id: MainTab; label: string; icon: React.ReactNode; isLive?: boolean; badgeCount?: number }[] = [
     {
       id: 'LIVE',
       label: 'LIVE',
@@ -50,6 +54,12 @@ export const Navigation: React.FC<NavigationProps> = ({
       id: 'SA Makers',
       label: 'SA Makers',
       icon: <Store className="w-4 h-4 shrink-0" />
+    },
+    {
+      id: 'My Orders',
+      label: 'My Orders',
+      icon: <Package className="w-4 h-4 shrink-0" />,
+      badgeCount: ordersCount
     },
     {
       id: 'Seller Studio',
@@ -103,19 +113,33 @@ export const Navigation: React.FC<NavigationProps> = ({
           </div>
         </div>
 
-        {/* Right Actions: Seller Auth Badge (if seller), Setup Info & Basket */}
+        {/* Right Actions: Seller Auth Badge (if seller) with switch to buyer, Basket */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {userRole === 'seller' && currentSeller && (
-            <div className="flex items-center gap-2 bg-[#14171f] border border-[#212633] px-2.5 py-1 rounded-xl">
-              <img
-                src={currentSeller.avatar}
-                alt={currentSeller.name}
-                referrerPolicy="no-referrer"
-                className="w-6 h-6 rounded-md object-cover bg-black"
-              />
-              <span className="text-xs font-bold text-white hidden lg:inline truncate max-w-[100px]">
-                {currentSeller.name}
-              </span>
+          {userRole === 'seller' && (
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {currentSeller && (
+                <div className="flex items-center gap-2 bg-[#14171f] border border-[#212633] px-2.5 py-1 rounded-xl">
+                  <img
+                    src={currentSeller.avatar}
+                    alt={currentSeller.name}
+                    referrerPolicy="no-referrer"
+                    className="w-6 h-6 rounded-md object-cover bg-black"
+                  />
+                  <span className="text-xs font-bold text-white hidden lg:inline truncate max-w-[100px]">
+                    {currentSeller.name}
+                  </span>
+                </div>
+              )}
+              {onSwitchToBuyer && (
+                <button
+                  onClick={onSwitchToBuyer}
+                  className="px-2.5 py-1.5 rounded-xl bg-[#1e2330] hover:bg-[#283244] border border-[#2e374d] text-slate-300 hover:text-white text-[11px] font-semibold cursor-pointer transition-colors"
+                  title="Switch to Buyer View"
+                >
+                  <span className="hidden sm:inline">Buyer View</span>
+                  <span className="sm:hidden">Buyer</span>
+                </button>
+              )}
             </div>
           )}
 
@@ -207,6 +231,13 @@ export const Navigation: React.FC<NavigationProps> = ({
                 >
                   {tab.icon}
                   <span className="tracking-tight">{tab.label}</span>
+                  {tab.badgeCount !== undefined && tab.badgeCount > 0 && (
+                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold font-mono tabular-nums ${
+                      isActive ? 'bg-white text-[#0066ff]' : 'bg-[#1e2433] text-slate-300 border border-[#2e374d]'
+                    }`}>
+                      {tab.badgeCount}
+                    </span>
+                  )}
                 </button>
               );
             })}

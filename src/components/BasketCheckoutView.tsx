@@ -19,28 +19,52 @@ import {
 import { CartItem, OrderConfirmation, Product } from '../types';
 import { SA_PROVINCES } from '../data/mockData';
 
+export interface OrderPlacementPayload {
+  orderId: string;
+  items: CartItem[];
+  subtotalZAR: number;
+  shippingZAR: number;
+  protectionFeeZAR: number;
+  totalZAR: number;
+  deliveryMethod: string;
+  paymentMethod: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  shippingAddress: string;
+  city: string;
+  province: string;
+  postalCode: string;
+  estimatedDeliveryDate: string;
+  protectionExpiresAt: string;
+}
+
 interface BasketCheckoutViewProps {
   cartItems: CartItem[];
   productsList?: Product[];
+  currentSellerId?: string;
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveItem: (productId: string) => void;
   onClearCart: () => void;
   onBackToDiscover: () => void;
   onSelectProduct: (productId: string) => void;
-  onPlaceOrder?: (orderItems: CartItem[]) => boolean | void;
+  onPlaceOrder?: (payload: OrderPlacementPayload) => void;
   onSimulateStockChange?: (productId: string, newStock: number) => void;
+  onViewOrders?: () => void;
 }
 
 export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
   cartItems,
   productsList = [],
+  currentSellerId,
   onUpdateQuantity,
   onRemoveItem,
   onClearCart,
   onBackToDiscover,
   onSelectProduct,
   onPlaceOrder,
-  onSimulateStockChange
+  onSimulateStockChange,
+  onViewOrders
 }) => {
   // Checkout Form State
   const [step, setStep] = useState<'basket' | 'checkout' | 'confirmation'>('basket');
@@ -94,10 +118,17 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
   const hasInsufficient = stockStatuses.some(s => s.isInsufficient);
   const hasAnyStockIssue = hasSoldOut || hasInsufficient;
 
+  // Artisan integrity rule: Sellers must not purchase their own products
+  const hasOwnArtisanProduct = Boolean(
+    currentSellerId && resolvedCartItems.some(item => item.product.sellerId === currentSellerId)
+  );
+
   const subtotalZAR = resolvedCartItems.reduce(
     (sum, item) => sum + item.product.priceZAR * item.quantity, 
     0
   );
+  
+  const buyerProtectionFee = Math.round(subtotalZAR * 0.08);
 
   // Delivery calculation
   const getDeliveryCost = () => {
@@ -109,7 +140,7 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
   };
 
   const deliveryCost = getDeliveryCost();
-  const grandTotalZAR = subtotalZAR + deliveryCost;
+  const grandTotalZAR = subtotalZAR + deliveryCost + buyerProtectionFee;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({
@@ -121,6 +152,12 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
   const handleSimulatePayment = (e: React.FormEvent) => {
     e.preventDefault();
     setCheckoutStockError(null);
+
+    // Artisan integrity check
+    if (hasOwnArtisanProduct) {
+      setCheckoutStockError("Artisan integrity rule: Sellers cannot purchase their own products. Please remove them from your basket.");
+      return;
+    }
 
     // Validate stock again at submission against current productsList
     const failingItems = resolvedCartItems.filter(
@@ -152,19 +189,19 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
       }
 
       setIsProcessingPayment(false);
-      const newOrder: OrderConfirmation = {
-        orderId: `SHW-${Math.floor(100000 + Math.random() * 900000)}`,
-        date: new Date().toLocaleDateString('en-ZA', { 
-          day: 'numeric', 
-          month: 'short', 
-          year: 'numeric' 
-        }),
-        customerName: formData.fullName,
-        customerEmail: formData.email,
-        customerPhone: formData.phone,
-        shippingAddress: `${formData.address}, ${formData.city}`,
-        province: formData.province,
-        postalCode: formData.postalCode,
+
+      const now = new Date();
+      const estDelivery = new Date(now.getTime() + 3 * 24 * 3600000);
+      const protectionExpiry = new Date(estDelivery.getTime() + 14 * 24 * 3600000);
+      const generatedOrderId = `SHW-${Math.floor(100000 + Math.random() * 900000)}`;
+
+      const orderPayload: OrderPlacementPayload = {
+        orderId: generatedOrderId,
+        items: [...resolvedCartItems],
+        subtotalZAR,
+        shippingZAR: deliveryCost,
+        protectionFeeZAR: buyerProtectionFee,
+        totalZAR: grandTotalZAR,
         deliveryMethod: deliveryMethod === 'courier' 
           ? 'Standard Door-to-Door Courier' 
           : deliveryMethod === 'pargo' 
@@ -175,17 +212,46 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
           : paymentMethod === 'capitec' 
           ? 'Capitec Pay (Simulated)' 
           : 'Credit / Cheque Card (Simulated)',
+        customerName: formData.fullName,
+        customerEmail: formData.email,
+        customerPhone: formData.phone,
+        shippingAddress: formData.address,
+        city: formData.city,
+        province: formData.province,
+        postalCode: formData.postalCode,
+        estimatedDeliveryDate: estDelivery.toISOString(),
+        protectionExpiresAt: protectionExpiry.toISOString(),
+      };
+
+      const newOrder: OrderConfirmation = {
+        orderId: generatedOrderId,
+        date: now.toLocaleDateString('en-ZA', { 
+          day: 'numeric', 
+          month: 'short', 
+          year: 'numeric' 
+        }),
+        customerName: formData.fullName,
+        customerEmail: formData.email,
+        customerPhone: formData.phone,
+        shippingAddress: `${formData.address}, ${formData.city}`,
+        city: formData.city,
+        province: formData.province,
+        postalCode: formData.postalCode,
+        deliveryMethod: orderPayload.deliveryMethod,
+        paymentMethod: orderPayload.paymentMethod,
         items: [...resolvedCartItems],
         subtotalZAR,
         shippingZAR: deliveryCost,
+        protectionFeeZAR: buyerProtectionFee,
         totalZAR: grandTotalZAR,
-        estimatedDeliveryDate: '2–3 Business Days'
+        estimatedDeliveryDate: estDelivery.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' }),
+        protectionExpiresAt: protectionExpiry.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })
       };
 
       setCompletedOrder(newOrder);
       setStep('confirmation');
       if (onPlaceOrder) {
-        onPlaceOrder([...resolvedCartItems]);
+        onPlaceOrder(orderPayload);
       }
       onClearCart();
     }, 1600);
@@ -206,10 +272,10 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
               Simulated Transaction Approved
             </span>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-              Order Confirmed!
+              Order Confirmed & Saved!
             </h1>
             <p className="text-sm text-slate-300 max-w-md mx-auto">
-              Thank you, {completedOrder.customerName}. Your simulated order has been registered and scheduled for dispatch.
+              Thank you, {completedOrder.customerName}. Your order has been registered in Showmi and scheduled for artisan dispatch.
             </p>
           </div>
 
@@ -220,9 +286,28 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
               <p className="text-lg font-bold font-mono text-[#0066ff]">{completedOrder.orderId}</p>
             </div>
             <div className="sm:text-right">
-              <p className="text-[11px] text-slate-400 uppercase tracking-wider">Estimated Dispatch</p>
-              <p className="text-sm font-bold text-white">Within 24–48 Hours</p>
+              <p className="text-[11px] text-slate-400 uppercase tracking-wider">Estimated Delivery</p>
+              <p className="text-sm font-bold text-white">{completedOrder.estimatedDeliveryDate}</p>
             </div>
+          </div>
+
+          {/* 14-Day Buyer Protection Period Notice */}
+          <div className="p-4 rounded-2xl bg-[#0c0e12] border border-[#0066ff]/40 text-left space-y-2.5">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="text-xs font-bold text-white flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-[#0066ff]" />
+                Showmi 14-Day Buyer Protection Active
+              </span>
+              <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded">
+                8% Fee Paid (R {completedOrder.protectionFeeZAR.toLocaleString()})
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              Protection is active for <strong>14 days calculated from estimated delivery ({completedOrder.estimatedDeliveryDate})</strong>, valid through <strong>{completedOrder.protectionExpiresAt}</strong>. Covers transit damage, non-delivery, or items not as described.
+            </p>
+            <p className="text-[11px] text-slate-400 leading-relaxed pt-1 border-t border-[#212633]">
+              <em>Demonstration Sandbox: Safe simulation of Showmi's 8% Buyer Protection. Real payment processing, escrow holding, and return disputes are not active in this prototype.</em>
+            </p>
           </div>
 
           {/* Courier Waybill Preview */}
@@ -262,6 +347,14 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
 
             <div className="pt-2 space-y-1 text-xs">
               <div className="flex justify-between text-slate-400">
+                <span>Subtotal</span>
+                <span className="font-mono text-white">R {completedOrder.subtotalZAR.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
+                <span>Buyer Protection Fee (8%)</span>
+                <span className="font-mono text-white">R {completedOrder.protectionFeeZAR.toLocaleString()}</span>
+              </div>
+              <div className="flex justify-between text-slate-400">
                 <span>Delivery ({completedOrder.deliveryMethod})</span>
                 <span>{completedOrder.shippingZAR === 0 ? 'Free' : `R ${completedOrder.shippingZAR}`}</span>
               </div>
@@ -274,12 +367,24 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onBackToDiscover}
-            className="w-full py-3 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white font-bold text-sm transition-colors cursor-pointer"
-          >
-            Back to Showmi Marketplace
-          </button>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+            {onViewOrders && (
+              <button
+                onClick={onViewOrders}
+                className="w-full py-3 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white font-bold text-xs sm:text-sm transition-colors cursor-pointer shadow-lg shadow-[#0066ff]/25 flex items-center justify-center gap-2"
+              >
+                <span>View in My Orders</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            )}
+
+            <button
+              onClick={onBackToDiscover}
+              className={`w-full py-3 rounded-xl bg-[#1e2330] hover:bg-[#283244] text-slate-200 font-bold text-xs sm:text-sm transition-colors cursor-pointer ${!onViewOrders ? 'sm:col-span-2' : ''}`}
+            >
+              Back to Showmi Marketplace
+            </button>
+          </div>
 
         </div>
       </div>
@@ -688,9 +793,16 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
             {/* Calculations */}
             <div className="space-y-3 text-xs sm:text-sm">
               <div className="flex items-center justify-between text-slate-300">
-                <span>Subtotal ({cartItems.reduce((s, i) => s + i.quantity, 0)} items)</span>
+                <span>Subtotal ({resolvedCartItems.reduce((s, i) => s + i.quantity, 0)} items)</span>
                 <span className="font-mono font-bold text-white">
                   R {subtotalZAR.toLocaleString()}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between text-slate-300">
+                <span>Buyer Protection Fee (8%)</span>
+                <span className="font-mono text-white">
+                  R {buyerProtectionFee.toLocaleString()}
                 </span>
               </div>
 
@@ -700,7 +812,7 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
                   {deliveryCost === 0 ? (
                     <span className="text-emerald-400 font-bold">FREE</span>
                   ) : (
-                    `R ${deliveryCost}`
+                    `R ${deliveryCost.toLocaleString()}`
                   )}
                 </span>
               </div>
@@ -721,12 +833,18 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
               <div className="space-y-2">
                 <button
                   onClick={() => setStep('checkout')}
-                  disabled={cartItems.some(i => i.product.stock <= 0)}
+                  disabled={cartItems.some(i => i.product.stock <= 0) || hasOwnArtisanProduct}
                   className="w-full py-3.5 px-4 rounded-xl text-sm font-bold bg-[#0066ff] hover:bg-[#0052cc] disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white flex items-center justify-center gap-2 shadow-lg shadow-[#0066ff]/25 cursor-pointer transition-all active:scale-[0.99]"
                 >
                   Proceed to Checkout
                   <ArrowRight className="w-4 h-4" />
                 </button>
+                {hasOwnArtisanProduct && (
+                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-300 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>Artisan integrity rule: Sellers cannot purchase their own products. Please remove items from your workshop to proceed.</span>
+                  </div>
+                )}
                 {cartItems.some(i => i.product.stock <= 0) && (
                   <p className="text-[11px] text-red-400 text-center font-medium">
                     An item in your basket is currently out of stock. Please remove it to proceed.
@@ -766,14 +884,22 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
 
             {/* Reassurance */}
             <div className="pt-2 border-t border-[#212633] space-y-2 text-[11px] text-slate-400">
-              <div className="flex items-center gap-2">
-                <ShieldCheck className="w-3.5 h-3.5 text-[#0066ff] shrink-0" />
-                <span>Simulated demo mode: No real debit or banking credentials required.</span>
+              <div className="flex items-start gap-2 text-slate-300">
+                <ShieldCheck className="w-4 h-4 text-[#0066ff] shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-white block">8% Showmi Buyer Protection Included</span>
+                  <span className="text-[10px] text-slate-400 leading-snug block mt-0.5">
+                    Covers parcel transit and item authenticity. 14-day protection window is calculated from estimated delivery date.
+                  </span>
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <Truck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                 <span>Estimated dispatch 24–48 hours from artisan workshops.</span>
               </div>
+              <p className="text-[10px] text-slate-500 italic pt-1 border-t border-[#1e2330]">
+                Prototype sandbox: payments and protection claims are simulated for testing.
+              </p>
             </div>
 
           </div>

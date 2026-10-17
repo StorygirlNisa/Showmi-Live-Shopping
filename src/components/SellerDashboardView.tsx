@@ -19,9 +19,14 @@ import {
   Edit3,
   X,
   Upload,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Truck,
+  CheckCircle2,
+  ShieldCheck,
+  MapPin,
+  Calendar
 } from 'lucide-react';
-import { Seller, Product, StreamSnippet, LivePromotion, Category } from '../types';
+import { Seller, Product, StreamSnippet, LivePromotion, Category, Order, OrderItem } from '../types';
 import { MobileSellerStudio } from './MobileSellerStudio';
 
 
@@ -30,6 +35,7 @@ interface SellerDashboardViewProps {
   products: Product[];
   snippets: StreamSnippet[];
   promotions?: LivePromotion[];
+  orders?: Order[];
   currentSellerId: string;
   onSelectSeller: (sellerId: string) => void;
   onBackToShopping: () => void;
@@ -42,6 +48,13 @@ interface SellerDashboardViewProps {
   onAddProduct?: (product: Product) => void;
   onUpdateProduct?: (product: Product) => void;
   onDeleteProduct?: (productId: string) => void;
+  onUpdateOrderItemStatus?: (
+    orderId: string, 
+    productId: string, 
+    sellerId: string, 
+    newStatus: OrderItem['status'], 
+    tracking?: { courierPartner?: string; trackingNumber?: string }
+  ) => void;
 }
 
 export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
@@ -49,6 +62,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
   products,
   snippets,
   promotions,
+  orders = [],
   currentSellerId,
   onSelectSeller,
   onBackToShopping,
@@ -60,7 +74,8 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
   onOpenLiveHostMode,
   onAddProduct,
   onUpdateProduct,
-  onDeleteProduct
+  onDeleteProduct,
+  onUpdateOrderItemStatus
 }) => {
   const currentSeller = sellers.find(s => s.id === currentSellerId) || sellers[0];
   const sellerProducts = products.filter(p => p.sellerId === currentSeller.id);
@@ -68,8 +83,48 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
   const activeSellerSnippets = sellerSnippets.filter(s => !s.isArchived && new Date(s.expiresAt).getTime() > Date.now());
   const archivedSellerSnippets = sellerSnippets.filter(s => s.isArchived || new Date(s.expiresAt).getTime() <= Date.now());
 
-  // Active Tool Tab: 'prep' | 'copy' | 'snippet' | 'inventory'
-  const [activeTab, setActiveTab] = useState<'prep' | 'copy' | 'snippet' | 'inventory'>('prep');
+  // Filter orders containing items for this seller
+  const sellerOrders = orders.filter(o => 
+    o.items.some(item => item.sellerId === currentSeller.id)
+  );
+
+  const awaitingDispatchCount = sellerOrders.reduce((sum, o) => 
+    sum + o.items.filter(i => i.sellerId === currentSeller.id && i.status === 'awaiting_dispatch').length, 0
+  );
+
+  // Active Tool Tab: 'prep' | 'copy' | 'snippet' | 'inventory' | 'orders'
+  const [activeTab, setActiveTab] = useState<'prep' | 'copy' | 'snippet' | 'inventory' | 'orders'>('prep');
+
+  // Tracking details form state per item
+  const [dispatchTracking, setDispatchTracking] = useState<Record<string, { courierPartner: string; trackingNumber: string }>>({});
+
+  const handleUpdateTrackingInput = (itemKey: string, field: 'courierPartner' | 'trackingNumber', val: string) => {
+    setDispatchTracking(prev => ({
+      ...prev,
+      [itemKey]: {
+        courierPartner: prev[itemKey]?.courierPartner || 'The Courier Guy',
+        trackingNumber: prev[itemKey]?.trackingNumber || '',
+        [field]: val
+      }
+    }));
+  };
+
+  const handleDispatchItem = (orderId: string, productId: string) => {
+    const itemKey = `${orderId}_${productId}`;
+    const trackingInfo = dispatchTracking[itemKey] || {
+      courierPartner: 'The Courier Guy',
+      trackingNumber: `TCG-ZA-${Math.floor(10000000 + Math.random() * 90000000)}`
+    };
+    if (onUpdateOrderItemStatus) {
+      onUpdateOrderItemStatus(orderId, productId, currentSeller.id, 'in_transit', trackingInfo);
+    }
+  };
+
+  const handleDeliverItem = (orderId: string, productId: string) => {
+    if (onUpdateOrderItemStatus) {
+      onUpdateOrderItemStatus(orderId, productId, currentSeller.id, 'delivered');
+    }
+  };
 
   // Selected entities for generation
   const [selectedProductId, setSelectedProductId] = useState<string>(
@@ -665,8 +720,8 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Main 4 Functional Tabs */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pb-2 -mx-2 sm:mx-0 px-2 sm:px-0 w-full min-w-0">
+        {/* Main 5 Functional Tabs */}
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pb-2 -mx-2 sm:mx-0 px-2 sm:px-0 w-full min-w-0">
           <button
             onClick={() => setActiveTab('prep')}
             className={`min-h-[44px] px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
@@ -713,6 +768,21 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
           >
             <Package className="w-3.5 h-3.5" />
             <span>Inventory ({sellerProducts.length})</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('orders')}
+            className={`min-h-[44px] px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 col-span-2 sm:col-span-1 ${
+              activeTab === 'orders'
+                ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
+                : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
+            }`}
+          >
+            <Truck className="w-3.5 h-3.5" />
+            <span>Orders ({sellerOrders.length})</span>
+            {awaitingDispatchCount > 0 && (
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+            )}
           </button>
         </div>
 
@@ -1007,6 +1077,226 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
           </div>
         )}
 
+        {/* TAB E: WORKSHOP ORDER FULFILMENT & COURIER DISPATCH */}
+        {activeTab === 'orders' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 bg-[#14171f] rounded-2xl border border-[#212633]">
+              <div>
+                <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                  <Truck className="w-5 h-5 text-[#0066ff]" />
+                  Workshop Orders & Fulfilment ({sellerOrders.length} orders)
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Package items, generate The Courier Guy waybills, and update dispatch statuses for {currentSeller.name}.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 text-xs font-mono bg-[#0c0e12] px-3 py-1.5 rounded-xl border border-[#212633] text-slate-300">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>14-Day Buyer Protection Active</span>
+              </div>
+            </div>
+
+            {/* Strict Multi-Seller Isolation Notice */}
+            <div className="p-3.5 bg-blue-950/30 border border-blue-500/30 rounded-2xl flex items-start gap-3 text-xs text-blue-200">
+              <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+              <div>
+                <strong className="text-white">Artisan Privacy & Integrity Guaranteed:</strong>
+                <p className="text-slate-400 text-[11px] mt-0.5">
+                  You only see items produced by your workshop ({currentSeller.name}). Customer shipping destinations are restricted to your parcels, and other artisans' items in combined marketplace orders are kept private.
+                </p>
+              </div>
+            </div>
+
+            {sellerOrders.length === 0 ? (
+              <div className="p-12 rounded-2xl bg-[#14171f] border border-[#212633] text-center space-y-3">
+                <Package className="w-12 h-12 text-slate-600 mx-auto" />
+                <h3 className="text-sm font-bold text-white">No Orders Received for {currentSeller.name} Yet</h3>
+                <p className="text-xs text-slate-400 max-w-sm mx-auto">
+                  When shoppers place orders for your handcrafted creations during live broadcasts or from your storefront, they will be listed here for parcel packaging.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {sellerOrders.map((order) => {
+                  const myItems = order.items.filter(item => item.sellerId === currentSeller.id);
+                  if (myItems.length === 0) return null;
+
+                  return (
+                    <div 
+                      key={order.id}
+                      className="bg-[#14171f] rounded-2xl border border-[#212633] p-5 space-y-4 shadow-lg"
+                    >
+                      {/* Order Header */}
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-[#212633]">
+                        <div className="space-y-0.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-sm text-[#0066ff]">{order.id}</span>
+                            <span className="text-[11px] text-slate-400 font-mono">
+                              Placed: {new Date(order.createdAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-300">
+                            Deliver to: <strong className="text-white">{order.customerName}</strong> ({order.city}, {order.province})
+                          </p>
+                        </div>
+
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Estimated Delivery</span>
+                          <span className="text-xs font-mono font-bold text-slate-200">
+                            {new Date(order.estimatedDeliveryDate).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Items from this seller */}
+                      <div className="space-y-3">
+                        {myItems.map((item) => {
+                          const itemKey = `${order.id}_${item.productId}`;
+                          const currentTracking = dispatchTracking[itemKey] || {
+                            courierPartner: item.courierPartner || 'The Courier Guy',
+                            trackingNumber: item.trackingNumber || `TCG-ZA-${Math.floor(10000000 + Math.random() * 90000000)}`
+                          };
+
+                          return (
+                            <div 
+                              key={item.productId}
+                              className="p-4 bg-[#0c0e12] rounded-xl border border-[#212633] space-y-3"
+                            >
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                  {item.productImage && (
+                                    <img 
+                                      src={item.productImage} 
+                                      alt={item.name} 
+                                      className="w-12 h-12 rounded-xl object-cover bg-black border border-[#212633] shrink-0" 
+                                    />
+                                  )}
+                                  <div>
+                                    <h4 className="text-xs sm:text-sm font-bold text-white">{item.name}</h4>
+                                    <p className="text-xs text-slate-400 font-mono mt-0.5">
+                                      Quantity: <strong>{item.quantity}</strong> · Price: R {item.priceZAR.toLocaleString()} each (Total: R {(item.priceZAR * item.quantity).toLocaleString()})
+                                    </p>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 ${
+                                    item.status === 'confirmed' 
+                                      ? 'bg-emerald-950 text-emerald-300 border border-emerald-400/40' 
+                                      : item.status === 'delivered'
+                                      ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/30'
+                                      : item.status === 'in_transit'
+                                      ? 'bg-blue-950 text-blue-300 border border-blue-500/30'
+                                      : 'bg-amber-950 text-amber-300 border border-amber-500/30'
+                                  }`}>
+                                    {item.status === 'confirmed' ? (
+                                      <>
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        <span>Receipt Confirmed by Buyer</span>
+                                      </>
+                                    ) : item.status === 'delivered' ? (
+                                      <>
+                                        <Package className="w-3.5 h-3.5" />
+                                        <span>Delivered</span>
+                                      </>
+                                    ) : item.status === 'in_transit' ? (
+                                      <>
+                                        <Truck className="w-3.5 h-3.5" />
+                                        <span>In Transit ({item.courierPartner || 'The Courier Guy'})</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Clock className="w-3.5 h-3.5" />
+                                        <span>Awaiting Dispatch</span>
+                                      </>
+                                    )}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Dispatch controls */}
+                              {item.status === 'awaiting_dispatch' && (
+                                <div className="p-3 bg-[#141720] rounded-xl border border-[#212633] space-y-2.5">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                                    <div>
+                                      <label className="text-[10px] text-slate-400 block mb-1">Courier Partner:</label>
+                                      <input 
+                                        type="text"
+                                        value={currentTracking.courierPartner}
+                                        onChange={(e) => handleUpdateTrackingInput(itemKey, 'courierPartner', e.target.value)}
+                                        className="w-full bg-[#0c0e12] border border-[#212633] rounded-lg px-2.5 py-1.5 text-white text-xs"
+                                        placeholder="The Courier Guy / Fastway"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="text-[10px] text-slate-400 block mb-1">Tracking Waybill #:</label>
+                                      <input 
+                                        type="text"
+                                        value={currentTracking.trackingNumber}
+                                        onChange={(e) => handleUpdateTrackingInput(itemKey, 'trackingNumber', e.target.value)}
+                                        className="w-full bg-[#0c0e12] border border-[#212633] rounded-lg px-2.5 py-1.5 text-white text-xs font-mono"
+                                        placeholder="TCG-ZA-XXXXXXXX"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    onClick={() => handleDispatchItem(order.id, item.productId)}
+                                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition-colors"
+                                  >
+                                    <Truck className="w-3.5 h-3.5" />
+                                    <span>Dispatch Parcel & Record Waybill</span>
+                                  </button>
+                                </div>
+                              )}
+
+                              {item.status === 'in_transit' && (
+                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 bg-[#141720] rounded-xl border border-[#212633] text-xs">
+                                  <div className="text-slate-300">
+                                    <p className="font-mono text-[11px] text-blue-400">
+                                      Waybill #{item.trackingNumber} · {item.courierPartner || 'The Courier Guy'}
+                                    </p>
+                                    <p className="text-[10px] text-slate-400 mt-0.5">
+                                      Buyer can track delivery. You may mark as delivered when the courier completes handover.
+                                    </p>
+                                  </div>
+
+                                  <button
+                                    onClick={() => handleDeliverItem(order.id, item.productId)}
+                                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    <span>Mark as Delivered</span>
+                                  </button>
+                                </div>
+                              )}
+
+                              {item.status === 'delivered' && (
+                                <div className="p-2.5 bg-emerald-950/20 border border-emerald-500/20 rounded-xl text-xs text-slate-300 flex items-center gap-2">
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                                  <span>Package marked as delivered. Awaiting buyer receipt confirmation or automatic protection completion.</span>
+                                </div>
+                              )}
+
+                              {item.status === 'confirmed' && (
+                                <div className="p-2.5 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 flex items-center gap-2">
+                                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                                  <span>Customer verified delivery receipt! Showmi 14-day buyer protection period remains active.</span>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
       {/* Add / Edit Product Modal with Image Upload & AI Suggest Description */}
       {isProductModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -1225,9 +1515,11 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
           seller={currentSeller}
           products={sellerProducts}
           snippets={sellerSnippets}
+          orders={orders}
           onOpenLiveHostMode={onOpenLiveHostMode!}
           onUpdateProduct={onUpdateProduct!}
           onArchiveSnippet={onArchiveSnippet!}
+          onUpdateOrderItemStatus={onUpdateOrderItemStatus}
         />
       </div>
 
