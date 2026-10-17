@@ -103,14 +103,18 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
           return (
             <article
               key={session.id}
-              className="w-full h-[calc(100vh-154px)] sm:h-[calc(100dvh-154px)] md:h-[calc(100dvh-114px)] snap-start snap-always shrink-0 relative overflow-hidden bg-black select-none max-w-md lg:max-w-lg md:rounded-2xl md:my-1.5 md:border md:border-[#212633] shadow-2xl"
+              onClick={() => onOpenLiveRoom(session.id)}
+              className="w-full h-[calc(100vh-154px)] sm:h-[calc(100dvh-154px)] md:h-[calc(100dvh-114px)] snap-start snap-always shrink-0 relative overflow-hidden bg-black select-none max-w-md lg:max-w-lg md:rounded-2xl md:my-1.5 md:border md:border-[#212633] shadow-2xl cursor-pointer group"
+              role="button"
+              tabIndex={0}
+              aria-label={`Open live stream: ${session.title}`}
             >
               {/* Full-Bleed Stream Cover Media */}
               <img
                 src={session.coverImage}
                 alt={session.title}
                 referrerPolicy="no-referrer"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
               />
 
               {/* High-Contrast Gradient Overlay */}
@@ -134,20 +138,15 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                 </div>
               </div>
 
-              {/* Center Play Overlay CTA to Enter Broadcast */}
-              <div className="absolute inset-0 flex items-center justify-center z-10">
-                <button
-                  onClick={() => onOpenLiveRoom(session.id)}
-                  className="w-16 h-16 rounded-full bg-[#0066ff]/90 hover:bg-[#0066ff] text-white flex items-center justify-center shadow-2xl shadow-[#0066ff]/40 hover:scale-110 active:scale-95 transition-all cursor-pointer backdrop-blur-sm group"
-                  title="Enter interactive broadcast"
-                  aria-label="Enter live broadcast"
-                >
-                  <Play className="w-7 h-7 fill-white translate-x-0.5 group-hover:scale-110 transition-transform" />
-                </button>
+              {/* Center Play Overlay Icon on Hover */}
+              <div className="absolute inset-0 flex items-center justify-center z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="w-16 h-16 rounded-full bg-[#0066ff]/90 text-white flex items-center justify-center shadow-2xl shadow-[#0066ff]/40 transform scale-90 group-hover:scale-100 transition-transform backdrop-blur-sm">
+                  <Play className="w-7 h-7 fill-white translate-x-0.5" />
+                </div>
               </div>
 
               {/* Right-Side Floating Actions */}
-              <aside className="absolute right-3 bottom-24 sm:bottom-28 z-20 flex flex-col items-center gap-3.5">
+              <aside className="absolute right-3 bottom-24 sm:bottom-28 z-20 flex flex-col items-center gap-3.5" onClick={(e) => e.stopPropagation()}>
                 
                 {/* Host Avatar */}
                 <button
@@ -249,7 +248,7 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                   {session.title}
                 </h2>
 
-                {/* Pinned Product in Show Pill & Action Button */}
+                {/* Pinned Product in Show Pill */}
                 {featured && (
                   <div 
                     onClick={(e) => openDrawer(featured, e)}
@@ -275,12 +274,12 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                       {onAddToCart && (
                         <button
                           onClick={(e) => handleQuickAdd(featured, e)}
                           disabled={isSoldOut}
-                          className={`min-h-[38px] px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow ${
+                          className={`min-h-[38px] px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow ${
                             isSoldOut
                               ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
                               : isAdded
@@ -295,19 +294,9 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                           ) : (
                             <ShoppingBag className="w-3.5 h-3.5 text-[#0066ff]" />
                           )}
+                          <span className="hidden xs:inline">{isAdded ? 'Added' : 'Basket'}</span>
                         </button>
                       )}
-
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onOpenLiveRoom(session.id);
-                        }}
-                        className="min-h-[38px] px-3 sm:px-3.5 py-1.5 rounded-lg bg-[#0066ff] hover:bg-[#0052cc] text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-[#0066ff]/20 active:scale-95 cursor-pointer shrink-0"
-                      >
-                        <span>Join</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
                     </div>
                   </div>
                 )}

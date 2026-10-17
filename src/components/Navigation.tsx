@@ -1,8 +1,8 @@
 import React from 'react';
-import { ShoppingBag, Compass, Store, Sparkles, ShieldCheck, Search, X } from 'lucide-react';
-import { CartItem } from '../types';
+import { ShoppingBag, Store, Sparkles, ShieldCheck, Search, X, LogOut } from 'lucide-react';
+import { CartItem, Seller } from '../types';
 
-export type MainTab = 'Discover' | 'LIVE' | 'SA Makers' | 'Seller Studio';
+export type MainTab = 'LIVE' | 'SA Makers' | 'Seller Studio';
 export type AppTab = MainTab | 'Basket';
 
 interface NavigationProps {
@@ -13,6 +13,10 @@ interface NavigationProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onClearSearch: () => void;
+  userRole: 'buyer' | 'seller';
+  currentSeller?: Seller;
+  onOpenSellerSignIn: () => void;
+  onSwitchToBuyer: () => void;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
@@ -22,17 +26,17 @@ export const Navigation: React.FC<NavigationProps> = ({
   onOpenInfoModal,
   searchQuery,
   onSearchChange,
-  onClearSearch
+  onClearSearch,
+  userRole,
+  currentSeller,
+  onOpenSellerSignIn,
+  onSwitchToBuyer
 }) => {
   const totalItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const cartSubtotal = cartItems.reduce((sum, item) => sum + item.product.priceZAR * item.quantity, 0);
 
+  // Tabs displayed in order: LIVE, SA Makers, Seller Studio
   const tabs: { id: MainTab; label: string; icon: React.ReactNode; isLive?: boolean }[] = [
-    {
-      id: 'Discover',
-      label: 'Discover',
-      icon: <Compass className="w-4 h-4 shrink-0" />
-    },
     {
       id: 'LIVE',
       label: 'LIVE',
@@ -57,14 +61,14 @@ export const Navigation: React.FC<NavigationProps> = ({
   ];
 
   return (
-    <header className="sticky top-0 z-40 bg-[#0c0e12]/95 backdrop-blur-md border-b border-[#212633] transition-colors safe-area-top">
-      {/* Top Header Row: Brand, Desktop Search, and Utility Actions */}
+    <header className="sticky top-0 z-40 bg-[#0c0e12]/95 backdrop-blur-md border-b border-[#212633] transition-colors safe-area-top w-full max-w-full overflow-hidden">
+      {/* Top Header Row: Brand, Search, and Utility Actions */}
       <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3 sm:gap-4">
         {/* Brand / Logo */}
         <button
           onClick={() => {
             onClearSearch();
-            setActiveTab('Discover');
+            setActiveTab('LIVE');
           }}
           className="flex items-center gap-2.5 group text-left cursor-pointer focus:outline-none min-h-[44px] shrink-0"
           aria-label="Showmi Home"
@@ -77,7 +81,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           </span>
         </button>
 
-        {/* Desktop Integrated Search Bar (Centered, max-w-md to avoid stretching) */}
+        {/* Desktop Integrated Search Bar */}
         <div className="hidden md:flex flex-1 max-w-md mx-2">
           <div className="relative w-full">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
@@ -86,7 +90,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               placeholder="Search streams, makers, or products..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full min-h-[40px] bg-[#14171f] hover:bg-[#181d28] focus:bg-[#14171f] border border-[#212633] focus:border-[#0066ff] rounded-xl pl-10 pr-9 text-xs text-white placeholder-slate-400 focus:outline-none transition-colors"
+              className="w-full min-h-[40px] bg-[#14171f] hover:bg-[#181d28] focus:bg-[#14171f] border border-[#212633] focus:border-[#0066ff] rounded-xl pl-10 pr-9 text-xs text-white focus:text-white placeholder-slate-400 focus:outline-none transition-colors"
             />
             {searchQuery && (
               <button
@@ -101,8 +105,31 @@ export const Navigation: React.FC<NavigationProps> = ({
           </div>
         </div>
 
-        {/* Right Actions: Setup & Architecture Info + Basket */}
+        {/* Right Actions: Seller Auth Badge (if seller), Setup Info & Basket */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          
+          {userRole === 'seller' && currentSeller && (
+            <div className="flex items-center gap-2 bg-[#14171f] border border-[#212633] px-2.5 py-1 rounded-xl">
+              <img
+                src={currentSeller.avatar}
+                alt={currentSeller.name}
+                referrerPolicy="no-referrer"
+                className="w-6 h-6 rounded-md object-cover bg-black"
+              />
+              <span className="text-xs font-bold text-white hidden lg:inline truncate max-w-[100px]">
+                {currentSeller.name}
+              </span>
+              <button
+                onClick={onSwitchToBuyer}
+                className="text-[11px] text-slate-400 hover:text-white bg-[#1e2330] hover:bg-[#283042] px-2 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1"
+                title="Switch to Buyer View"
+              >
+                <LogOut className="w-3 h-3" />
+                <span className="hidden sm:inline">Buyer View</span>
+              </button>
+            </div>
+          )}
+
           {/* Setup & Architecture Info modal trigger */}
           <button
             onClick={onOpenInfoModal}
@@ -153,7 +180,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             placeholder="Search streams, makers, or products..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full min-h-[42px] bg-[#14171f] border border-[#212633] focus:border-[#0066ff] rounded-xl pl-10 pr-9 text-xs text-white placeholder-slate-400 focus:outline-none transition-colors"
+            className="w-full min-h-[42px] bg-[#14171f] border border-[#212633] focus:border-[#0066ff] rounded-xl pl-10 pr-9 text-xs text-white focus:text-white placeholder-slate-400 focus:outline-none transition-colors"
           />
           {searchQuery && (
             <button
@@ -168,12 +195,11 @@ export const Navigation: React.FC<NavigationProps> = ({
         </div>
       </div>
 
-      {/* Sticky Horizontal Navigation Bar: Discover | LIVE | SA Makers | Seller Studio */}
-      {/* Positioned directly below the search area on both mobile and desktop */}
+      {/* Sticky Horizontal Navigation Bar: LIVE | SA Makers | Seller Studio */}
       <div className="border-t border-[#1a1f2c]/80 bg-[#0c0e12]">
         <div className="max-w-7xl mx-auto px-3 sm:px-6">
           <nav
-            className="flex flex-row items-center gap-1.5 sm:gap-3 overflow-x-auto whitespace-nowrap scrollbar-none py-1.5 touch-pan-x"
+            className="flex flex-row items-center gap-2 overflow-x-auto whitespace-nowrap scrollbar-none py-1.5 touch-pan-x"
             role="tablist"
             aria-label="Main Feed Tabs"
           >
@@ -186,7 +212,11 @@ export const Navigation: React.FC<NavigationProps> = ({
                   aria-selected={isActive}
                   onClick={() => {
                     onClearSearch();
-                    setActiveTab(tab.id);
+                    if (tab.id === 'Seller Studio' && userRole !== 'seller') {
+                      onOpenSellerSignIn();
+                    } else {
+                      setActiveTab(tab.id);
+                    }
                   }}
                   className={`min-h-[42px] px-3.5 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer shrink-0 flex items-center gap-2 select-none ${
                     isActive

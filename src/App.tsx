@@ -5,7 +5,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Navigation, AppTab } from './components/Navigation';
-import { DiscoverView } from './components/DiscoverView';
 import { ProductDetailView } from './components/ProductDetailView';
 import { SellerStorefrontView } from './components/SellerStorefrontView';
 import { LiveRoomView } from './components/LiveRoomView';
@@ -14,6 +13,7 @@ import { SellersListView } from './components/SellersListView';
 import { LiveStreamsListView } from './components/LiveStreamsListView';
 import { SellerDashboardView } from './components/SellerDashboardView';
 import { SetupInfoModal } from './components/SetupInfoModal';
+import { SellerSignInModal } from './components/SellerSignInModal';
 import { SellerHostModeView } from './components/SellerHostModeView';
 import { ResponsivePreviewToolbar, ViewportMode } from './components/ResponsivePreviewToolbar';
 import { SearchResultsView } from './components/SearchResultsView';
@@ -25,16 +25,50 @@ const STORAGE_KEYS = {
   PRODUCTS: 'showmi_products_v1',
   CART: 'showmi_cart_v1',
   SNIPPETS: 'showmi_snippets_v1',
-  PROMOTIONS: 'showmi_promotions_v1'
+  PROMOTIONS: 'showmi_promotions_v1',
+  USER_ROLE: 'showmi_user_role_v1',
+  SELLER_ID: 'showmi_current_seller_id_v1',
+  FOLLOWED_SELLERS: 'showmi_followed_sellers_v1'
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<AppTab>('Discover');
+  // Role & Authentication State
+  const [userRole, setUserRole] = useState<'buyer' | 'seller'>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.USER_ROLE);
+      if (saved === 'seller') return 'seller';
+    } catch (e) {}
+    return 'buyer';
+  });
+
+  const [currentSellerId, setCurrentSellerId] = useState<string>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.SELLER_ID);
+      if (saved) return saved;
+    } catch (e) {}
+    return SELLERS[0].id;
+  });
+
+  const [followedSellerIds, setFollowedSellerIds] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.FOLLOWED_SELLERS);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {}
+    return SELLERS.map(s => s.id);
+  });
+
+  // Core Navigation Tabs: 'LIVE' | 'SA Makers' | 'Seller Studio' | 'Basket'
+  const [activeTab, setActiveTab] = useState<AppTab>('LIVE');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
   const [activeLiveSessionId, setActiveLiveSessionId] = useState<string | null>(null);
   
+  // Modals
+  const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
+  const [isSellerSignInModalOpen, setIsSellerSignInModalOpen] = useState(false);
+  const [notification, setNotification] = useState<string | null>(null);
+
   // Dynamic products list persisted to localStorage
   const [productsList, setProductsList] = useState<Product[]>(() => {
     try {
@@ -91,6 +125,15 @@ export default function App() {
   const [viewportMode, setViewportMode] = useState<ViewportMode>('responsive');
   const [isLandscape, setIsLandscape] = useState<boolean>(false);
 
+  // Sync role & state to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.USER_ROLE, userRole);
+      localStorage.setItem(STORAGE_KEYS.SELLER_ID, currentSellerId);
+      localStorage.setItem(STORAGE_KEYS.FOLLOWED_SELLERS, JSON.stringify(followedSellerIds));
+    } catch (e) {}
+  }, [userRole, currentSellerId, followedSellerIds]);
+
   // Sync products to localStorage
   useEffect(() => {
     try {
@@ -126,9 +169,6 @@ export default function App() {
       console.error('Failed to save promotions to localStorage', e);
     }
   }, [promotionsList]);
-
-  const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
-  const [notification, setNotification] = useState<string | null>(null);
 
   const showNotification = (msg: string) => {
     setNotification(msg);
@@ -190,7 +230,7 @@ export default function App() {
     setCartItems([]);
   };
 
-  // Order placement & inventory decrement (guarantees stock never becomes negative)
+  // Order placement & inventory decrement
   const handlePlaceOrder = (orderItems: CartItem[]) => {
     setProductsList(prevProducts => {
       return prevProducts.map(prod => {
@@ -228,7 +268,7 @@ export default function App() {
   };
 
   const handleExpireSnippetNow = (snippetId: string) => {
-    const pastDate = new Date(Date.now() - 60000).toISOString(); // 1 minute ago
+    const pastDate = new Date(Date.now() - 60000).toISOString();
     setSnippetsList(prev =>
       prev.map(s => (s.id === snippetId ? { ...s, expiresAt: pastDate } : s))
     );
@@ -259,12 +299,43 @@ export default function App() {
     localStorage.removeItem(STORAGE_KEYS.CART);
     localStorage.removeItem(STORAGE_KEYS.SNIPPETS);
     localStorage.removeItem(STORAGE_KEYS.PROMOTIONS);
+    localStorage.removeItem(STORAGE_KEYS.USER_ROLE);
+    localStorage.removeItem(STORAGE_KEYS.SELLER_ID);
+    localStorage.removeItem(STORAGE_KEYS.FOLLOWED_SELLERS);
     setProductsList(PRODUCTS);
     setCartItems([{ product: PRODUCTS[0], quantity: 1 }]);
     setSnippetsList(SELLERS.flatMap(s => s.snippets));
     setPromotionsList(INITIAL_PROMOTIONS);
+    setUserRole('buyer');
+    setCurrentSellerId(SELLERS[0].id);
+    setFollowedSellerIds(SELLERS.map(s => s.id));
     setIsSellerHostMode(false);
-    showNotification('Reset all demo data to default');
+    setActiveTab('LIVE');
+    showNotification('Reset all demo data and role to default buyer');
+  };
+
+  // Follow / Unfollow Maker
+  const handleToggleFollow = (sellerId: string) => {
+    setFollowedSellerIds(prev => {
+      const isFollowing = prev.includes(sellerId);
+      const next = isFollowing ? prev.filter(id => id !== sellerId) : [...prev, sellerId];
+      showNotification(isFollowing ? 'Unfollowed maker' : 'Following maker!');
+      return next;
+    });
+  };
+
+  // Role & Authentication Handlers
+  const handleSignInAsSeller = (sellerId: string) => {
+    setUserRole('seller');
+    setCurrentSellerId(sellerId);
+    setActiveTab('Seller Studio');
+    showNotification(`Signed in as seller: ${SELLERS.find(s => s.id === sellerId)?.name || 'Maker'}`);
+  };
+
+  const handleSwitchToBuyer = () => {
+    setUserRole('buyer');
+    setActiveTab('LIVE');
+    showNotification('Switched to buyer-facing shopping view');
   };
 
   // Navigation handlers
@@ -313,6 +384,10 @@ export default function App() {
   };
 
   const handleTabChange = (tab: AppTab) => {
+    if (tab === 'Seller Studio' && userRole !== 'seller') {
+      setIsSellerSignInModalOpen(true);
+      return;
+    }
     setSearchQuery('');
     setSelectedProductId(null);
     setSelectedSellerId(null);
@@ -372,7 +447,7 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Navigation with Integrated Header Search and 4 Tabs */}
+      {/* Main Navigation */}
       <Navigation
         activeTab={activeTab}
         setActiveTab={handleTabChange}
@@ -381,11 +456,15 @@ export default function App() {
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onClearSearch={() => setSearchQuery('')}
+        userRole={userRole}
+        currentSeller={SELLERS.find(s => s.id === currentSellerId)}
+        onOpenSellerSignIn={() => setIsSellerSignInModalOpen(true)}
+        onSwitchToBuyer={handleSwitchToBuyer}
       />
 
       {/* Main Content Area */}
       <main className="flex-1">
-        {/* Dedicated Search Results View (rendered when query is non-empty to keep feed separate) */}
+        {/* Dedicated Search Results View */}
         {searchQuery.trim() !== '' ? (
           <SearchResultsView
             query={searchQuery}
@@ -440,7 +519,7 @@ export default function App() {
             />
           )
         ) : selectedProduct ? (
-          /* View 2: Product Detail Page */
+          /* View: Product Detail Page */
           <ProductDetailView
             product={selectedProduct}
             seller={selectedSeller || undefined}
@@ -456,7 +535,7 @@ export default function App() {
             onOpenLiveRoom={handleOpenLiveRoom}
           />
         ) : selectedSellerId && selectedSeller ? (
-          /* View 3: Seller Storefront */
+          /* View: Seller Storefront */
           <SellerStorefrontView
             seller={selectedSeller}
             products={productsList}
@@ -467,20 +546,22 @@ export default function App() {
             onAddToCart={handleAddToCart}
             onBuyNow={handleBuyNow}
             onOpenStudio={(sellerId) => {
-              setSelectedSellerId(sellerId);
+              setUserRole('seller');
+              setCurrentSellerId(sellerId);
+              setSelectedSellerId(null);
               setActiveTab('Seller Studio');
             }}
           />
-        ) : activeTab === 'Seller Studio' ? (
-          /* View 4: Seller Dashboard & AI Selling Assistant */
+        ) : activeTab === 'Seller Studio' && userRole === 'seller' ? (
+          /* View: Seller Dashboard & AI Selling Assistant */
           <SellerDashboardView
             sellers={SELLERS}
             products={productsList}
             snippets={snippetsList}
             promotions={promotionsList}
-            currentSellerId={selectedSellerId || SELLERS[0].id}
-            onSelectSeller={(id) => setSelectedSellerId(id)}
-            onBackToShopping={() => setActiveTab('Discover')}
+            currentSellerId={currentSellerId}
+            onSelectSeller={(id) => setCurrentSellerId(id)}
+            onBackToShopping={() => setActiveTab('LIVE')}
             onUpdateProductDescription={handleUpdateProductDescription}
             onPublishSnippet={handlePublishSnippet}
             onArchiveSnippet={handleArchiveSnippet}
@@ -489,18 +570,29 @@ export default function App() {
             onOpenLiveHostMode={handleOpenHostMode}
           />
         ) : activeTab === 'Basket' ? (
-          /* View 5: Basket & Checkout Preview */
+          /* View: Basket & Checkout Preview */
           <BasketCheckoutView
             cartItems={cartItems}
             onUpdateQuantity={handleUpdateQuantity}
             onRemoveItem={handleRemoveItem}
             onClearCart={handleClearCart}
-            onBackToDiscover={() => setActiveTab('Discover')}
+            onBackToDiscover={() => setActiveTab('LIVE')}
             onSelectProduct={handleSelectProduct}
             onPlaceOrder={handlePlaceOrder}
           />
-        ) : activeTab === 'LIVE' ? (
-          /* View 6: Live Streams Immersive Shopping Feed */
+        ) : activeTab === 'SA Makers' ? (
+          /* View: Sellers / Makers Directory */
+          <SellersListView
+            sellers={SELLERS}
+            products={productsList}
+            snippets={snippetsList}
+            onSelectSeller={handleSelectSeller}
+            onOpenLiveRoom={handleOpenLiveRoom}
+            followedSellerIds={followedSellerIds}
+            onToggleFollow={handleToggleFollow}
+          />
+        ) : (
+          /* Default View: LIVE Streams Immersive Shopping Feed */
           <LiveStreamsListView
             liveSessions={LIVE_SESSIONS}
             products={productsList}
@@ -510,27 +602,6 @@ export default function App() {
             onBuyNow={handleBuyNow}
             onSelectSeller={handleSelectSeller}
           />
-        ) : activeTab === 'SA Makers' ? (
-          /* View 7: Sellers / Makers Directory */
-          <SellersListView
-            sellers={SELLERS}
-            products={productsList}
-            snippets={snippetsList}
-            onSelectSeller={handleSelectSeller}
-            onOpenLiveRoom={handleOpenLiveRoom}
-          />
-        ) : (
-          /* View 8: Discover Immersive Shoppable Video Feed */
-          <DiscoverView
-            products={productsList}
-            sellers={SELLERS}
-            snippets={snippetsList}
-            onSelectProduct={handleSelectProduct}
-            onSelectSeller={handleSelectSeller}
-            onOpenLiveRoom={handleOpenLiveRoom}
-            onAddToCart={handleAddToCart}
-            onBuyNow={handleBuyNow}
-          />
         )}
       </main>
 
@@ -539,6 +610,14 @@ export default function App() {
         isOpen={isSetupModalOpen}
         onClose={() => setIsSetupModalOpen(false)}
         onResetDemoData={handleResetDemoData}
+      />
+
+      {/* Seller Sign-In & Account Selection Modal */}
+      <SellerSignInModal
+        isOpen={isSellerSignInModalOpen}
+        onClose={() => setIsSellerSignInModalOpen(false)}
+        sellers={SELLERS}
+        onSignInAsSeller={handleSignInAsSeller}
       />
 
       {/* Development-only Responsive Preview Option Toolbar */}

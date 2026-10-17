@@ -1,6 +1,6 @@
 import React from 'react';
 import { Seller, Product, StreamSnippet } from '../types';
-import { MapPin, Star, Film, Radio, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { MapPin, Star, Film, ArrowRight, CheckCircle2, Store, Users } from 'lucide-react';
 
 interface SellersListViewProps {
   sellers: Seller[];
@@ -8,125 +8,182 @@ interface SellersListViewProps {
   snippets?: StreamSnippet[];
   onSelectSeller: (sellerId: string) => void;
   onOpenLiveRoom: (sessionId: string) => void;
+  followedSellerIds?: string[];
+  onToggleFollow?: (sellerId: string) => void;
 }
 
 export const SellersListView: React.FC<SellersListViewProps> = ({
   sellers,
   products,
-  snippets,
+  snippets = [],
   onSelectSeller,
-  onOpenLiveRoom
+  onOpenLiveRoom,
+  followedSellerIds = [],
+  onToggleFollow
 }) => {
+  const followedSellers = sellers.filter(s => followedSellerIds.includes(s.id));
+
   return (
-    <div className="pb-28 pt-4 px-4 sm:px-6 max-w-7xl mx-auto space-y-8">
+    <div className="flex flex-col w-full min-h-[calc(100vh-154px)] bg-[#0c0e12] pb-28">
       
       {/* Header */}
-      <div className="space-y-2">
+      <div className="flex flex-col w-full max-w-2xl mx-auto px-4 sm:px-6 pt-6 pb-4 space-y-2">
         <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-          South African Makers & Ateliers
+          SA Makers You Follow
         </h1>
-        <p className="text-xs sm:text-sm text-slate-400 max-w-xl">
-          Discover verified independent workshops from Cape Town fynbos botanicals to Karoo leather craftsmen and Johannesburg sneaker designers.
+        <p className="text-xs sm:text-sm text-slate-400">
+          Your vertical feed of followed South African ateliers, fynbos botanicals, and Karoo craftsmen.
         </p>
       </div>
 
-      {/* Sellers Cards Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {sellers.map((seller) => {
-          const sellerProductCount = products.filter(p => p.sellerId === seller.id).length;
+      {followedSellers.length === 0 ? (
+        /* Empty State */
+        <div className="flex flex-col w-full max-w-md mx-auto my-16 p-8 text-center bg-[#14171f] border border-[#212633] rounded-3xl space-y-4 shadow-2xl">
+          <div className="w-16 h-16 rounded-2xl bg-[#0066ff]/20 text-[#0066ff] flex items-center justify-center mx-auto">
+            <Store className="w-8 h-8" />
+          </div>
+          <h3 className="text-lg font-bold text-white">No Followed Makers Yet</h3>
+          <p className="text-xs text-slate-400 leading-relaxed">
+            You are not following any SA Makers yet. Explore and follow makers to see them stacked here!
+          </p>
+          <button
+            onClick={() => {
+              if (sellers[0] && onToggleFollow) {
+                onToggleFollow(sellers[0].id);
+              }
+            }}
+            className="px-6 py-3 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs font-bold transition-colors cursor-pointer shadow-lg shadow-[#0066ff]/30"
+          >
+            Follow Featured Maker ({sellers[0]?.name || 'Creator'})
+          </button>
+        </div>
+      ) : (
+        /* Mandatory Single-Column Vertical Feed */
+        <div className="flex flex-col w-full max-w-2xl mx-auto px-4 sm:px-6 space-y-6">
+          {followedSellers.map((seller) => {
+            const sellerProductCount = products.filter(p => p.sellerId === seller.id).length;
+            const activeSnippetsCount = snippets.filter(s => s.sellerId === seller.id && !s.isArchived && new Date(s.expiresAt).getTime() > Date.now()).length;
 
-          return (
-            <div
-              key={seller.id}
-              onClick={() => onSelectSeller(seller.id)}
-              className="bg-[#14171f] rounded-2xl border border-[#212633] overflow-hidden hover:border-[#0066ff]/60 transition-all cursor-pointer group flex flex-col justify-between shadow-lg"
-            >
-              {/* Banner with live badge */}
-              <div className="relative h-32 sm:h-36 bg-black overflow-hidden">
-                <img
-                  src={seller.bannerImage}
-                  alt={seller.name}
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-70"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#14171f] via-transparent to-black/30" />
+            return (
+              <article
+                key={seller.id}
+                className="block w-full bg-[#14171f] border border-[#212633] rounded-3xl p-4 sm:p-6 space-y-4 shadow-xl"
+              >
+                {/* 1. Banner image: h-40 w-full object-cover, entirely clickable */}
+                <div
+                  onClick={() => onSelectSeller(seller.id)}
+                  className="w-full h-40 relative bg-black cursor-pointer rounded-2xl overflow-hidden group"
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Open storefront for ${seller.name}`}
+                >
+                  <img
+                    src={seller.bannerImage}
+                    alt={seller.name}
+                    referrerPolicy="no-referrer"
+                    className="h-40 w-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-85"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-black/10" />
 
-                {seller.currentLiveSessionId && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpenLiveRoom(seller.currentLiveSessionId!);
-                    }}
-                    className="absolute top-3 right-3 bg-red-600 hover:bg-red-700 text-white text-[11px] font-bold px-2.5 py-1 rounded-md flex items-center gap-1.5 shadow-lg active:scale-95 transition-transform"
-                  >
-                    <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
-                    <span>Live Now</span>
-                  </button>
-                )}
-              </div>
+                  {seller.currentLiveSessionId && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenLiveRoom(seller.currentLiveSessionId!);
+                      }}
+                      className="absolute top-3 right-3 bg-red-600 hover:bg-red-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-lg cursor-pointer z-10"
+                    >
+                      <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
+                      <span>Live Now</span>
+                    </button>
+                  )}
+                </div>
 
-              {/* Info Body */}
-              <div className="p-5 -mt-10 relative flex-1 flex flex-col justify-between space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-end justify-between">
+                {/* Card Content Stack */}
+                <div className="space-y-3.5">
+                  {/* 2. Profile picture or logo */}
+                  <div className="flex items-start gap-3.5 min-w-0">
                     <img
                       src={seller.avatar}
                       alt={seller.name}
                       referrerPolicy="no-referrer"
-                      className="w-16 h-16 rounded-xl object-cover border-2 border-[#14171f] shadow-xl bg-black"
+                      onClick={() => onSelectSeller(seller.id)}
+                      className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl object-cover border-2 border-[#14171f] shadow-xl bg-black cursor-pointer hover:scale-105 transition-transform shrink-0"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`Open storefront for ${seller.name}`}
                     />
-                    <div className="text-right">
-                      <span className="text-xs text-amber-400 font-bold flex items-center gap-1 justify-end">
-                        <Star className="w-3.5 h-3.5 fill-amber-400" />
-                        {seller.rating}
-                      </span>
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        {seller.salesCount}+ orders
-                      </span>
-                    </div>
-                  </div>
+                    
+                    <div className="min-w-0 flex-1 space-y-1">
+                      {/* 3. Store name */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h2
+                          onClick={() => onSelectSeller(seller.id)}
+                          className="font-bold text-white text-base sm:text-lg hover:text-[#0066ff] transition-colors cursor-pointer break-words"
+                        >
+                          {seller.name}
+                        </h2>
+                        {seller.verifiedArtisan && (
+                          <CheckCircle2 className="w-4 h-4 text-[#0066ff] shrink-0" />
+                        )}
+                      </div>
 
-                  <div>
-                    <div className="flex items-center gap-1.5">
-                      <h3 className="font-bold text-white text-base group-hover:text-[#0066ff] transition-colors">
-                        {seller.name}
-                      </h3>
-                      {seller.verifiedArtisan && (
-                        <CheckCircle2 className="w-4 h-4 text-[#0066ff] shrink-0" />
+                      {/* 4. Location */}
+                      {seller.city && (
+                        <p className="text-xs text-slate-400 flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                          <span className="break-words">{seller.city}, {seller.province}</span>
+                        </p>
                       )}
+
+                      {/* 5. Rating and follower count underneath store title with flexible wrapping */}
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-gray-300 pt-0.5">
+                        <span className="flex items-center gap-1 text-amber-400 font-bold shrink-0">
+                          <Star className="w-3.5 h-3.5 fill-amber-400" />
+                          {seller.rating}
+                        </span>
+                        <span className="flex items-center gap-1 font-mono text-slate-300 shrink-0">
+                          <Users className="w-3.5 h-3.5 text-slate-400" />
+                          {seller.followersCount.toLocaleString()} followers
+                        </span>
+                      </div>
                     </div>
-                    <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
-                      <MapPin className="w-3 h-3 text-red-400 shrink-0" />
-                      <span>{seller.city}, {seller.province}</span>
+                  </div>
+
+                  {/* Bio */}
+                  {seller.bio && (
+                    <p className="text-xs sm:text-sm text-slate-300 leading-relaxed break-words">
+                      {seller.bio}
                     </p>
+                  )}
+
+                  {/* 6. Enter Storefront button & clip/product stats */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pt-3 border-t border-[#212633]">
+                    <div className="flex items-center gap-3 text-xs text-slate-400 flex-wrap">
+                      <span className="flex items-center gap-1">
+                        <Film className="w-3.5 h-3.5 text-[#0066ff]" />
+                        {activeSnippetsCount} active clips
+                      </span>
+                      <span>·</span>
+                      <span className="font-mono text-slate-300">
+                        {sellerProductCount} products
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={() => onSelectSeller(seller.id)}
+                      className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#0066ff]/30 cursor-pointer transition-colors active:scale-95 shrink-0"
+                    >
+                      <span>Enter Storefront</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-
-                  <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
-                    {seller.bio}
-                  </p>
                 </div>
-
-                <div className="pt-3 border-t border-[#212633] flex items-center justify-between text-xs text-slate-400">
-                  <div className="flex items-center gap-3">
-                    <span className="flex items-center gap-1 text-[11px]">
-                      <Film className="w-3.5 h-3.5 text-[#0066ff]" />
-                      {(snippets ? snippets.filter(s => s.sellerId === seller.id && !s.isArchived && new Date(s.expiresAt).getTime() > Date.now()) : seller.snippets.filter(s => !s.isArchived && new Date(s.expiresAt).getTime() > Date.now())).length} active clips
-                    </span>
-                    <span className="text-slate-600">·</span>
-                    <span className="text-[11px] font-mono text-slate-300">
-                      {sellerProductCount} products
-                    </span>
-                  </div>
-
-                  <span className="text-[#0066ff] font-bold text-xs flex items-center gap-1">
-                    View Store <ArrowRight className="w-3.5 h-3.5" />
-                  </span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
 
     </div>
   );

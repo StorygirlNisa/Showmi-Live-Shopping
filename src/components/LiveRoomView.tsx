@@ -11,12 +11,11 @@ import {
   Sparkles, 
   Check, 
   MapPin, 
-  Eye, 
   Radio, 
-  Store,
-  ChevronDown,
   Info,
-  Maximize2
+  Truck,
+  ShieldCheck,
+  Star
 } from 'lucide-react';
 import { LiveSession, Product, Seller, LiveComment } from '../types';
 
@@ -54,19 +53,17 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   onOpenHostMode
 }) => {
   const [isMuted, setIsMuted] = useState(true);
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPlaying] = useState(true);
   const [viewerCount, setViewerCount] = useState(session.viewerCount);
   const [comments, setComments] = useState<LiveComment[]>(session.initialComments);
   const [commentInput, setCommentInput] = useState('');
   const [floatingHearts, setFloatingHearts] = useState<FloatingHeart[]>([]);
   const [heartCount, setHeartCount] = useState(842);
   const [addedProductId, setAddedProductId] = useState<string | null>(null);
-  const [showProductDrawer, setShowProductDrawer] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
   const commentsContainerRef = useRef<HTMLDivElement>(null);
-  const featuredProduct = products.find(p => p.id === session.featuredProductId);
-  const otherProducts = products.filter(p => session.additionalProductIds.includes(p.id));
+  const featuredProduct = products.find(p => p.id === session.featuredProductId) || products[0];
 
   // Auto-scroll comments to bottom
   useEffect(() => {
@@ -101,7 +98,6 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           }
         ]);
         messageIndex = (messageIndex + 1) % automatedComments.length;
-        // Minor viewer flux
         setViewerCount(v => v + Math.floor(Math.random() * 7) - 3);
       }
     }, 9000);
@@ -125,7 +121,6 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     setComments(prev => [...prev, newComment]);
     setCommentInput('');
 
-    // Trigger host response simulation after 4 seconds
     setTimeout(() => {
       setComments(prev => [
         ...prev,
@@ -144,7 +139,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     setHeartCount(h => h + 1);
     const newHeart: FloatingHeart = {
       id: Date.now() + Math.random(),
-      x: Math.floor(Math.random() * 40) - 20, // random jitter
+      x: Math.floor(Math.random() * 40) - 20,
       color: Math.random() > 0.5 ? '#0066ff' : '#ef4444'
     };
 
@@ -168,16 +163,22 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-[#0c0e12] flex flex-col justify-between relative overflow-hidden pb-16 md:pb-6">
+    <div className="min-h-screen bg-[#0c0e12] flex flex-col pb-24 selection:bg-[#0066ff] selection:text-white">
       
+      {/* Toast Notification */}
+      {copiedLink && (
+        <div className="fixed top-20 right-4 z-50 bg-[#0066ff] text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl flex items-center gap-2 animate-fade-in">
+          <span>✓</span>
+          <span>Live room link copied</span>
+        </div>
+      )}
+
       {/* Top Floating Control Bar */}
-      <div className="z-30 px-2 sm:px-6 py-2.5 max-w-7xl w-full mx-auto flex items-center justify-between gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
-        
-        {/* Back and Seller Lockup */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+      <div className="sticky top-14 sm:top-16 z-30 bg-[#0c0e12]/95 backdrop-blur-md px-3 sm:px-6 py-2.5 border-b border-[#212633] flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={onBack}
-            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/60 backdrop-blur-md text-white hover:bg-black/90 flex items-center justify-center border border-white/10 transition-colors cursor-pointer shrink-0 min-h-[36px]"
+            className="w-9 h-9 rounded-full bg-[#14171f] hover:bg-[#1e2330] text-white flex items-center justify-center border border-[#212633] transition-colors cursor-pointer shrink-0"
             title="Leave Live Room"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -185,54 +186,46 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 
           <div 
             onClick={() => seller && onViewSeller(seller.id)}
-            className="flex items-center gap-2 bg-black/60 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-white/10 cursor-pointer hover:border-[#0066ff]/60 transition-colors max-w-[150px] xs:max-w-[200px] sm:max-w-[240px]"
+            className="flex items-center gap-2 bg-[#14171f] px-3 py-1.5 rounded-full border border-[#212633] cursor-pointer hover:border-[#0066ff]/60 transition-colors"
           >
             <img
               src={session.sellerAvatar}
               alt={session.sellerName}
               referrerPolicy="no-referrer"
-              className="w-7 h-7 rounded-full object-cover border border-[#0066ff] shrink-0"
+              className="w-6 h-6 rounded-full object-cover border border-[#0066ff] shrink-0"
             />
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0">
               <p className="text-xs font-bold text-white truncate leading-tight">
                 {session.sellerName}
               </p>
-              <p className="text-[10px] text-slate-300 truncate">
+              <p className="text-[10px] text-slate-400 truncate">
                 {session.sellerLocation}
               </p>
             </div>
-            {seller && (
-              <span className="text-[11px] text-[#0066ff] font-bold px-1.5 py-0.2 rounded-full bg-[#0066ff]/20 hidden sm:inline shrink-0">
-                Store
-              </span>
-            )}
           </div>
         </div>
 
-        {/* Live Status & Controls */}
-        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
-          <div className="bg-red-600 text-white text-[11px] font-bold uppercase tracking-wider px-2 sm:px-2.5 py-1 rounded-md flex items-center gap-1.5 shadow-md shrink-0">
+        <div className="flex items-center gap-2">
+          <div className="bg-red-600 text-white text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md flex items-center gap-1.5 shadow-md">
             <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
             LIVE
           </div>
 
-          <div className="bg-black/60 backdrop-blur-md text-white text-xs px-2 sm:px-2.5 py-1 rounded-md border border-white/10 flex items-center gap-1.5 font-mono shrink-0">
+          <div className="bg-[#14171f] text-white text-xs px-2.5 py-1 rounded-md border border-[#212633] flex items-center gap-1.5 font-mono">
             <Users className="w-3.5 h-3.5 text-blue-400" />
             <span>{viewerCount.toLocaleString()}</span>
           </div>
 
           <button
             onClick={() => setIsMuted(!isMuted)}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/60 backdrop-blur-md text-white hover:bg-black/80 flex items-center justify-center border border-white/10 transition-colors cursor-pointer shrink-0"
-            title={isMuted ? 'Unmute stream' : 'Mute stream'}
+            className="w-9 h-9 rounded-full bg-[#14171f] hover:bg-[#1e2330] text-white flex items-center justify-center border border-[#212633] transition-colors cursor-pointer"
           >
-            {isMuted ? <VolumeX className="w-4 h-4 text-slate-300" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
+            {isMuted ? <VolumeX className="w-4 h-4 text-slate-400" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
           </button>
 
           <button
             onClick={handleShare}
-            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/60 backdrop-blur-md text-white hover:bg-black/80 flex items-center justify-center border border-white/10 transition-colors cursor-pointer shrink-0"
-            title="Share live stream link"
+            className="w-9 h-9 rounded-full bg-[#14171f] hover:bg-[#1e2330] text-white flex items-center justify-center border border-[#212633] transition-colors cursor-pointer"
           >
             <Share2 className="w-4 h-4" />
           </button>
@@ -240,54 +233,62 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           {onOpenHostMode && (
             <button
               onClick={() => onOpenHostMode(session.id)}
-              className="px-2.5 py-1 rounded-md bg-[#161b26] hover:bg-[#1f2737] border border-[#2e374d] text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 min-h-[36px]"
-              title="Host only: Open private seller control panel & AI sales coach"
+              className="px-3 py-1 rounded-lg bg-[#14171f] hover:bg-[#1c2230] border border-[#212633] text-xs font-semibold text-emerald-400 flex items-center gap-1.5 transition-colors cursor-pointer"
             >
               <Radio className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">Host Studio</span>
             </button>
           )}
         </div>
-
       </div>
 
-      {/* Main Live Stage Layout: Desktop Split / Mobile Immersive */}
-      <div className="max-w-7xl w-full mx-auto px-2 sm:px-6 flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch relative">
+      {/* Vertical Content Flow: Video -> Product Details -> Comments */}
+      <div className="max-w-3xl w-full mx-auto px-3 sm:px-4 py-4 space-y-6">
         
-        {/* Stream Video Area (Mobile-First 9:16 Canvas / Responsive Frame) */}
-        <div className="lg:col-span-8 relative rounded-3xl overflow-hidden bg-black border border-[#212633] flex items-center justify-center min-h-[480px] sm:min-h-[560px] shadow-2xl">
-          
-          {/* Main Video Stream Image Simulation */}
+        {/* 1. Immersive Full-Width Video Area */}
+        <div className="relative w-full aspect-[4/3] sm:aspect-[16/9] max-h-[500px] rounded-3xl overflow-hidden bg-black border border-[#212633] shadow-2xl flex items-center justify-center">
           <img
             src={session.coverImage}
             alt={session.title}
             referrerPolicy="no-referrer"
-            className={`w-full h-full object-cover transition-all duration-700 ${isPlaying ? 'scale-100 opacity-95' : 'scale-105 opacity-60'}`}
+            className={`w-full h-full object-cover transition-opacity duration-700 ${isPlaying ? 'opacity-95' : 'opacity-60'}`}
           />
 
-          {/* Gradients for readability */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/40 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
 
-          {/* Demonstration Notice Watermark */}
-          <div className="absolute top-4 left-4 bg-black/70 backdrop-blur-md text-slate-300 text-[11px] px-3 py-1 rounded-md border border-white/10 font-mono flex items-center gap-1.5 pointer-events-none">
-            <Info className="w-3.5 h-3.5 text-[#0066ff]" />
-            Demonstration Live Broadcast
-          </div>
-
-          {/* Studio Audio Equalizer Simulation when unmuted */}
-          {!isMuted && (
-            <div className="absolute top-4 right-4 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-md flex items-center gap-1 border border-white/10">
-              <span className="text-[10px] text-emerald-400 font-mono">LIVE AUDIO</span>
-              <div className="flex items-end gap-0.5 h-3">
-                <span className="w-0.5 bg-emerald-400 h-2 animate-pulse"></span>
-                <span className="w-0.5 bg-emerald-400 h-3 animate-pulse delay-75"></span>
-                <span className="w-0.5 bg-emerald-400 h-1.5 animate-pulse delay-150"></span>
-              </div>
+          {/* Floating Buy Now Button directly over video near bottom-right */}
+          {featuredProduct && (
+            <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2">
+              <button
+                onClick={(e) => {
+                  if (featuredProduct.stock > 0) {
+                    onBuyNow(featuredProduct);
+                  }
+                }}
+                disabled={featuredProduct.stock <= 0}
+                className="bg-[#0066ff] hover:bg-[#0052cc] text-white font-bold text-xs sm:text-sm px-5 py-3 rounded-2xl shadow-2xl shadow-[#0066ff]/50 flex items-center gap-2 cursor-pointer active:scale-95 transition-transform backdrop-blur-md border border-white/20"
+                aria-label="Buy Now featured product"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                <span>Buy Now · R {featuredProduct.priceZAR.toLocaleString()}</span>
+              </button>
             </div>
           )}
 
-          {/* Floating Hearts Reaction Canvas */}
-          <div className="absolute bottom-24 right-6 pointer-events-none w-16 h-64 overflow-hidden z-20">
+          {/* Floating Heart Button */}
+          <button
+            onClick={handleHeartClick}
+            className="absolute bottom-4 left-4 z-20 w-11 h-11 rounded-full bg-red-600/90 hover:bg-red-600 text-white flex flex-col items-center justify-center shadow-xl active:scale-90 transition-transform cursor-pointer"
+            title="Send love"
+          >
+            <Heart className="w-5 h-5 fill-white" />
+            <span className="text-[9px] font-mono font-bold leading-none mt-0.5">
+              {heartCount}
+            </span>
+          </button>
+
+          {/* Floating Hearts Animation Canvas */}
+          <div className="absolute bottom-16 left-6 pointer-events-none w-16 h-48 overflow-hidden z-20">
             {floatingHearts.map((h) => (
               <div
                 key={h.id}
@@ -297,160 +298,132 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                 }}
                 className="absolute bottom-0 animate-float-heart"
               >
-                <Heart className="w-6 h-6 fill-current drop-shadow-md" />
+                <Heart className="w-5 h-5 fill-current drop-shadow-md" />
               </div>
             ))}
           </div>
-
-          {/* Mobile Overlay: Live Comments Feed directly over stream */}
-          <div className="lg:hidden absolute bottom-28 left-3 right-16 z-20 max-h-48 overflow-y-auto space-y-1.5 scrollbar-none pointer-events-auto">
-            {comments.slice(-4).map((c) => (
-              <div
-                key={c.id}
-                className="bg-black/60 backdrop-blur-md text-white text-xs px-2.5 py-1.5 rounded-xl border border-white/10 max-w-[85%] inline-block"
-              >
-                <span className={`font-bold mr-1.5 ${c.isHost ? 'text-amber-300' : c.isCurrentUser ? 'text-[#60a5fa]' : 'text-slate-200'}`}>
-                  {c.userName}:
-                </span>
-                <span className="text-slate-100">{c.text}</span>
-              </div>
-            ))}
-          </div>
-
-          {/* Pinned Featured Product Card (On Bottom of Video Area) */}
-          {featuredProduct && (
-            <div className="absolute bottom-3 left-3 right-3 sm:right-auto sm:max-w-md z-20">
-              <div className="bg-[#14171f]/95 backdrop-blur-md border border-[#0066ff]/40 rounded-2xl p-3 shadow-2xl space-y-2">
-                <div className="flex items-center justify-between text-[11px]">
-                  <span className="text-[#0066ff] font-bold flex items-center gap-1 uppercase tracking-wider">
-                    <Sparkles className="w-3 h-3" />
-                    Now Showcasing
-                  </span>
-                  <span className="text-emerald-400 font-mono font-medium">
-                    {featuredProduct.stock} left in stock
-                  </span>
-                </div>
-
-                <div 
-                  onClick={() => onSelectProduct(featuredProduct.id)}
-                  className="flex items-center gap-3 cursor-pointer group"
-                >
-                  <img
-                    src={featuredProduct.images[0]}
-                    alt={featuredProduct.name}
-                    referrerPolicy="no-referrer"
-                    className="w-14 h-14 rounded-xl object-cover border border-[#212633] shrink-0"
-                  />
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-xs sm:text-sm font-bold text-white truncate group-hover:text-[#0066ff] transition-colors">
-                      {featuredProduct.name}
-                    </h4>
-                    <div className="flex items-baseline gap-2 mt-0.5">
-                      <span className="text-base font-bold font-mono text-white">
-                        R {featuredProduct.priceZAR.toLocaleString()}
-                      </span>
-                      {featuredProduct.originalPriceZAR && (
-                        <span className="text-[11px] text-slate-500 line-through font-mono">
-                          R {featuredProduct.originalPriceZAR.toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Instant Buy and Basket Actions */}
-                <div className="grid grid-cols-2 gap-2 pt-1">
-                  <button
-                    onClick={(e) => {
-                      if (featuredProduct.stock > 0) {
-                        handleQuickAdd(featuredProduct, e);
-                      }
-                    }}
-                    disabled={featuredProduct.stock <= 0}
-                    className={`min-h-[44px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                      featuredProduct.stock <= 0
-                        ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
-                        : addedProductId === featuredProduct.id
-                        ? 'bg-emerald-600 text-white cursor-pointer'
-                        : 'bg-[#1e2330] hover:bg-[#283042] text-white border border-[#2e3648] cursor-pointer active:scale-95'
-                    }`}
-                  >
-                    {featuredProduct.stock <= 0 ? (
-                      'Out of Stock'
-                    ) : addedProductId === featuredProduct.id ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        Added
-                      </>
-                    ) : (
-                      <>
-                        <ShoppingBag className="w-3.5 h-3.5 text-[#0066ff]" />
-                        Add to Basket
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    onClick={() => {
-                      if (featuredProduct.stock > 0) {
-                        onBuyNow(featuredProduct);
-                      }
-                    }}
-                    disabled={featuredProduct.stock <= 0}
-                    className={`min-h-[44px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-transform ${
-                      featuredProduct.stock <= 0
-                        ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
-                        : 'bg-[#0066ff] hover:bg-[#0052cc] text-white shadow-md shadow-[#0066ff]/30 cursor-pointer active:scale-95'
-                    }`}
-                  >
-                    {featuredProduct.stock <= 0 ? 'Sold Out' : 'Buy Now'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Right Floating Heart Reaction Button */}
-          <button
-            onClick={handleHeartClick}
-            className="absolute bottom-4 right-4 z-30 w-12 h-12 min-h-[48px] min-w-[48px] rounded-full bg-red-600/90 hover:bg-red-600 text-white flex flex-col items-center justify-center shadow-xl shadow-red-600/30 active:scale-90 transition-transform cursor-pointer"
-            title="Send love to host"
-          >
-            <Heart className="w-5 h-5 fill-white" />
-            <span className="text-[9px] font-mono font-bold leading-none mt-0.5">
-              {heartCount}
-            </span>
-          </button>
-
         </div>
 
-        {/* Right Column: Live Chat & Seller Showcase (Visible on Desktop, toggleable on mobile) */}
-        <div className="hidden lg:flex lg:col-span-4 flex-col justify-between bg-[#14171f] rounded-3xl border border-[#212633] overflow-hidden min-h-[560px]">
-          
-          {/* Stream Information Header */}
-          <div className="p-4 border-b border-[#212633] space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-semibold text-[#0066ff] uppercase tracking-wider">
-                Live Studio Chat
-              </span>
-              <span className="text-xs text-slate-400 font-mono">
-                {comments.length} comments
-              </span>
+        {/* 2. Detailed Product Description Section (Full-width below video) */}
+        {featuredProduct && (
+          <div className="bg-[#14171f] border border-[#212633] rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-1">
+                <span className="text-xs font-bold text-[#0066ff] uppercase tracking-wider flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Featured in Stream
+                </span>
+                <h2 
+                  onClick={() => onSelectProduct(featuredProduct.id)}
+                  className="text-lg sm:text-xl font-bold text-white hover:text-[#0066ff] transition-colors cursor-pointer"
+                >
+                  {featuredProduct.name}
+                </h2>
+                <p className="text-xs text-slate-400 flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-red-400" />
+                  <span>{featuredProduct.sellerName} · {featuredProduct.sellerLocation}</span>
+                </p>
+              </div>
+
+              <div className="text-right shrink-0">
+                <div className="text-lg sm:text-2xl font-bold font-mono text-emerald-400">
+                  R {featuredProduct.priceZAR.toLocaleString()}
+                </div>
+                {featuredProduct.originalPriceZAR && (
+                  <div className="text-xs text-slate-500 line-through font-mono">
+                    R {featuredProduct.originalPriceZAR.toLocaleString()}
+                  </div>
+                )}
+                <span className="text-[10px] text-slate-400 block mt-1 font-mono">
+                  {featuredProduct.stock} in stock
+                </span>
+              </div>
             </div>
-            <h3 className="text-sm font-bold text-white line-clamp-1">
-              {session.title}
+
+            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+              {featuredProduct.description}
+            </p>
+
+            {/* Features list */}
+            {featuredProduct.features && featuredProduct.features.length > 0 && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-[#212633]">
+                {featuredProduct.features.map((feature, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-xs text-slate-300">
+                    <Check className="w-3.5 h-3.5 text-[#0066ff] shrink-0" />
+                    <span>{feature}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Dispatch & Courier Info */}
+            <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-[#212633] text-xs text-slate-400">
+              <div className="flex items-center gap-1.5">
+                <Truck className="w-4 h-4 text-[#0066ff]" />
+                <span>{featuredProduct.dispatchTime}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                <span>{featuredProduct.courierPartner}</span>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                onClick={(e) => handleQuickAdd(featuredProduct, e)}
+                disabled={featuredProduct.stock <= 0}
+                className={`flex-1 py-3 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  featuredProduct.stock <= 0
+                    ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+                    : addedProductId === featuredProduct.id
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-[#1e2330] hover:bg-[#283042] text-white border border-[#2e3648]'
+                }`}
+              >
+                {addedProductId === featuredProduct.id ? (
+                  <>
+                    <Check className="w-4 h-4" />
+                    Added to Basket
+                  </>
+                ) : (
+                  <>
+                    <ShoppingBag className="w-4 h-4 text-[#0066ff]" />
+                    Add to Basket
+                  </>
+                )}
+              </button>
+
+              <button
+                onClick={() => onBuyNow(featuredProduct)}
+                disabled={featuredProduct.stock <= 0}
+                className="flex-1 py-3 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs sm:text-sm font-bold flex items-center justify-center gap-2 cursor-pointer shadow-lg shadow-[#0066ff]/30 transition-colors"
+              >
+                <span>Buy Now</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* 3. Audience Comments & Chat Section (Directly below product description) */}
+        <div className="bg-[#14171f] border border-[#212633] rounded-3xl p-5 sm:p-6 shadow-xl space-y-4">
+          <div className="flex items-center justify-between pb-3 border-b border-[#212633]">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <span>Live Audience Chat</span>
+              <span className="text-xs text-slate-400 font-mono font-normal">({comments.length})</span>
             </h3>
+            <span className="text-xs text-emerald-400 font-medium">Real-time engagement</span>
           </div>
 
-          {/* Chat Messages Feed */}
+          {/* Scrollable Comments Container */}
           <div 
             ref={commentsContainerRef}
-            className="flex-1 p-4 overflow-y-auto space-y-3 max-h-[380px]"
+            className="max-h-72 overflow-y-auto space-y-3 pr-2 scrollbar-thin"
           >
             {comments.map((comment) => (
               <div 
                 key={comment.id}
-                className={`p-2.5 rounded-xl text-xs leading-relaxed ${
+                className={`p-3 rounded-2xl text-xs leading-relaxed ${
                   comment.isHost 
                     ? 'bg-amber-950/40 border border-amber-600/30 text-amber-200' 
                     : comment.isCurrentUser
@@ -472,77 +445,56 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             ))}
           </div>
 
-          {/* Chat Input Bar */}
-          <div className="p-3 border-t border-[#212633] bg-[#0c0e12]">
-            <form onSubmit={handleSendComment} className="flex items-center gap-2">
-              <input
-                type="text"
-                placeholder="Ask about size, ingredients, dispatch..."
-                value={commentInput}
-                onChange={(e) => setCommentInput(e.target.value)}
-                className="flex-1 bg-[#14171f] border border-[#212633] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#0066ff]"
-              />
-              <button
-                type="submit"
-                className="w-8 h-8 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white flex items-center justify-center shrink-0 cursor-pointer transition-colors"
-              >
-                <Send className="w-3.5 h-3.5" />
-              </button>
-            </form>
-          </div>
-
-          {/* Other Live Streams Switcher Strip */}
-          <div className="p-3 border-t border-[#212633] bg-[#10131a] space-y-2">
-            <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">
-              Switch Stream
-            </span>
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-              {allLiveSessions.map((s) => (
-                <button
-                  key={s.id}
-                  onClick={() => onSwitchSession(s.id)}
-                  className={`flex items-center gap-2 p-1.5 rounded-lg border text-left shrink-0 transition-colors cursor-pointer ${
-                    s.id === session.id
-                      ? 'border-[#0066ff] bg-[#0066ff]/10 text-white'
-                      : 'border-[#212633] bg-[#14171f] text-slate-400 hover:text-white'
-                  }`}
-                >
-                  <img
-                    src={s.sellerAvatar}
-                    alt={s.sellerName}
-                    referrerPolicy="no-referrer"
-                    className="w-6 h-6 rounded-full object-cover"
-                  />
-                  <div className="max-w-[100px]">
-                    <p className="text-[11px] font-bold truncate leading-tight">{s.sellerName}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
+          {/* Comment Input Form */}
+          <form onSubmit={handleSendComment} className="flex items-center gap-2 pt-2 border-t border-[#212633]">
+            <input
+              type="text"
+              placeholder="Type your question or comment for the host..."
+              value={commentInput}
+              onChange={(e) => setCommentInput(e.target.value)}
+              className="flex-1 min-h-[44px] bg-[#0c0e12] border border-[#212633] rounded-xl px-4 py-2.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#0066ff]"
+            />
+            <button
+              type="submit"
+              className="min-h-[44px] px-4 py-2.5 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white font-bold text-xs flex items-center gap-1.5 cursor-pointer shadow-md transition-colors shrink-0"
+            >
+              <Send className="w-4 h-4" />
+              <span className="hidden sm:inline">Send</span>
+            </button>
+          </form>
         </div>
 
-      </div>
+        {/* Other Live Streams Switcher Strip */}
+        <div className="bg-[#14171f] border border-[#212633] rounded-3xl p-4 space-y-2">
+          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
+            Other Active Live Streams
+          </span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {allLiveSessions.filter(s => s.id !== session.id).map((s) => (
+              <div
+                key={s.id}
+                onClick={() => onSwitchSession(s.id)}
+                className="flex items-center gap-3 p-2.5 rounded-2xl bg-[#0c0e12] border border-[#212633] hover:border-[#0066ff]/60 transition-colors cursor-pointer group"
+              >
+                <img
+                  src={s.sellerAvatar}
+                  alt={s.sellerName}
+                  referrerPolicy="no-referrer"
+                  className="w-10 h-10 rounded-xl object-cover border border-[#212633] shrink-0"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold text-white truncate group-hover:text-[#0066ff] transition-colors">
+                    {s.sellerName}
+                  </p>
+                  <p className="text-[11px] text-slate-400 truncate">
+                    {s.title}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
-      {/* Mobile Bottom Chat Input Bar */}
-      <div className="lg:hidden px-3 pt-2 pb-1">
-        <form onSubmit={handleSendComment} className="flex items-center gap-2">
-          <input
-            type="text"
-            placeholder="Comment in live room..."
-            value={commentInput}
-            onChange={(e) => setCommentInput(e.target.value)}
-            className="flex-1 min-h-[44px] bg-[#14171f] border border-[#212633] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#0066ff]"
-          />
-          <button
-            type="submit"
-            className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white flex items-center justify-center shrink-0 cursor-pointer active:scale-95 transition-transform"
-            title="Send comment"
-          >
-            <Send className="w-4 h-4" />
-          </button>
-        </form>
       </div>
 
     </div>
