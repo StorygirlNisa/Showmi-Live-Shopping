@@ -210,10 +210,10 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2 pt-1">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                       <button
                         onClick={(e) => handleQuickAdd(featuredProd, e)}
-                        className={`py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                        className={`min-h-[44px] py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
                           addedProductId === featuredProd.id
                             ? 'bg-emerald-600 text-white'
                             : 'bg-[#1e2330] hover:bg-[#272d3e] text-white border border-[#2e3648]'
@@ -234,7 +234,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
 
                       <button
                         onClick={() => onOpenLiveRoom(heroLive.id)}
-                        className="py-2 px-3 rounded-lg text-xs font-semibold bg-[#0066ff] hover:bg-[#0052cc] text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                        className="min-h-[44px] py-2 px-3 rounded-lg text-xs font-semibold bg-[#0066ff] hover:bg-[#0052cc] text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
                       >
                         Watch & Buy
                         <ArrowRight className="w-3.5 h-3.5" />
@@ -337,12 +337,12 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
           </h3>
         </div>
 
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none touch-pan-x -mx-4 px-4 sm:mx-0 sm:px-0">
           {CATEGORIES_LIST.map((cat) => (
             <button
               key={cat.id}
               onClick={() => setSelectedCategory(cat.id as Category)}
-              className={`px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-2 ${
+              className={`min-h-[42px] px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-2 active:scale-95 ${
                 selectedCategory === cat.id
                   ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/25'
                   : 'bg-[#14171f] text-slate-300 hover:text-white border border-[#212633] hover:border-slate-700'
@@ -371,7 +371,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {filteredProducts.map((product) => (
             <div
               key={product.id}
@@ -453,7 +453,7 @@ export const DiscoverView: React.FC<DiscoverViewProps> = ({
                   {/* Quick Action Button */}
                   <button
                     onClick={(e) => handleQuickAdd(product, e)}
-                    className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    className={`w-full min-h-[44px] py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98 ${
                       addedProductId === product.id
                         ? 'bg-emerald-600 text-white shadow-md'
                         : 'bg-[#181c25] hover:bg-[#0066ff] text-slate-200 hover:text-white border border-[#262c3a] hover:border-transparent'

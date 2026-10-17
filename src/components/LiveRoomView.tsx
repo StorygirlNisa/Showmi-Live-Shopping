@@ -171,28 +171,29 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     <div className="min-h-[calc(100vh-4rem)] bg-[#0c0e12] flex flex-col justify-between relative overflow-hidden pb-16 md:pb-6">
       
       {/* Top Floating Control Bar */}
-      <div className="z-30 px-3 sm:px-6 py-3 max-w-7xl w-full mx-auto flex items-center justify-between gap-3">
+      <div className="z-30 px-2 sm:px-6 py-2.5 max-w-7xl w-full mx-auto flex items-center justify-between gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
         
         {/* Back and Seller Lockup */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <button
             onClick={onBack}
-            className="w-9 h-9 rounded-full bg-black/60 backdrop-blur-md text-white hover:bg-black/90 flex items-center justify-center border border-white/10 transition-colors cursor-pointer"
+            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-black/60 backdrop-blur-md text-white hover:bg-black/90 flex items-center justify-center border border-white/10 transition-colors cursor-pointer shrink-0 min-h-[36px]"
+            title="Leave Live Room"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
 
           <div 
             onClick={() => seller && onViewSeller(seller.id)}
-            className="flex items-center gap-2.5 bg-black/60 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-white/10 cursor-pointer hover:border-[#0066ff]/60 transition-colors"
+            className="flex items-center gap-2 bg-black/60 backdrop-blur-md px-2.5 py-1.5 rounded-full border border-white/10 cursor-pointer hover:border-[#0066ff]/60 transition-colors max-w-[150px] xs:max-w-[200px] sm:max-w-[240px]"
           >
             <img
               src={session.sellerAvatar}
               alt={session.sellerName}
               referrerPolicy="no-referrer"
-              className="w-7 h-7 rounded-full object-cover border border-[#0066ff]"
+              className="w-7 h-7 rounded-full object-cover border border-[#0066ff] shrink-0"
             />
-            <div className="max-w-[130px] sm:max-w-[180px]">
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-bold text-white truncate leading-tight">
                 {session.sellerName}
               </p>
@@ -201,7 +202,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               </p>
             </div>
             {seller && (
-              <span className="text-[11px] text-[#0066ff] font-bold px-2 py-0.5 rounded-full bg-[#0066ff]/20 hidden sm:inline">
+              <span className="text-[11px] text-[#0066ff] font-bold px-1.5 py-0.2 rounded-full bg-[#0066ff]/20 hidden sm:inline shrink-0">
                 Store
               </span>
             )}
@@ -209,20 +210,20 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         </div>
 
         {/* Live Status & Controls */}
-        <div className="flex items-center gap-2">
-          <div className="bg-red-600 text-white text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md flex items-center gap-1.5 shadow-md">
+        <div className="flex items-center gap-1.5 sm:gap-2 shrink-0 ml-auto">
+          <div className="bg-red-600 text-white text-[11px] font-bold uppercase tracking-wider px-2 sm:px-2.5 py-1 rounded-md flex items-center gap-1.5 shadow-md shrink-0">
             <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
             LIVE
           </div>
 
-          <div className="bg-black/60 backdrop-blur-md text-white text-xs px-2.5 py-1 rounded-md border border-white/10 flex items-center gap-1.5 font-mono">
+          <div className="bg-black/60 backdrop-blur-md text-white text-xs px-2 sm:px-2.5 py-1 rounded-md border border-white/10 flex items-center gap-1.5 font-mono shrink-0">
             <Users className="w-3.5 h-3.5 text-blue-400" />
             <span>{viewerCount.toLocaleString()}</span>
           </div>
 
           <button
             onClick={() => setIsMuted(!isMuted)}
-            className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-md text-white hover:bg-black/80 flex items-center justify-center border border-white/10 transition-colors cursor-pointer"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/60 backdrop-blur-md text-white hover:bg-black/80 flex items-center justify-center border border-white/10 transition-colors cursor-pointer shrink-0"
             title={isMuted ? 'Unmute stream' : 'Mute stream'}
           >
             {isMuted ? <VolumeX className="w-4 h-4 text-slate-300" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
@@ -230,7 +231,8 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 
           <button
             onClick={handleShare}
-            className="w-8 h-8 rounded-full bg-black/60 backdrop-blur-md text-white hover:bg-black/80 flex items-center justify-center border border-white/10 transition-colors cursor-pointer"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-black/60 backdrop-blur-md text-white hover:bg-black/80 flex items-center justify-center border border-white/10 transition-colors cursor-pointer shrink-0"
+            title="Share live stream link"
           >
             <Share2 className="w-4 h-4" />
           </button>
@@ -238,7 +240,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           {onOpenHostMode && (
             <button
               onClick={() => onOpenHostMode(session.id)}
-              className="px-2.5 py-1 rounded-md bg-[#161b26] hover:bg-[#1f2737] border border-[#2e374d] text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-2.5 py-1 rounded-md bg-[#161b26] hover:bg-[#1f2737] border border-[#2e374d] text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 min-h-[36px]"
               title="Host only: Open private seller control panel & AI sales coach"
             >
               <Radio className="w-3.5 h-3.5" />
@@ -365,12 +367,12 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                       }
                     }}
                     disabled={featuredProduct.stock <= 0}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                    className={`min-h-[44px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
                       featuredProduct.stock <= 0
                         ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
                         : addedProductId === featuredProduct.id
                         ? 'bg-emerald-600 text-white cursor-pointer'
-                        : 'bg-[#1e2330] hover:bg-[#283042] text-white border border-[#2e3648] cursor-pointer'
+                        : 'bg-[#1e2330] hover:bg-[#283042] text-white border border-[#2e3648] cursor-pointer active:scale-95'
                     }`}
                   >
                     {featuredProduct.stock <= 0 ? (
@@ -395,7 +397,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                       }
                     }}
                     disabled={featuredProduct.stock <= 0}
-                    className={`py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-transform ${
+                    className={`min-h-[44px] py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1 transition-transform ${
                       featuredProduct.stock <= 0
                         ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
                         : 'bg-[#0066ff] hover:bg-[#0052cc] text-white shadow-md shadow-[#0066ff]/30 cursor-pointer active:scale-95'
@@ -411,7 +413,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           {/* Right Floating Heart Reaction Button */}
           <button
             onClick={handleHeartClick}
-            className="absolute bottom-4 right-4 z-30 w-12 h-12 rounded-full bg-red-600/90 hover:bg-red-600 text-white flex flex-col items-center justify-center shadow-xl shadow-red-600/30 active:scale-90 transition-transform cursor-pointer"
+            className="absolute bottom-4 right-4 z-30 w-12 h-12 min-h-[48px] min-w-[48px] rounded-full bg-red-600/90 hover:bg-red-600 text-white flex flex-col items-center justify-center shadow-xl shadow-red-600/30 active:scale-90 transition-transform cursor-pointer"
             title="Send love to host"
           >
             <Heart className="w-5 h-5 fill-white" />
@@ -524,18 +526,19 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
       </div>
 
       {/* Mobile Bottom Chat Input Bar */}
-      <div className="lg:hidden px-3 pt-2">
+      <div className="lg:hidden px-3 pt-2 pb-1">
         <form onSubmit={handleSendComment} className="flex items-center gap-2">
           <input
             type="text"
             placeholder="Comment in live room..."
             value={commentInput}
             onChange={(e) => setCommentInput(e.target.value)}
-            className="flex-1 bg-[#14171f] border border-[#212633] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#0066ff]"
+            className="flex-1 min-h-[44px] bg-[#14171f] border border-[#212633] rounded-xl px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#0066ff]"
           />
           <button
             type="submit"
-            className="w-9 h-9 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white flex items-center justify-center shrink-0 cursor-pointer"
+            className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white flex items-center justify-center shrink-0 cursor-pointer active:scale-95 transition-transform"
+            title="Send comment"
           >
             <Send className="w-4 h-4" />
           </button>

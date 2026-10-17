@@ -417,10 +417,10 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
       </div>
 
       {/* Main 3 Functional Tabs */}
-      <div className="flex items-center gap-2 border-b border-[#212633] pb-2 overflow-x-auto scrollbar-none">
+      <div className="flex items-center gap-2 border-b border-[#212633] pb-2 overflow-x-auto scrollbar-none touch-pan-x -mx-4 px-4 sm:mx-0 sm:px-0">
         <button
           onClick={() => setActiveTab('prep')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-2 ${
+          className={`min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-2 active:scale-95 ${
             activeTab === 'prep'
               ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
               : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
@@ -432,7 +432,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
 
         <button
           onClick={() => setActiveTab('copy')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-2 ${
+          className={`min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-2 active:scale-95 ${
             activeTab === 'copy'
               ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
               : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
@@ -444,7 +444,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
 
         <button
           onClick={() => setActiveTab('snippet')}
-          className={`px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-2 ${
+          className={`min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-2 active:scale-95 ${
             activeTab === 'snippet'
               ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
               : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'

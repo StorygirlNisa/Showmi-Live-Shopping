@@ -11,24 +11,25 @@ export const SetupInfoModal: React.FC<SetupInfoModalProps> = ({ isOpen, onClose,
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-[#14171f] border border-[#212633] rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 space-y-6 shadow-2xl relative">
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
+      <div className="bg-[#14171f] border border-[#212633] rounded-3xl max-w-2xl w-full max-h-[92vh] overflow-y-auto p-4 sm:p-8 space-y-6 shadow-2xl relative">
         
-        <div className="flex items-center justify-between pb-4 border-b border-[#212633]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-lg bg-[#0066ff] flex items-center justify-center font-bold text-white text-sm">
+        <div className="flex items-center justify-between pb-4 border-b border-[#212633] gap-2">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-[#0066ff] flex items-center justify-center font-bold text-white text-sm shrink-0">
               S
             </div>
-            <div>
-              <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-lg font-bold text-white tracking-tight truncate sm:whitespace-normal">
                 Showmi Architecture & Free Setup Guide
               </h2>
-              <p className="text-xs text-slate-400">Plain English overview for non-technical founders</p>
+              <p className="text-[11px] sm:text-xs text-slate-400 truncate sm:whitespace-normal">Plain English overview for non-technical founders</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="w-8 h-8 rounded-full bg-[#1e2330] hover:bg-[#283042] text-slate-300 flex items-center justify-center cursor-pointer transition-colors"
+            className="w-9 h-9 min-h-[36px] min-w-[36px] rounded-full bg-[#1e2330] hover:bg-[#283042] text-slate-300 flex items-center justify-center cursor-pointer transition-colors shrink-0"
+            title="Close modal"
           >
             <X className="w-4 h-4" />
           </button>

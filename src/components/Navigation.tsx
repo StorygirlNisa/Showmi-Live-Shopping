@@ -91,11 +91,20 @@ export const Navigation: React.FC<NavigationProps> = ({
             </button>
           </nav>
 
-          {/* Zone 3: Primary Action / Basket */}
-          <div className="flex items-center gap-3 shrink-0">
+          {/* Zone 3: Primary Action / Basket & Mobile Info */}
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Mobile Setup & Info button */}
+            <button
+              onClick={onOpenInfoModal}
+              className="md:hidden p-2 rounded-lg text-slate-400 hover:text-white bg-[#181c25] border border-[#262c3a] min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer transition-colors"
+              title="Showmi Info & Architecture"
+            >
+              <ShieldCheck className="w-4 h-4 text-[#0066ff]" />
+            </button>
+
             <button
               onClick={() => setActiveTab('basket')}
-              className={`flex items-center gap-2.5 px-4 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all cursor-pointer ${
+              className={`flex items-center gap-2 sm:gap-2.5 px-3 sm:px-4 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all cursor-pointer min-h-[40px] ${
                 totalItemCount > 0
                   ? 'bg-[#0066ff] text-white hover:bg-[#0052cc] shadow-md shadow-[#0066ff]/25'
                   : 'bg-[#181c25] text-slate-200 hover:bg-[#202532] border border-[#262c3a]'
@@ -119,21 +128,21 @@ export const Navigation: React.FC<NavigationProps> = ({
       </header>
 
       {/* Mobile-First Fixed Bottom Navigation Bar (Thumb-Zone Ergonomics) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0e1117]/95 backdrop-blur-md border-t border-[#212633] px-2 py-1.5">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0e1117]/95 backdrop-blur-md border-t border-[#212633] px-1 py-1 safe-area-bottom">
         <div className="grid grid-cols-5 items-center h-14">
           <button
             onClick={() => setActiveTab('discover')}
-            className={`flex flex-col items-center justify-center h-full cursor-pointer transition-colors ${
+            className={`flex flex-col items-center justify-center h-full min-h-[44px] cursor-pointer transition-colors active:scale-95 ${
               activeTab === 'discover' ? 'text-[#0066ff]' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             <Compass className="w-5 h-5" />
-            <span className="text-[9px] font-medium tracking-tight mt-1">Discover</span>
+            <span className="text-[10px] font-medium tracking-tight mt-1">Discover</span>
           </button>
 
           <button
             onClick={() => setActiveTab('live')}
-            className={`flex flex-col items-center justify-center h-full cursor-pointer relative transition-colors ${
+            className={`flex flex-col items-center justify-center h-full min-h-[44px] cursor-pointer relative transition-colors active:scale-95 ${
               activeTab === 'live' ? 'text-[#0066ff]' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -144,32 +153,32 @@ export const Navigation: React.FC<NavigationProps> = ({
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
               </span>
             </div>
-            <span className="text-[9px] font-medium tracking-tight mt-1">Live Now</span>
+            <span className="text-[10px] font-medium tracking-tight mt-1">Live Now</span>
           </button>
 
           <button
             onClick={() => setActiveTab('sellers')}
-            className={`flex flex-col items-center justify-center h-full cursor-pointer transition-colors ${
+            className={`flex flex-col items-center justify-center h-full min-h-[44px] cursor-pointer transition-colors active:scale-95 ${
               activeTab === 'sellers' ? 'text-[#0066ff]' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             <Store className="w-5 h-5" />
-            <span className="text-[9px] font-medium tracking-tight mt-1">Makers</span>
+            <span className="text-[10px] font-medium tracking-tight mt-1">Makers</span>
           </button>
 
           <button
             onClick={() => setActiveTab('studio')}
-            className={`flex flex-col items-center justify-center h-full cursor-pointer transition-colors ${
+            className={`flex flex-col items-center justify-center h-full min-h-[44px] cursor-pointer transition-colors active:scale-95 ${
               activeTab === 'studio' ? 'text-[#0066ff]' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
             <Sparkles className="w-5 h-5" />
-            <span className="text-[9px] font-medium tracking-tight mt-1">AI Studio</span>
+            <span className="text-[10px] font-medium tracking-tight mt-1">AI Studio</span>
           </button>
 
           <button
             onClick={() => setActiveTab('basket')}
-            className={`flex flex-col items-center justify-center h-full cursor-pointer relative transition-colors ${
+            className={`flex flex-col items-center justify-center h-full min-h-[44px] cursor-pointer relative transition-colors active:scale-95 ${
               activeTab === 'basket' ? 'text-[#0066ff]' : 'text-slate-400 hover:text-slate-200'
             }`}
           >
@@ -181,7 +190,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                 </span>
               )}
             </div>
-            <span className="text-[9px] font-medium tracking-tight mt-1">Basket</span>
+            <span className="text-[10px] font-medium tracking-tight mt-1">Basket</span>
           </button>
         </div>
       </nav>

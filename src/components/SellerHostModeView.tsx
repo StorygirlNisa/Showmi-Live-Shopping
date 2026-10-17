@@ -440,11 +440,12 @@ export const SellerHostModeView: React.FC<SellerHostModeViewProps> = ({
                 placeholder="Reply to chat as host..."
                 value={hostReplyText}
                 onChange={e => setHostReplyText(e.target.value)}
-                className="flex-1 bg-[#0c0e12] border border-[#262c3a] rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#0066ff]"
+                className="flex-1 min-h-[44px] bg-[#0c0e12] border border-[#262c3a] rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#0066ff]"
               />
               <button
                 type="submit"
-                className="px-3 py-1.5 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs font-bold cursor-pointer shrink-0"
+                className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs font-bold flex items-center justify-center cursor-pointer shrink-0 active:scale-95"
+                title="Send reply"
               >
                 <Send className="w-3.5 h-3.5" />
               </button>
@@ -623,11 +624,11 @@ export const SellerHostModeView: React.FC<SellerHostModeViewProps> = ({
             <div className="pt-3 border-t border-white/10 flex flex-wrap items-center justify-between gap-2">
               
               {/* Left Action Buttons: Dismiss & Pause */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 {currentPrompt && (
                   <button
                     onClick={() => handleDismissPrompt(currentPrompt.id)}
-                    className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="min-h-[44px] px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer active:scale-95"
                     title="Dismiss this prompt from queue"
                   >
                     <X className="w-3.5 h-3.5" />
@@ -637,7 +638,7 @@ export const SellerHostModeView: React.FC<SellerHostModeViewProps> = ({
 
                 <button
                   onClick={handleTogglePause}
-                  className={`px-3 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer ${
+                  className={`min-h-[44px] px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer active:scale-95 ${
                     isQueuePaused
                       ? 'bg-emerald-600 hover:bg-emerald-500 text-white'
                       : 'bg-slate-800 hover:bg-slate-700 text-slate-300'
@@ -659,21 +660,21 @@ export const SellerHostModeView: React.FC<SellerHostModeViewProps> = ({
               </div>
 
               {/* Right Action: Next Prompt */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap ml-auto">
                 {dismissedPrompts.length > 0 && (
                   <button
                     onClick={handleReopenDismissed}
-                    className="px-3 py-2 rounded-xl bg-[#1e2433] hover:bg-[#283042] text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer"
+                    className="min-h-[44px] px-3.5 py-2 rounded-xl bg-[#1e2433] hover:bg-[#283042] text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer active:scale-95"
                   >
                     <RotateCcw className="w-3.5 h-3.5 text-blue-400" />
-                    <span>Reopen Dismissed ({dismissedPrompts.length})</span>
+                    <span>Reopen ({dismissedPrompts.length})</span>
                   </button>
                 )}
 
                 <button
                   onClick={handleNextPrompt}
                   disabled={activeQueue.length <= 1}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
+                  className={`min-h-[44px] px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${
                     activeQueue.length <= 1
                       ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
                       : 'bg-[#0066ff] hover:bg-[#0052cc] text-white shadow-lg shadow-[#0066ff]/30 cursor-pointer active:scale-95'

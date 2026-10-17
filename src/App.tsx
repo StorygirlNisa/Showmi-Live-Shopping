@@ -15,6 +15,7 @@ import { LiveStreamsListView } from './components/LiveStreamsListView';
 import { SellerDashboardView } from './components/SellerDashboardView';
 import { SetupInfoModal } from './components/SetupInfoModal';
 import { SellerHostModeView } from './components/SellerHostModeView';
+import { ResponsivePreviewToolbar, ViewportMode } from './components/ResponsivePreviewToolbar';
 
 import { PRODUCTS, SELLERS, LIVE_SESSIONS, INITIAL_PROMOTIONS } from './data/mockData';
 import { Product, CartItem, StreamSnippet, LivePromotion } from './types';
@@ -83,6 +84,10 @@ export default function App() {
 
   // Host Mode toggle: controls private host mode during live stream
   const [isSellerHostMode, setIsSellerHostMode] = useState<boolean>(false);
+
+  // Development-only responsive layout preview mode
+  const [viewportMode, setViewportMode] = useState<ViewportMode>('responsive');
+  const [isLandscape, setIsLandscape] = useState<boolean>(false);
 
   // Sync products to localStorage
   useEffect(() => {
@@ -336,8 +341,23 @@ export default function App() {
     ? LIVE_SESSIONS.find(s => s.id === activeLiveSessionId) 
     : null;
 
-  return (
-    <div className="min-h-screen bg-[#0c0e12] text-slate-100 flex flex-col selection:bg-[#0066ff] selection:text-white">
+  const getViewportWidthStyle = () => {
+    switch (viewportMode) {
+      case 'mobile-sm':
+        return isLandscape ? 'w-[667px]' : 'w-[375px]';
+      case 'mobile-md':
+        return isLandscape ? 'w-[844px]' : 'w-[390px]';
+      case 'tablet':
+        return isLandscape ? 'w-[1024px]' : 'w-[768px]';
+      case 'desktop':
+        return 'w-[1200px]';
+      default:
+        return 'w-full';
+    }
+  };
+
+  const appContent = (
+    <div className={`min-h-screen bg-[#0c0e12] text-slate-100 flex flex-col selection:bg-[#0066ff] selection:text-white ${viewportMode !== 'responsive' ? 'relative overflow-hidden' : ''}`}>
       
       {/* Toast Notification */}
       {notification && (
@@ -487,6 +507,39 @@ export default function App() {
         onResetDemoData={handleResetDemoData}
       />
 
+      {/* Development-only Responsive Preview Option Toolbar */}
+      <ResponsivePreviewToolbar
+        currentMode={viewportMode}
+        onModeChange={setViewportMode}
+        isLandscape={isLandscape}
+        onToggleOrientation={() => setIsLandscape(prev => !prev)}
+      />
+
     </div>
   );
+
+  if (viewportMode !== 'responsive') {
+    return (
+      <div className="min-h-screen bg-[#07090d] py-6 px-3 flex flex-col items-center justify-start overflow-x-auto">
+        <div className="mb-4 px-4 py-2 rounded-full bg-[#14171f] border border-[#212633] text-xs font-mono text-slate-300 flex items-center gap-3 shadow-xl">
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span>
+            Simulating Viewport: <strong className="text-white">{viewportMode}</strong> ({isLandscape ? 'Landscape' : 'Portrait'})
+          </span>
+          <button
+            onClick={() => setViewportMode('responsive')}
+            className="text-[#0066ff] hover:text-[#3385ff] underline font-bold cursor-pointer ml-1"
+          >
+            ✕ Full Screen Fluid
+          </button>
+        </div>
+
+        <div className={`${getViewportWidthStyle()} transition-all duration-300 rounded-[2.5rem] border-8 border-[#212633] shadow-2xl overflow-y-auto bg-[#0c0e12] max-h-[92vh] min-h-[640px] relative`}>
+          {appContent}
+        </div>
+      </div>
+    );
+  }
+
+  return appContent;
 }

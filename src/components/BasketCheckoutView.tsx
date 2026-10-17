@@ -378,28 +378,30 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
                     </div>
 
                     {/* Quantity controls */}
-                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-3">
+                    <div className="flex flex-col sm:flex-row items-end sm:items-center gap-2 sm:gap-3">
                       <div className="flex items-center bg-[#0c0e12] border border-[#212633] rounded-lg overflow-hidden">
                         <button
                           onClick={() => onUpdateQuantity(item.product.id, Math.max(1, item.quantity - 1))}
-                          className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer"
+                          className="w-9 h-9 min-h-[38px] min-w-[38px] flex items-center justify-center text-slate-300 hover:text-white hover:bg-[#181c25] transition-colors cursor-pointer active:scale-95 text-base font-bold"
+                          title="Decrease quantity"
                         >
-                          <Minus className="w-3 h-3" />
+                          <Minus className="w-3.5 h-3.5" />
                         </button>
-                        <span className="w-8 text-center text-xs font-mono font-bold text-white">
+                        <span className="w-9 text-center text-xs font-mono font-bold text-white">
                           {item.quantity}
                         </span>
                         <button
                           onClick={() => onUpdateQuantity(item.product.id, Math.min(item.product.stock, item.quantity + 1))}
-                          className="w-7 h-7 flex items-center justify-center text-slate-400 hover:text-white transition-colors cursor-pointer"
+                          className="w-9 h-9 min-h-[38px] min-w-[38px] flex items-center justify-center text-slate-300 hover:text-white hover:bg-[#181c25] transition-colors cursor-pointer active:scale-95 text-base font-bold"
+                          title="Increase quantity"
                         >
-                          <Plus className="w-3 h-3" />
+                          <Plus className="w-3.5 h-3.5" />
                         </button>
                       </div>
 
                       <button
                         onClick={() => onRemoveItem(item.product.id)}
-                        className="p-1.5 text-slate-500 hover:text-red-400 transition-colors cursor-pointer"
+                        className="p-2 min-h-[38px] min-w-[38px] text-slate-400 hover:text-red-400 transition-colors cursor-pointer flex items-center justify-center rounded-lg hover:bg-[#181c25]"
                         title="Remove item"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -438,7 +440,7 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
                       name="fullName"
                       value={formData.fullName}
                       onChange={handleInputChange}
-                      className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#0066ff]"
+                      className="w-full min-h-[44px] bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#0066ff]"
                       required
                     />
                   </div>
@@ -451,7 +453,7 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
                       value={formData.phone}
                       onChange={handleInputChange}
                       placeholder="+27 82 123 4567"
-                      className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#0066ff]"
+                      className="w-full min-h-[44px] bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#0066ff]"
                       required
                     />
                   </div>
@@ -464,7 +466,7 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
                       value={formData.address}
                       onChange={handleInputChange}
                       placeholder="e.g. 14 Kloof Nek Road, Gardens"
-                      className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#0066ff]"
+                      className="w-full min-h-[44px] bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#0066ff]"
                       required
                     />
                   </div>
@@ -476,7 +478,7 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
                       name="city"
                       value={formData.city}
                       onChange={handleInputChange}
-                      className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#0066ff]"
+                      className="w-full min-h-[44px] bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#0066ff]"
                       required
                     />
                   </div>
@@ -487,7 +489,7 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
                       name="province"
                       value={formData.province}
                       onChange={handleInputChange}
-                      className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#0066ff]"
+                      className="w-full min-h-[44px] bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#0066ff]"
                     >
                       {SA_PROVINCES.map((prov) => (
                         <option key={prov} value={prov}>{prov}</option>
@@ -503,19 +505,19 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
                       value={formData.postalCode}
                       onChange={handleInputChange}
                       placeholder="8001"
-                      className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#0066ff]"
+                      className="w-full min-h-[44px] bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#0066ff]"
                       required
                     />
                   </div>
 
-                  <div className="space-y-1">
+                  <div className="space-y-1 sm:col-span-2">
                     <label className="text-slate-400">Email for Courier Tracking</label>
                     <input
                       type="email"
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#0066ff]"
+                      className="w-full min-h-[44px] bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#0066ff]"
                       required
                     />
                   </div>

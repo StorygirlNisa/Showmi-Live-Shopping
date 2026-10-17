@@ -107,12 +107,12 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
 
           {/* Thumbnail gallery if multiple images */}
           {product.images.length > 1 && (
-            <div className="flex items-center gap-3 overflow-x-auto pb-1">
+            <div className="flex items-center gap-3 overflow-x-auto pb-1 scrollbar-none touch-pan-x -mx-2 px-2 sm:mx-0 sm:px-0">
               {product.images.map((img, idx) => (
                 <button
                   key={idx}
                   onClick={() => setSelectedImageIndex(idx)}
-                  className={`w-20 h-20 rounded-xl overflow-hidden border-2 transition-all cursor-pointer shrink-0 ${
+                  className={`w-18 h-18 sm:w-20 sm:h-20 rounded-xl overflow-hidden border-2 transition-all cursor-pointer shrink-0 active:scale-95 ${
                     selectedImageIndex === idx
                       ? 'border-[#0066ff] scale-102'
                       : 'border-[#212633] opacity-70 hover:opacity-100'
@@ -272,7 +272,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   disabled={product.stock <= 0}
-                  className="w-9 h-9 flex items-center justify-center text-slate-300 hover:text-white hover:bg-[#181c25] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer text-sm font-bold"
+                  className="w-11 h-11 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-300 hover:text-white hover:bg-[#181c25] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer text-base font-bold active:scale-95"
                 >
                   -
                 </button>
@@ -282,7 +282,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
                 <button
                   onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
                   disabled={product.stock <= 0 || quantity >= product.stock}
-                  className="w-9 h-9 flex items-center justify-center text-slate-300 hover:text-white hover:bg-[#181c25] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer text-sm font-bold"
+                  className="w-11 h-11 min-h-[44px] min-w-[44px] flex items-center justify-center text-slate-300 hover:text-white hover:bg-[#181c25] disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer text-base font-bold active:scale-95"
                 >
                   +
                 </button>
@@ -294,12 +294,12 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
               <button
                 onClick={handleAdd}
                 disabled={product.stock <= 0}
-                className={`w-full py-3.5 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-lg ${
+                className={`w-full min-h-[44px] py-3.5 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-lg ${
                   product.stock <= 0
                     ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
                     : isAddedSuccess
                     ? 'bg-emerald-600 text-white cursor-pointer'
-                    : 'bg-[#181c25] hover:bg-[#202532] text-white border border-[#2e3648] cursor-pointer'
+                    : 'bg-[#181c25] hover:bg-[#202532] text-white border border-[#2e3648] cursor-pointer active:scale-98'
                 }`}
               >
                 {product.stock <= 0 ? (
@@ -320,7 +320,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
               <button
                 onClick={() => onBuyNow(product, quantity)}
                 disabled={product.stock <= 0}
-                className={`w-full py-3.5 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-lg ${
+                className={`w-full min-h-[44px] py-3.5 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all shadow-lg ${
                   product.stock <= 0
                     ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
                     : 'bg-[#0066ff] hover:bg-[#0052cc] text-white shadow-[#0066ff]/25 active:scale-[0.99] cursor-pointer'
@@ -362,7 +362,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
 
       {/* Mobile Sticky Bottom Purchase Bar (Thumb-Zone Ergonomics) */}
       <div className="md:hidden fixed bottom-14 left-0 right-0 z-30 p-3 bg-[#0c0e12]/95 backdrop-blur-md border-t border-[#212633] flex items-center gap-3">
-        <div className="min-w-[90px]">
+        <div className="min-w-[85px] shrink-0">
           <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Price</span>
           <span className="text-base font-bold font-mono text-white">
             R {(product.priceZAR * quantity).toLocaleString()}
@@ -371,17 +371,38 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
 
         <button
           onClick={handleAdd}
-          className="flex-1 py-2.5 px-3 rounded-xl text-xs font-bold bg-[#181c25] text-white border border-[#2e3648] flex items-center justify-center gap-1.5 active:scale-95 transition-transform"
+          disabled={product.stock <= 0}
+          className={`flex-1 min-h-[44px] py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-transform ${
+            product.stock <= 0
+              ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+              : 'bg-[#181c25] text-white border border-[#2e3648] active:scale-95'
+          }`}
         >
-          {isAddedSuccess ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <ShoppingBag className="w-3.5 h-3.5 text-[#0066ff]" />}
-          <span>{isAddedSuccess ? 'Added' : 'Basket'}</span>
+          {product.stock <= 0 ? (
+            'Sold Out'
+          ) : isAddedSuccess ? (
+            <>
+              <Check className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Added</span>
+            </>
+          ) : (
+            <>
+              <ShoppingBag className="w-3.5 h-3.5 text-[#0066ff]" />
+              <span>Basket</span>
+            </>
+          )}
         </button>
 
         <button
           onClick={() => onBuyNow(product, quantity)}
-          className="flex-1 py-2.5 px-3 rounded-xl text-xs font-bold bg-[#0066ff] text-white flex items-center justify-center gap-1 shadow-md shadow-[#0066ff]/25 active:scale-95 transition-transform"
+          disabled={product.stock <= 0}
+          className={`flex-1 min-h-[44px] py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1 shadow-md transition-transform ${
+            product.stock <= 0
+              ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+              : 'bg-[#0066ff] text-white shadow-[#0066ff]/25 active:scale-95'
+          }`}
         >
-          <span>Buy Now</span>
+          <span>{product.stock <= 0 ? 'Unavailable' : 'Buy Now'}</span>
         </button>
       </div>
 

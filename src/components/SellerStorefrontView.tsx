@@ -165,11 +165,11 @@ export const SellerStorefrontView: React.FC<SellerStorefrontViewProps> = ({
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
+            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto flex-wrap">
               {onOpenStudio && (
                 <button
                   onClick={() => onOpenStudio(seller.id)}
-                  className="px-4 py-2.5 rounded-xl text-xs font-bold bg-[#181c25] hover:bg-[#202532] text-[#60a5fa] border border-[#0066ff]/40 transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+                  className="min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-bold bg-[#181c25] hover:bg-[#202532] text-[#60a5fa] border border-[#0066ff]/40 transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm active:scale-95"
                 >
                   <Sparkles className="w-3.5 h-3.5 text-[#0066ff]" />
                   <span>AI Selling Assistant</span>
@@ -178,7 +178,7 @@ export const SellerStorefrontView: React.FC<SellerStorefrontViewProps> = ({
 
               <button
                 onClick={toggleFollow}
-                className={`flex-1 sm:flex-none px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                className={`flex-1 sm:flex-none min-h-[44px] px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer active:scale-95 ${
                   isFollowing
                     ? 'bg-[#1e2430] text-slate-300 border border-[#2e3648]'
                     : 'bg-[#0066ff] hover:bg-[#0052cc] text-white shadow-md shadow-[#0066ff]/20'
@@ -189,7 +189,7 @@ export const SellerStorefrontView: React.FC<SellerStorefrontViewProps> = ({
 
               <button
                 onClick={() => setMessageOpen(true)}
-                className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-[#181c25] hover:bg-[#202532] text-slate-300 hover:text-white border border-[#262c3a] transition-colors cursor-pointer flex items-center gap-1.5"
+                className="min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-semibold bg-[#181c25] hover:bg-[#202532] text-slate-300 hover:text-white border border-[#262c3a] transition-colors cursor-pointer flex items-center gap-1.5 active:scale-95"
               >
                 <MessageSquare className="w-4 h-4" />
                 <span>Message</span>
@@ -360,7 +360,7 @@ export const SellerStorefrontView: React.FC<SellerStorefrontViewProps> = ({
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
           {sellerProducts.map((product) => (
             <div
               key={product.id}
@@ -410,7 +410,7 @@ export const SellerStorefrontView: React.FC<SellerStorefrontViewProps> = ({
                   <button
                     onClick={(e) => handleQuickAdd(product, e)}
                     disabled={product.stock <= 0}
-                    className={`w-full py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                    className={`w-full min-h-[44px] py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98 ${
                       product.stock <= 0
                         ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
                         : addedProductId === product.id
