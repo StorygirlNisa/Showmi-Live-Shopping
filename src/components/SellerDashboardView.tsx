@@ -734,35 +734,30 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
 
               <div className="space-y-1.5">
                 <label className="text-xs text-slate-400 font-medium">Choose from your store's inventory:</label>
-                <select
-                  value={selectedProductId}
-                  onChange={(e) => setSelectedProductId(e.target.value)}
-                  className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white focus:outline-none focus:border-[#0066ff]"
-                >
-                  {sellerProducts.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} (R {p.priceZAR.toLocaleString()} · {p.stock} in stock)
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {selectedProduct && (
-                <div className="p-3.5 rounded-xl bg-[#0c0e12] border border-[#212633] space-y-2.5 text-xs">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={selectedProduct.images[0]}
-                      alt={selectedProduct.name}
-                      className="w-14 h-14 rounded-lg object-cover border border-[#212633] shrink-0"
-                    />
-                    <div className="min-w-0">
-                      <p className="font-bold text-white truncate">{selectedProduct.name}</p>
-                      <p className="font-mono text-[#0066ff] font-bold">R {selectedProduct.priceZAR.toLocaleString()}</p>
-                      <p className="text-[11px] text-emerald-400">{selectedProduct.stock} units in stock</p>
-                    </div>
-                  </div>
+                <div className="max-h-48 overflow-y-auto space-y-2 pr-1 scrollbar-none">
+                  {sellerProducts.map((p) => {
+                    const isSelected = selectedProductId === p.id;
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => setSelectedProductId(p.id)}
+                        className={`flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer transition-all ${
+                          isSelected
+                            ? 'bg-[#0066ff]/15 border-[#0066ff] text-white'
+                            : 'bg-[#0c0e12] border-[#212633] text-slate-300 hover:border-slate-600'
+                        }`}
+                      >
+                        <img
+                          src={p.images[0]}
+                          alt={p.name}
+                          className="w-10 h-10 rounded-lg object-cover border border-[#212633] shrink-0 bg-black"
+                        />
+                        <span className="text-xs font-bold truncate flex-1">{p.name}</span>
+                      </div>
+                    );
+                  })}
                 </div>
-              )}
+              </div>
 
               <button
                 onClick={handleGeneratePrep}
@@ -804,15 +799,29 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
           <div className="lg:col-span-5 space-y-6">
             <div className="p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5">
               <h2 className="text-sm font-bold text-white">Select Product to Enhance Copy</h2>
-              <select
-                value={selectedProductId}
-                onChange={(e) => setSelectedProductId(e.target.value)}
-                className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white"
-              >
-                {sellerProducts.map((p) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+              <div className="max-h-48 overflow-y-auto space-y-2 pr-1 scrollbar-none">
+                {sellerProducts.map((p) => {
+                  const isSelected = selectedProductId === p.id;
+                  return (
+                    <div
+                      key={p.id}
+                      onClick={() => setSelectedProductId(p.id)}
+                      className={`flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer transition-all ${
+                        isSelected
+                          ? 'bg-[#0066ff]/15 border-[#0066ff] text-white'
+                          : 'bg-[#0c0e12] border-[#212633] text-slate-300 hover:border-slate-600'
+                      }`}
+                    >
+                      <img
+                        src={p.images[0]}
+                        alt={p.name}
+                        className="w-10 h-10 rounded-lg object-cover border border-[#212633] shrink-0 bg-black"
+                      />
+                      <span className="text-xs font-bold truncate flex-1">{p.name}</span>
+                    </div>
+                  );
+                })}
+              </div>
               <button
                 onClick={handleGenerateCopy}
                 disabled={isGenerating || !selectedProduct}
