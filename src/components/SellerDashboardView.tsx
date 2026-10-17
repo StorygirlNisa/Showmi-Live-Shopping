@@ -672,105 +672,103 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
       </div>
 
       {/* Main 4 Functional Tabs */}
-      <div className="flex flex-row items-center gap-2 border-b border-[#212633] pb-2 overflow-x-auto scrollbar-none touch-pan-x -mx-4 px-4 sm:mx-0 sm:px-0 w-full min-w-0">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pb-2 -mx-2 sm:mx-0 px-2 sm:px-0 w-full min-w-0">
         <button
           onClick={() => setActiveTab('prep')}
-          className={`min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-2 active:scale-95 ${
+          className={`min-h-[44px] px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
             activeTab === 'prep'
               ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
               : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
           }`}
         >
           <Radio className="w-3.5 h-3.5" />
-          <span>A. Livestream Prep</span>
+          <span>Prep</span>
         </button>
 
         <button
           onClick={() => setActiveTab('copy')}
-          className={`min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-2 active:scale-95 ${
+          className={`min-h-[44px] px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
             activeTab === 'copy'
               ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
               : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
           }`}
         >
           <FileText className="w-3.5 h-3.5" />
-          <span>B. Descriptions & Captions</span>
+          <span>Copy</span>
         </button>
 
         <button
           onClick={() => setActiveTab('snippet')}
-          className={`min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-2 active:scale-95 ${
+          className={`min-h-[44px] px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
             activeTab === 'snippet'
               ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
               : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
           }`}
         >
           <Film className="w-3.5 h-3.5" />
-          <span>C. Snippets & Archive</span>
+          <span>Snippets</span>
         </button>
 
         <button
           onClick={() => setActiveTab('inventory')}
-          className={`min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-2 active:scale-95 ${
+          className={`min-h-[44px] px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
             activeTab === 'inventory'
               ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
               : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
           }`}
         >
           <Package className="w-3.5 h-3.5" />
-          <span>D. Store Inventory ({sellerProducts.length})</span>
+          <span>Inventory ({sellerProducts.length})</span>
         </button>
       </div>
 
       {/* TAB A: BEFORE GOING LIVE */}
       {activeTab === 'prep' && (
-        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 items-start w-full min-w-0">
-          <div className="lg:col-span-5 w-full min-w-0 space-y-6">
-            <div className="p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5 w-full min-w-0">
-              <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
-                <Radio className="w-4 h-4 text-red-500" />
-                Select Product for Live Broadcast
-              </h2>
+        <div className="flex flex-col w-full min-w-0 gap-6">
+          <div className="p-5 sm:p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5 w-full min-w-0">
+            <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+              <Radio className="w-4 h-4 text-red-500" />
+              Select Product for Live Broadcast
+            </h2>
 
-              <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-medium">Choose from your store's inventory:</label>
-                <div className="max-h-48 overflow-y-auto space-y-2 pr-1 scrollbar-none">
-                  {sellerProducts.map((p) => {
-                    const isSelected = selectedProductId === p.id;
-                    return (
-                      <div
-                        key={p.id}
-                        onClick={() => setSelectedProductId(p.id)}
-                        className={`flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer transition-all ${
-                          isSelected
-                            ? 'bg-[#0066ff]/15 border-[#0066ff] text-white'
-                            : 'bg-[#0c0e12] border-[#212633] text-slate-300 hover:border-slate-600'
-                        }`}
-                      >
-                        <img
-                          src={p.images[0]}
-                          alt={p.name}
-                          className="w-10 h-10 rounded-lg object-cover border border-[#212633] shrink-0 bg-black"
-                        />
-                        <span className="text-xs font-bold truncate flex-1">{p.name}</span>
-                      </div>
-                    );
-                  })}
-                </div>
+            <div className="space-y-1.5 w-full min-w-0">
+              <label className="text-xs text-slate-400 font-medium">Choose from your store's inventory:</label>
+              <div className="max-h-48 overflow-y-auto space-y-2 pr-1 scrollbar-none w-full">
+                {sellerProducts.map((p) => {
+                  const isSelected = selectedProductId === p.id;
+                  return (
+                    <div
+                      key={p.id}
+                      onClick={() => setSelectedProductId(p.id)}
+                      className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all w-full min-w-0 ${
+                        isSelected
+                          ? 'bg-[#0066ff]/15 border-[#0066ff] text-white'
+                          : 'bg-[#0c0e12] border-[#212633] text-slate-300 hover:border-slate-600'
+                      }`}
+                    >
+                      <img
+                        src={p.images[0]}
+                        alt={p.name}
+                        className="w-10 h-10 rounded-lg object-cover border border-[#212633] shrink-0 bg-black"
+                      />
+                      <span className="text-xs font-bold truncate flex-1">{p.name}</span>
+                    </div>
+                  );
+                })}
               </div>
-
-              <button
-                onClick={handleGeneratePrep}
-                disabled={isGenerating || !selectedProduct}
-                className="w-full py-3.5 px-4 rounded-xl text-xs font-bold bg-[#0066ff] hover:bg-[#0052cc] text-white flex items-center justify-center gap-2 shadow-lg cursor-pointer disabled:opacity-50"
-              >
-                {isGenerating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                <span>Generate Livestream Prep Pack</span>
-              </button>
             </div>
+
+            <button
+              onClick={handleGeneratePrep}
+              disabled={isGenerating || !selectedProduct}
+              className="w-full py-3.5 px-4 rounded-xl text-xs font-bold bg-[#0066ff] hover:bg-[#0052cc] text-white flex items-center justify-center gap-2 shadow-lg cursor-pointer disabled:opacity-50"
+            >
+              {isGenerating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              <span>Generate Livestream Prep Pack</span>
+            </button>
           </div>
 
-          <div className="lg:col-span-7 w-full min-w-0 space-y-6">
+          <div className="w-full min-w-0 space-y-6">
             {prepResults.openingHook ? (
               <div className="space-y-5 w-full min-w-0">
                 <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-2 w-full min-w-0">
@@ -795,50 +793,48 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
 
       {/* TAB B: DESCRIPTIONS & CAPTIONS */}
       {activeTab === 'copy' && (
-        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 items-start w-full min-w-0">
-          <div className="lg:col-span-5 w-full min-w-0 space-y-6">
-            <div className="p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5 w-full min-w-0">
-              <h2 className="text-sm font-bold text-white">Select Product to Enhance Copy</h2>
-              <div className="max-h-48 overflow-y-auto space-y-2 pr-1 scrollbar-none">
-                {sellerProducts.map((p) => {
-                  const isSelected = selectedProductId === p.id;
-                  return (
-                    <div
-                      key={p.id}
-                      onClick={() => setSelectedProductId(p.id)}
-                      className={`flex items-center gap-3 p-2.5 rounded-xl border cursor-pointer transition-all ${
-                        isSelected
-                          ? 'bg-[#0066ff]/15 border-[#0066ff] text-white'
-                          : 'bg-[#0c0e12] border-[#212633] text-slate-300 hover:border-slate-600'
-                      }`}
-                    >
-                      <img
-                        src={p.images[0]}
-                        alt={p.name}
-                        className="w-10 h-10 rounded-lg object-cover border border-[#212633] shrink-0 bg-black"
-                      />
-                      <span className="text-xs font-bold truncate flex-1">{p.name}</span>
-                    </div>
-                  );
-                })}
-              </div>
-              <button
-                onClick={handleGenerateCopy}
-                disabled={isGenerating || !selectedProduct}
-                className="w-full py-3.5 px-4 rounded-xl text-xs font-bold bg-[#0066ff] text-white flex items-center justify-center gap-2 cursor-pointer"
-              >
-                {isGenerating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                <span>Generate Description & Captions</span>
-              </button>
+        <div className="flex flex-col w-full min-w-0 gap-6">
+          <div className="p-5 sm:p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5 w-full min-w-0">
+            <h2 className="text-sm font-bold text-white">Select Product to Enhance Copy</h2>
+            <div className="max-h-48 overflow-y-auto space-y-2 pr-1 scrollbar-none w-full">
+              {sellerProducts.map((p) => {
+                const isSelected = selectedProductId === p.id;
+                return (
+                  <div
+                    key={p.id}
+                    onClick={() => setSelectedProductId(p.id)}
+                    className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all w-full min-w-0 ${
+                      isSelected
+                        ? 'bg-[#0066ff]/15 border-[#0066ff] text-white'
+                        : 'bg-[#0c0e12] border-[#212633] text-slate-300 hover:border-slate-600'
+                    }`}
+                  >
+                    <img
+                      src={p.images[0]}
+                      alt={p.name}
+                      className="w-10 h-10 rounded-lg object-cover border border-[#212633] shrink-0 bg-black"
+                    />
+                    <span className="text-xs font-bold truncate flex-1">{p.name}</span>
+                  </div>
+                );
+              })}
             </div>
+            <button
+              onClick={handleGenerateCopy}
+              disabled={isGenerating || !selectedProduct}
+              className="w-full py-3.5 px-4 rounded-xl text-xs font-bold bg-[#0066ff] hover:bg-[#0052cc] text-white flex items-center justify-center gap-2 cursor-pointer"
+            >
+              {isGenerating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+              <span>Generate Description & Captions</span>
+            </button>
           </div>
 
-          <div className="lg:col-span-7 w-full min-w-0 space-y-6">
+          <div className="w-full min-w-0 space-y-6">
             {copyResults.improvedDescription ? (
-              <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-2 w-full min-w-0">
+              <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-3 w-full min-w-0">
                 <div className="flex justify-between items-center">
                   <span className="text-xs font-bold text-[#0066ff]">Enhanced Description</span>
-                  <button onClick={handleApplyDescription} className="px-2.5 py-1 bg-emerald-700 text-white text-[11px] rounded-lg">Apply to Store</button>
+                  <button onClick={handleApplyDescription} className="px-2.5 py-1 bg-emerald-700 text-white text-[11px] rounded-lg cursor-pointer">Apply to Store</button>
                 </div>
                 <textarea
                   rows={6}
@@ -859,8 +855,38 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
       {/* TAB C: SNIPPETS & ARCHIVE */}
       {activeTab === 'snippet' && (
         <div className="space-y-6">
-          <div className="p-4 bg-[#14171f] rounded-2xl border border-[#212633]">
-            <p className="text-xs text-slate-300">Manage recorded video snippets and expiration periods here.</p>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-bold text-white">Manage Snippets</h2>
+            <div className="flex gap-2">
+              <button 
+                onClick={() => setSnippetViewMode('active')}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold ${snippetViewMode === 'active' ? 'bg-[#1e2330] text-white' : 'text-slate-400'}`}
+              >Active</button>
+              <button 
+                onClick={() => setSnippetViewMode('archive')}
+                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold ${snippetViewMode === 'archive' ? 'bg-[#1e2330] text-white' : 'text-slate-400'}`}
+              >Archive</button>
+            </div>
+          </div>
+          <div className="space-y-3">
+            {(snippetViewMode === 'active' ? activeSellerSnippets : archivedSellerSnippets).map(snippet => (
+              <div key={snippet.id} className="p-4 bg-[#14171f] rounded-2xl border border-[#212633] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <img src={snippet.thumbnail} alt={snippet.title} className="w-12 h-12 rounded-lg object-cover" />
+                  <div>
+                    <h4 className="text-xs font-bold text-white">{snippet.title}</h4>
+                    <p className="text-[10px] text-slate-400">{getTimeRemaining(snippet.expiresAt)}</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  {!snippet.isArchived && onArchiveSnippet && (
+                    <button onClick={() => onArchiveSnippet(snippet.id)} className="p-2 bg-[#1e2330] rounded-lg text-slate-300">
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       )}
