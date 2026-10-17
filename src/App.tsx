@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Navigation } from './components/Navigation';
+import { Navigation, AppTab } from './components/Navigation';
 import { DiscoverView } from './components/DiscoverView';
 import { ProductDetailView } from './components/ProductDetailView';
 import { SellerStorefrontView } from './components/SellerStorefrontView';
@@ -16,6 +16,7 @@ import { SellerDashboardView } from './components/SellerDashboardView';
 import { SetupInfoModal } from './components/SetupInfoModal';
 import { SellerHostModeView } from './components/SellerHostModeView';
 import { ResponsivePreviewToolbar, ViewportMode } from './components/ResponsivePreviewToolbar';
+import { SearchResultsView } from './components/SearchResultsView';
 
 import { PRODUCTS, SELLERS, LIVE_SESSIONS, INITIAL_PROMOTIONS } from './data/mockData';
 import { Product, CartItem, StreamSnippet, LivePromotion } from './types';
@@ -28,7 +29,8 @@ const STORAGE_KEYS = {
 };
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'discover' | 'live' | 'sellers' | 'basket' | 'studio'>('discover');
+  const [activeTab, setActiveTab] = useState<AppTab>('Discover');
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
   const [activeLiveSessionId, setActiveLiveSessionId] = useState<string | null>(null);
@@ -166,7 +168,7 @@ export default function App() {
     setSelectedProductId(null);
     setActiveLiveSessionId(null);
     setSelectedSellerId(null);
-    setActiveTab('basket');
+    setActiveTab('Basket');
   };
 
   const handleUpdateQuantity = (productId: string, quantity: number) => {
@@ -310,7 +312,8 @@ export default function App() {
     showNotification('Promotion expired! Verified promo prompt removed from coach queue');
   };
 
-  const handleTabChange = (tab: 'discover' | 'live' | 'sellers' | 'basket' | 'studio') => {
+  const handleTabChange = (tab: AppTab) => {
+    setSearchQuery('');
     setSelectedProductId(null);
     setSelectedSellerId(null);
     setActiveLiveSessionId(null);
@@ -343,6 +346,8 @@ export default function App() {
 
   const getViewportWidthStyle = () => {
     switch (viewportMode) {
+      case 'mobile-xs':
+        return isLandscape ? 'w-[568px]' : 'w-[320px]';
       case 'mobile-sm':
         return isLandscape ? 'w-[667px]' : 'w-[375px]';
       case 'mobile-md':
@@ -367,18 +372,43 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Navigation (hidden during active full live room on mobile for immersion) */}
+      {/* Main Navigation with Integrated Header Search and 4 Tabs */}
       <Navigation
         activeTab={activeTab}
         setActiveTab={handleTabChange}
         cartItems={cartItems}
         onOpenInfoModal={() => setIsSetupModalOpen(true)}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onClearSearch={() => setSearchQuery('')}
       />
 
       {/* Main Content Area */}
       <main className="flex-1">
-        {/* View 1: Active Live Shopping Room (Shopper vs Seller Host Mode) */}
-        {activeLiveSession ? (
+        {/* Dedicated Search Results View (rendered when query is non-empty to keep feed separate) */}
+        {searchQuery.trim() !== '' ? (
+          <SearchResultsView
+            query={searchQuery}
+            onClearQuery={() => setSearchQuery('')}
+            onSetQuery={(q) => setSearchQuery(q)}
+            products={productsList}
+            sellers={SELLERS}
+            liveSessions={LIVE_SESSIONS}
+            onSelectProduct={(id) => {
+              setSearchQuery('');
+              handleSelectProduct(id);
+            }}
+            onSelectSeller={(id) => {
+              setSearchQuery('');
+              handleSelectSeller(id);
+            }}
+            onOpenLiveRoom={(id) => {
+              setSearchQuery('');
+              handleOpenLiveRoom(id);
+            }}
+            onAddToCart={handleAddToCart}
+          />
+        ) : activeLiveSession ? (
           isSellerHostMode ? (
             <SellerHostModeView
               session={activeLiveSession}
@@ -438,10 +468,10 @@ export default function App() {
             onBuyNow={handleBuyNow}
             onOpenStudio={(sellerId) => {
               setSelectedSellerId(sellerId);
-              setActiveTab('studio');
+              setActiveTab('Seller Studio');
             }}
           />
-        ) : activeTab === 'studio' ? (
+        ) : activeTab === 'Seller Studio' ? (
           /* View 4: Seller Dashboard & AI Selling Assistant */
           <SellerDashboardView
             sellers={SELLERS}
@@ -450,7 +480,7 @@ export default function App() {
             promotions={promotionsList}
             currentSellerId={selectedSellerId || SELLERS[0].id}
             onSelectSeller={(id) => setSelectedSellerId(id)}
-            onBackToShopping={() => setActiveTab('discover')}
+            onBackToShopping={() => setActiveTab('Discover')}
             onUpdateProductDescription={handleUpdateProductDescription}
             onPublishSnippet={handlePublishSnippet}
             onArchiveSnippet={handleArchiveSnippet}
@@ -458,25 +488,29 @@ export default function App() {
             onRepublishSnippet={handleRepublishSnippet}
             onOpenLiveHostMode={handleOpenHostMode}
           />
-        ) : activeTab === 'basket' ? (
+        ) : activeTab === 'Basket' ? (
           /* View 5: Basket & Checkout Preview */
           <BasketCheckoutView
             cartItems={cartItems}
             onUpdateQuantity={handleUpdateQuantity}
             onRemoveItem={handleRemoveItem}
             onClearCart={handleClearCart}
-            onBackToDiscover={() => setActiveTab('discover')}
+            onBackToDiscover={() => setActiveTab('Discover')}
             onSelectProduct={handleSelectProduct}
             onPlaceOrder={handlePlaceOrder}
           />
-        ) : activeTab === 'live' ? (
-          /* View 6: Live Streams Directory */
+        ) : activeTab === 'LIVE' ? (
+          /* View 6: Live Streams Immersive Shopping Feed */
           <LiveStreamsListView
             liveSessions={LIVE_SESSIONS}
             products={productsList}
+            sellers={SELLERS}
             onOpenLiveRoom={handleOpenLiveRoom}
+            onAddToCart={handleAddToCart}
+            onBuyNow={handleBuyNow}
+            onSelectSeller={handleSelectSeller}
           />
-        ) : activeTab === 'sellers' ? (
+        ) : activeTab === 'SA Makers' ? (
           /* View 7: Sellers / Makers Directory */
           <SellersListView
             sellers={SELLERS}
@@ -486,16 +520,16 @@ export default function App() {
             onOpenLiveRoom={handleOpenLiveRoom}
           />
         ) : (
-          /* View 8: Discover Page (Default) */
+          /* View 8: Discover Immersive Shoppable Video Feed */
           <DiscoverView
             products={productsList}
             sellers={SELLERS}
-            liveSessions={LIVE_SESSIONS}
             snippets={snippetsList}
             onSelectProduct={handleSelectProduct}
             onSelectSeller={handleSelectSeller}
             onOpenLiveRoom={handleOpenLiveRoom}
             onAddToCart={handleAddToCart}
+            onBuyNow={handleBuyNow}
           />
         )}
       </main>

@@ -1,588 +1,351 @@
 import React, { useState } from 'react';
 import { 
-  Radio, 
-  Search, 
+  Heart, 
+  Share2, 
   ShoppingBag, 
-  Sparkles, 
-  Truck, 
-  Clock, 
-  Star, 
-  ArrowRight, 
-  MapPin, 
-  Users, 
   Check, 
-  Play,
-  Film
+  MapPin, 
+  Eye, 
+  Play, 
+  Sparkles,
+  ChevronUp,
+  ChevronDown,
+  Info
 } from 'lucide-react';
-import { Product, Seller, LiveSession, Category, StreamSnippet } from '../types';
-import { CATEGORIES_LIST } from '../data/mockData';
+import { Product, Seller, StreamSnippet } from '../types';
+import { ProductDetailDrawer } from './ProductDetailDrawer';
 
 interface DiscoverViewProps {
   products: Product[];
   sellers: Seller[];
-  liveSessions: LiveSession[];
   snippets?: StreamSnippet[];
   onSelectProduct: (productId: string) => void;
   onSelectSeller: (sellerId: string) => void;
-  onOpenLiveRoom: (sessionId: string) => void;
-  onAddToCart: (product: Product) => void;
+  onOpenLiveRoom?: (sessionId: string) => void;
+  onAddToCart: (product: Product, quantity?: number) => void;
+  onBuyNow?: (product: Product, quantity?: number) => void;
 }
 
 export const DiscoverView: React.FC<DiscoverViewProps> = ({
   products,
   sellers,
-  liveSessions,
-  snippets,
+  snippets = [],
   onSelectProduct,
   onSelectSeller,
   onOpenLiveRoom,
-  onAddToCart
+  onAddToCart,
+  onBuyNow
 }) => {
-  const [selectedCategory, setSelectedCategory] = useState<Category>('all');
-  const [searchQuery, setSearchQuery] = useState('');
+  // Active product for on-demand detail drawer (preserves vertical feed scroll position)
+  const [selectedDrawerProduct, setSelectedDrawerProduct] = useState<Product | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  // Likes state per post id
+  const [likedPosts, setLikedPosts] = useState<Record<string, boolean>>({});
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const [addedProductId, setAddedProductId] = useState<string | null>(null);
 
-  const activeLiveStreams = liveSessions.filter(s => s.isLive);
-  const heroLive = activeLiveStreams[0];
+  // Construct shoppable vertical video feed posts from snippets and products
+  const activeSnippets = snippets.filter(s => !s.isArchived && new Date(s.expiresAt).getTime() > Date.now());
+  const allSnippetsToUse = activeSnippets.length > 0 ? activeSnippets : snippets;
 
-  const filteredProducts = products.filter(product => {
-    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
-    const matchesSearch = searchQuery === '' || 
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.sellerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.categoryLabel.toLowerCase().includes(searchQuery.toLowerCase());
-    return matchesCategory && matchesSearch;
+  // Map snippets into immersive video feed items
+  const feedPosts = allSnippetsToUse.map((snippet, idx) => {
+    const linkedProduct = products.find(p => p.id === snippet.productId) || products[idx % products.length];
+    const linkedSeller = sellers.find(s => s.id === snippet.sellerId) || sellers.find(s => s.id === linkedProduct?.sellerId) || sellers[0];
+
+    return {
+      id: snippet.id,
+      title: snippet.title,
+      mediaUrl: snippet.thumbnail || linkedProduct?.images[0],
+      duration: snippet.duration || '03:30',
+      highlightTag: snippet.highlightTag || 'Shoppable Demo',
+      views: snippet.views || '4.2k',
+      initialLikes: 140 + idx * 85,
+      product: linkedProduct,
+      seller: linkedSeller
+    };
   });
+
+  const handleLikeToggle = (postId: string, initialLikes: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const isLiked = likedPosts[postId];
+    setLikedPosts(prev => ({ ...prev, [postId]: !isLiked }));
+    setLikeCounts(prev => ({
+      ...prev,
+      [postId]: (prev[postId] || initialLikes) + (isLiked ? -1 : 1)
+    }));
+  };
+
+  const handleShare = (postId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCopiedId(postId);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const handleQuickAdd = (product: Product, e: React.MouseEvent) => {
     e.stopPropagation();
-    onAddToCart(product);
+    if (product.stock <= 0) return;
+    onAddToCart(product, 1);
     setAddedProductId(product.id);
-    setTimeout(() => {
-      setAddedProductId(null);
-    }, 1500);
+    setTimeout(() => setAddedProductId(null), 1500);
+  };
+
+  const openDrawer = (product: Product, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedDrawerProduct(product);
+    setIsDrawerOpen(true);
   };
 
   return (
-    <div className="pb-24 pt-4 px-4 sm:px-6 max-w-7xl mx-auto space-y-10">
+    <div className="w-full min-w-0 max-w-full bg-[#0c0e12] overflow-hidden">
       
-      {/* Search & Notice Bar */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search South African makers, serums, sneakers..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-[#14171f] border border-[#212633] rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-slate-500 focus:outline-none focus:border-[#0066ff] transition-colors"
-          />
+      {/* Toast Notification for Link Copied */}
+      {copiedId && (
+        <div className="fixed top-20 right-4 z-50 bg-[#0066ff] text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl shadow-[#0066ff]/40 flex items-center gap-2 animate-fade-in">
+          <span>✓</span>
+          <span>Clip link copied to clipboard</span>
         </div>
-
-        <div className="flex items-center gap-2 text-xs text-slate-400 bg-[#12151d] px-3.5 py-2 rounded-xl border border-[#212633] self-start sm:self-auto">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0"></span>
-          <span>Courier Delivery Across All 9 SA Provinces</span>
-          <span className="text-slate-600">·</span>
-          <span className="text-slate-300 font-mono">ZAR (R)</span>
-        </div>
-      </div>
-
-      {/* Hero Live Session Spotlight (Vertical/Horizontal hybrid for maximum mobile & desktop presence) */}
-      {heroLive && (
-        <section className="relative rounded-2xl overflow-hidden border border-[#212633] bg-[#14171f] shadow-xl">
-          <div className="grid grid-cols-1 lg:grid-cols-12 items-stretch">
-            
-            {/* Visual Stream Window Preview */}
-            <div className="lg:col-span-7 relative aspect-[4/3] sm:aspect-[16/10] lg:aspect-auto lg:min-h-[380px] bg-black overflow-hidden group">
-              <img
-                src={heroLive.coverImage}
-                alt={heroLive.title}
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 opacity-90"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0e1117] via-transparent to-black/60 pointer-events-none" />
-
-              {/* Live Status Indicators */}
-              <div className="absolute top-4 left-4 flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 bg-red-600 text-white text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-md shadow-lg">
-                  <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
-                  Live Now
-                </span>
-                <span className="bg-black/60 backdrop-blur-md text-white text-xs px-2.5 py-1 rounded-md border border-white/10 flex items-center gap-1.5 font-medium">
-                  <Users className="w-3.5 h-3.5 text-blue-400" />
-                  {heroLive.viewerCount.toLocaleString()} watching
-                </span>
-              </div>
-
-              {/* Demonstration Disclaimer Badge */}
-              <div className="absolute top-4 right-4 bg-black/70 backdrop-blur-md text-slate-300 text-[11px] px-2.5 py-1 rounded-md border border-white/10 font-mono">
-                Demonstration Stream
-              </div>
-
-              {/* Play CTA Overlay */}
-              <div className="absolute inset-0 flex items-center justify-center">
-                <button
-                  onClick={() => onOpenLiveRoom(heroLive.id)}
-                  className="w-16 h-16 rounded-full bg-[#0066ff] text-white flex items-center justify-center shadow-xl shadow-[#0066ff]/40 hover:scale-110 active:scale-95 transition-all cursor-pointer group-hover:bg-[#1a75ff]"
-                >
-                  <Play className="w-7 h-7 fill-white translate-x-0.5" />
-                </button>
-              </div>
-
-              {/* Bottom Stream Host Bar */}
-              <div className="absolute bottom-4 left-4 right-4 flex items-center justify-between text-white">
-                <div className="flex items-center gap-3">
-                  <img
-                    src={heroLive.sellerAvatar}
-                    alt={heroLive.sellerName}
-                    referrerPolicy="no-referrer"
-                    className="w-10 h-10 rounded-full border-2 border-[#0066ff] object-cover"
-                  />
-                  <div>
-                    <p className="font-semibold text-sm leading-tight">{heroLive.sellerName}</p>
-                    <p className="text-xs text-slate-300 flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-red-400" />
-                      {heroLive.sellerLocation}
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => onOpenLiveRoom(heroLive.id)}
-                  className="px-3.5 py-1.5 bg-white text-slate-900 rounded-lg text-xs font-bold hover:bg-slate-200 transition-colors cursor-pointer"
-                >
-                  Join Room
-                </button>
-              </div>
-            </div>
-
-            {/* Stream Info & Featured Product Right-Side Module */}
-            <div className="lg:col-span-5 p-5 sm:p-6 flex flex-col justify-between space-y-6 bg-[#14171f]">
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#0066ff]">
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Featured Broadcast
-                </div>
-                <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight leading-snug">
-                  {heroLive.title}
-                </h2>
-                <p className="text-xs sm:text-sm text-slate-400 line-clamp-2">
-                  Interact live with the makers, ask about formulation and sizing, and purchase directly with dispatch across South Africa.
-                </p>
-              </div>
-
-              {/* Pinned Featured Item in Stream */}
-              {(() => {
-                const featuredProd = products.find(p => p.id === heroLive.featuredProductId);
-                if (!featuredProd) return null;
-                return (
-                  <div className="p-3.5 rounded-xl bg-[#0c0e12] border border-[#212633] space-y-3">
-                    <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block">
-                      Pinned Product in Show
-                    </span>
-                    <div 
-                      onClick={() => onSelectProduct(featuredProd.id)}
-                      className="flex items-center gap-3.5 cursor-pointer group"
-                    >
-                      <img
-                        src={featuredProd.images[0]}
-                        alt={featuredProd.name}
-                        referrerPolicy="no-referrer"
-                        className="w-16 h-16 rounded-lg object-cover shrink-0 border border-[#262c3a] group-hover:opacity-90"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-sm font-semibold text-white truncate group-hover:text-[#0066ff] transition-colors">
-                          {featuredProd.name}
-                        </h4>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-base font-bold font-mono text-white">
-                            R {featuredProd.priceZAR.toLocaleString()}
-                          </span>
-                          {featuredProd.originalPriceZAR && (
-                            <span className="text-xs text-slate-500 line-through font-mono">
-                              R {featuredProd.originalPriceZAR.toLocaleString()}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-emerald-400 mt-0.5">
-                          {featuredProd.stock} units left in stock
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-                      <button
-                        onClick={(e) => handleQuickAdd(featuredProd, e)}
-                        className={`min-h-[44px] py-2 px-3 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                          addedProductId === featuredProd.id
-                            ? 'bg-emerald-600 text-white'
-                            : 'bg-[#1e2330] hover:bg-[#272d3e] text-white border border-[#2e3648]'
-                        }`}
-                      >
-                        {addedProductId === featuredProd.id ? (
-                          <>
-                            <Check className="w-3.5 h-3.5" />
-                            Added
-                          </>
-                        ) : (
-                          <>
-                            <ShoppingBag className="w-3.5 h-3.5 text-[#0066ff]" />
-                            Add to Basket
-                          </>
-                        )}
-                      </button>
-
-                      <button
-                        onClick={() => onOpenLiveRoom(heroLive.id)}
-                        className="min-h-[44px] py-2 px-3 rounded-lg text-xs font-semibold bg-[#0066ff] hover:bg-[#0052cc] text-white flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
-                      >
-                        Watch & Buy
-                        <ArrowRight className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })()}
-            </div>
-          </div>
-        </section>
       )}
 
-      {/* Live Sessions Row (All active live streams) */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
-            </span>
-            <h3 className="text-lg font-bold text-white tracking-tight">
-              Live Shopping Rooms
-            </h3>
-          </div>
-          <span className="text-xs text-slate-400">
-            {activeLiveStreams.length} streaming now
-          </span>
-        </div>
+      {/* Main Vertically Scrolling Container with CSS Scroll Snapping */}
+      {/* Height accounts for sticky navigation on mobile (~150px) and desktop (~112px) */}
+      <div 
+        className="w-full h-[calc(100vh-154px)] sm:h-[calc(100dvh-154px)] md:h-[calc(100dvh-114px)] overflow-y-auto snap-y snap-mandatory scroll-smooth scrollbar-none flex flex-col items-center"
+        role="feed"
+        aria-label="Shoppable Video Feed"
+      >
+        {feedPosts.map((post) => {
+          const isLiked = likedPosts[post.id];
+          const currentLikes = likeCounts[post.id] !== undefined ? likeCounts[post.id] : post.initialLikes;
+          const isAdded = addedProductId === post.product.id;
+          const isSoldOut = post.product.stock <= 0;
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {activeLiveStreams.map((session) => (
-            <div
-              key={session.id}
-              onClick={() => onOpenLiveRoom(session.id)}
-              className="group bg-[#14171f] rounded-xl border border-[#212633] overflow-hidden hover:border-[#0066ff]/60 transition-all cursor-pointer flex flex-col"
+          return (
+            <article
+              key={post.id}
+              className="w-full h-[calc(100vh-154px)] sm:h-[calc(100dvh-154px)] md:h-[calc(100dvh-114px)] snap-start snap-always shrink-0 relative overflow-hidden bg-black select-none max-w-md lg:max-w-lg md:rounded-2xl md:my-1.5 md:border md:border-[#212633] shadow-2xl"
             >
-              <div className="relative aspect-[16/10] overflow-hidden bg-black">
-                <img
-                  src={session.coverImage}
-                  alt={session.title}
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 opacity-90"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
+              {/* Full-Bleed Media (Video/Image Thumbnail) */}
+              <img
+                src={post.mediaUrl}
+                alt={post.title}
+                referrerPolicy="no-referrer"
+                className="w-full h-full object-cover"
+              />
 
-                <div className="absolute top-3 left-3 flex items-center gap-1.5">
-                  <span className="bg-red-600 text-white text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded">
-                    Live
+              {/* High-Contrast Gradient Overlay for Legibility */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/35 via-50% to-black/30 pointer-events-none" />
+
+              {/* Top Meta Badges (Essential only) */}
+              <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between z-10 pointer-events-none">
+                <div className="flex items-center gap-1.5">
+                  <span className="bg-[#0066ff] text-white text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md shadow flex items-center gap-1">
+                    <Sparkles className="w-3 h-3" />
+                    {post.highlightTag}
                   </span>
-                  <span className="bg-black/60 backdrop-blur-sm text-white text-[11px] px-2 py-0.5 rounded font-medium flex items-center gap-1">
-                    <Users className="w-3 h-3 text-blue-400" />
-                    {session.viewerCount}
+                  <span className="bg-black/60 backdrop-blur-md text-slate-300 text-[11px] px-2 py-0.5 rounded-md font-mono border border-white/10">
+                    {post.duration}
                   </span>
                 </div>
 
-                <div className="absolute top-3 right-3 bg-black/60 text-slate-300 text-[10px] px-2 py-0.5 rounded border border-white/10 font-mono">
-                  Demo
+                <div className="bg-black/60 backdrop-blur-md text-slate-300 text-[11px] px-2.5 py-0.5 rounded-md font-mono border border-white/10 flex items-center gap-1">
+                  <Eye className="w-3 h-3 text-blue-400" />
+                  <span>{post.views}</span>
                 </div>
+              </div>
 
-                <div className="absolute bottom-3 left-3 right-3 flex items-center gap-2">
+              {/* Right-Side Floating Action Bar (Thumb-Zone Ergonomics) */}
+              <aside className="absolute right-3 bottom-24 sm:bottom-28 z-20 flex flex-col items-center gap-3.5">
+                
+                {/* Creator Avatar with Follow/Profile Link */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSelectSeller(post.seller.id);
+                  }}
+                  className="relative group p-0.5 rounded-full bg-gradient-to-tr from-[#0066ff] to-cyan-400 cursor-pointer shadow-lg active:scale-95 transition-transform"
+                  title={`View ${post.seller.name}'s atelier`}
+                  aria-label={`View ${post.seller.name}'s atelier`}
+                >
                   <img
-                    src={session.sellerAvatar}
-                    alt={session.sellerName}
+                    src={post.seller.avatar}
+                    alt={post.seller.name}
                     referrerPolicy="no-referrer"
-                    className="w-7 h-7 rounded-full border border-white/50 object-cover"
+                    className="w-10 h-10 rounded-full object-cover border-2 border-black"
                   />
-                  <div className="min-w-0">
-                    <p className="text-xs font-semibold text-white truncate leading-tight">
-                      {session.sellerName}
-                    </p>
-                    <p className="text-[10px] text-slate-300 truncate">
-                      {session.sellerLocation}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-3.5 flex-1 flex flex-col justify-between space-y-2">
-                <h4 className="text-sm font-semibold text-white line-clamp-2 group-hover:text-[#0066ff] transition-colors">
-                  {session.title}
-                </h4>
-                <div className="flex items-center justify-between pt-1 border-t border-[#212633] text-xs">
-                  <span className="text-slate-400 text-[11px]">{session.streamCategory}</span>
-                  <span className="text-[#0066ff] font-semibold flex items-center gap-1">
-                    Enter Stream <ArrowRight className="w-3 h-3" />
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Category Filter Tabs (Interactive Filter Controls allowed by design guidelines) */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-bold text-white tracking-tight">
-            Browse by Department
-          </h3>
-        </div>
-
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none touch-pan-x -mx-4 px-4 sm:mx-0 sm:px-0">
-          {CATEGORIES_LIST.map((cat) => (
-            <button
-              key={cat.id}
-              onClick={() => setSelectedCategory(cat.id as Category)}
-              className={`min-h-[42px] px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-2 active:scale-95 ${
-                selectedCategory === cat.id
-                  ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/25'
-                  : 'bg-[#14171f] text-slate-300 hover:text-white border border-[#212633] hover:border-slate-700'
-              }`}
-            >
-              <span>{cat.icon}</span>
-              <span>{cat.label}</span>
-            </button>
-          ))}
-        </div>
-      </section>
-
-      {/* Featured Products Grid */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-bold text-white tracking-tight">
-              Featured South African Products
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Small-batch crafted, authenticated local makers, fast nationwide dispatch
-            </p>
-          </div>
-          <span className="text-xs text-slate-400">
-            {filteredProducts.length} items
-          </span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
-          {filteredProducts.map((product) => (
-            <div
-              key={product.id}
-              onClick={() => onSelectProduct(product.id)}
-              className="group bg-[#14171f] rounded-2xl border border-[#212633] overflow-hidden hover:border-[#0066ff]/50 transition-all duration-200 cursor-pointer flex flex-col"
-            >
-              {/* Product Image Area */}
-              <div className="relative aspect-[4/3] bg-[#0c0e12] overflow-hidden">
-                <img
-                  src={product.images[0]}
-                  alt={product.name}
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                />
-
-                {/* Stock or Live Badge */}
-                <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-                  {product.liveNowSessionId && (
-                    <span className="bg-red-600/95 backdrop-blur-md text-white text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded shadow">
-                      On Live Now
+                  {post.seller.currentLiveSessionId && (
+                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[9px] font-bold px-1 rounded-full uppercase tracking-tighter animate-pulse shadow">
+                      Live
                     </span>
                   )}
-                  {product.stock <= 8 && (
-                    <span className="bg-amber-500/90 backdrop-blur-md text-black text-[10px] font-bold px-2 py-0.5 rounded shadow">
-                      Only {product.stock} left
-                    </span>
-                  )}
-                </div>
+                </button>
 
-                <div className="absolute bottom-3 right-3">
-                  <span className="bg-[#0c0e12]/80 backdrop-blur-md text-slate-300 text-[10px] px-2 py-0.5 rounded border border-white/10 font-mono">
-                    {product.categoryLabel}
+                {/* Like Button */}
+                <button
+                  onClick={(e) => handleLikeToggle(post.id, post.initialLikes, e)}
+                  className="flex flex-col items-center gap-0.5 cursor-pointer group active:scale-90 transition-transform"
+                  aria-label={`Like post. Current likes: ${currentLikes}`}
+                >
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-colors ${
+                    isLiked ? 'bg-red-500/20 text-red-500' : 'bg-black/50 text-white hover:bg-black/70'
+                  }`}>
+                    <Heart className={`w-5 h-5 transition-transform ${isLiked ? 'fill-red-500 scale-110' : ''}`} />
+                  </div>
+                  <span className="text-[11px] font-mono font-bold text-white drop-shadow">
+                    {currentLikes}
                   </span>
-                </div>
-              </div>
+                </button>
 
-              {/* Product Info */}
-              <div className="p-4 flex-1 flex flex-col justify-between space-y-3">
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between text-xs text-slate-400">
-                    <span className="hover:text-slate-200 truncate max-w-[180px]">
-                      {product.sellerName}
-                    </span>
-                    <span className="flex items-center gap-1 text-amber-400 text-[11px] font-medium shrink-0">
-                      <Star className="w-3 h-3 fill-amber-400" />
-                      {product.rating} ({product.reviewCount})
-                    </span>
+                {/* On-Demand Product Detail Drawer Trigger */}
+                <button
+                  onClick={(e) => openDrawer(post.product, e)}
+                  className="flex flex-col items-center gap-0.5 cursor-pointer active:scale-90 transition-transform"
+                  title="View complete product details"
+                  aria-label="View complete product details"
+                >
+                  <div className="w-10 h-10 rounded-full bg-black/50 hover:bg-[#0066ff] text-white flex items-center justify-center backdrop-blur-md transition-colors">
+                    <Info className="w-5 h-5 text-[#60a5fa] hover:text-white" />
                   </div>
+                  <span className="text-[10px] font-semibold text-slate-200 drop-shadow">
+                    Details
+                  </span>
+                </button>
 
-                  <h4 className="text-sm font-semibold text-white leading-snug line-clamp-2 group-hover:text-[#0066ff] transition-colors">
-                    {product.name}
-                  </h4>
-                </div>
-
-                <div className="space-y-3 pt-2 border-t border-[#212633]">
-                  {/* Price and Stock */}
-                  <div className="flex items-baseline justify-between">
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-lg font-bold font-mono text-white">
-                        R {product.priceZAR.toLocaleString()}
-                      </span>
-                      {product.originalPriceZAR && (
-                        <span className="text-xs text-slate-500 line-through font-mono">
-                          R {product.originalPriceZAR.toLocaleString()}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-[11px] text-slate-400 font-mono">
-                      Stock: {product.stock}
-                    </span>
+                {/* Share Button */}
+                <button
+                  onClick={(e) => handleShare(post.id, e)}
+                  className="flex flex-col items-center gap-0.5 cursor-pointer active:scale-90 transition-transform"
+                  title="Share shoppable clip"
+                  aria-label="Share shoppable clip"
+                >
+                  <div className="w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-md transition-colors">
+                    <Share2 className="w-4 h-4" />
                   </div>
+                  <span className="text-[10px] font-semibold text-slate-200 drop-shadow">
+                    Share
+                  </span>
+                </button>
 
-                  {/* Dispatch Estimate */}
-                  <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
-                    <Clock className="w-3 h-3 text-[#0066ff] shrink-0" />
-                    <span className="truncate">{product.dispatchTime}</span>
-                  </div>
+              </aside>
 
-                  {/* Quick Action Button */}
+              {/* Bottom Essential Overlay: Creator, Title & Shoppable Product Pill */}
+              <div className="absolute left-3.5 right-16 sm:right-20 bottom-3.5 z-20 space-y-2.5">
+                
+                {/* Creator Name & Location */}
+                <div className="space-y-0.5">
                   <button
-                    onClick={(e) => handleQuickAdd(product, e)}
-                    className={`w-full min-h-[44px] py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98 ${
-                      addedProductId === product.id
-                        ? 'bg-emerald-600 text-white shadow-md'
-                        : 'bg-[#181c25] hover:bg-[#0066ff] text-slate-200 hover:text-white border border-[#262c3a] hover:border-transparent'
-                    }`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectSeller(post.seller.id);
+                    }}
+                    className="flex items-center gap-1.5 text-left group cursor-pointer"
                   >
-                    {addedProductId === product.id ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        Added to Basket
-                      </>
-                    ) : (
-                      <>
-                        <ShoppingBag className="w-3.5 h-3.5" />
-                        Quick Add to Basket
-                      </>
-                    )}
-                  </button>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Featured South African Sellers */}
-      <section className="space-y-4 pt-4 border-t border-[#212633]">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-bold text-white tracking-tight">
-              Meet the South African Makers
-            </h3>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Independent workshops and ateliers broadcasting live
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {sellers.map((seller) => (
-            <div
-              key={seller.id}
-              onClick={() => onSelectSeller(seller.id)}
-              className="bg-[#14171f] rounded-2xl border border-[#212633] p-4 hover:border-[#0066ff]/60 transition-all cursor-pointer group flex flex-col justify-between"
-            >
-              <div className="space-y-3">
-                <div className="flex items-start justify-between">
-                  <img
-                    src={seller.avatar}
-                    alt={seller.name}
-                    referrerPolicy="no-referrer"
-                    className="w-14 h-14 rounded-2xl object-cover border-2 border-[#212633] group-hover:border-[#0066ff] transition-colors"
-                  />
-                  {seller.currentLiveSessionId && (
-                    <span className="inline-flex items-center gap-1 bg-red-600/90 text-white text-[10px] font-bold px-2 py-0.5 rounded">
-                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
-                      Streaming
+                    <span className="font-bold text-sm text-white group-hover:text-[#0066ff] transition-colors drop-shadow">
+                      {post.seller.name}
                     </span>
-                  )}
-                </div>
+                    <span className="text-xs text-slate-300 font-normal drop-shadow">
+                      {post.seller.handle}
+                    </span>
+                  </button>
 
-                <div>
-                  <h4 className="font-semibold text-white text-sm group-hover:text-[#0066ff] transition-colors">
-                    {seller.name}
-                  </h4>
-                  <p className="text-xs text-slate-400 flex items-center gap-1 mt-0.5">
+                  <p className="text-[11px] text-slate-300 flex items-center gap-1 drop-shadow">
                     <MapPin className="w-3 h-3 text-red-400 shrink-0" />
-                    {seller.city}, {seller.province}
+                    <span>{post.seller.city}, {post.seller.province}</span>
                   </p>
                 </div>
 
-                <p className="text-xs text-slate-400 line-clamp-2">
-                  {seller.tagline}
+                {/* Short Title (No long descriptions in feed) */}
+                <p className="text-xs sm:text-sm font-medium text-slate-100 line-clamp-2 leading-snug drop-shadow pr-2">
+                  {post.title}
                 </p>
+
+                {/* Compact Shoppable Product Pill */}
+                <div 
+                  onClick={(e) => openDrawer(post.product, e)}
+                  className="bg-[#12151d]/90 backdrop-blur-md border border-[#212633] hover:border-[#0066ff]/60 rounded-xl p-2 sm:p-2.5 flex items-center justify-between gap-2.5 transition-all cursor-pointer shadow-lg active:scale-[0.99]"
+                >
+                  {/* Thumbnail & Product Details */}
+                  <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                    <img
+                      src={post.product.images[0]}
+                      alt={post.product.name}
+                      referrerPolicy="no-referrer"
+                      className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg object-cover border border-[#262c3a] shrink-0"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-white truncate leading-tight">
+                        {post.product.name}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="text-xs sm:text-sm font-bold font-mono text-emerald-400">
+                          R {post.product.priceZAR.toLocaleString()}
+                        </span>
+                        {isSoldOut ? (
+                          <span className="text-[10px] text-red-400 font-semibold">Sold Out</span>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 font-mono">
+                            {post.product.stock} left
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions: Quick Add or Details Button */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      onClick={(e) => handleQuickAdd(post.product, e)}
+                      disabled={isSoldOut}
+                      className={`min-h-[38px] px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow ${
+                        isSoldOut
+                          ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                          : isAdded
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-[#0066ff] hover:bg-[#0052cc] text-white active:scale-95'
+                      }`}
+                      title={isSoldOut ? 'Sold out' : 'Quick add to basket'}
+                      aria-label="Add product to basket"
+                    >
+                      {isAdded ? (
+                        <>
+                          <Check className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">Added</span>
+                        </>
+                      ) : (
+                        <>
+                          <ShoppingBag className="w-3.5 h-3.5" />
+                          <span>{isSoldOut ? 'Out' : 'Shop'}</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
               </div>
+            </article>
+          );
+        })}
+      </div>
 
-              <div className="mt-4 pt-3 border-t border-[#212633] flex items-center justify-between text-xs text-slate-400">
-                <span className="flex items-center gap-1">
-                  <Film className="w-3.5 h-3.5 text-[#0066ff]" />
-                  {(snippets ? snippets.filter(s => s.sellerId === seller.id && !s.isArchived && new Date(s.expiresAt).getTime() > Date.now()) : seller.snippets.filter(s => !s.isArchived && new Date(s.expiresAt).getTime() > Date.now())).length} active clips
-                </span>
-                <span className="text-[#0066ff] font-semibold flex items-center gap-1">
-                  Visit Store <ArrowRight className="w-3 h-3" />
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Trust & Guarantee Banner */}
-      <section className="bg-gradient-to-r from-[#14171f] via-[#10141d] to-[#14171f] border border-[#212633] rounded-2xl p-6 text-slate-300">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center sm:text-left">
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#0066ff]/10 border border-[#0066ff]/20 flex items-center justify-center text-[#0066ff] shrink-0">
-              <Truck className="w-5 h-5" />
-            </div>
-            <div>
-              <h5 className="font-semibold text-white text-sm">Door-to-Door Courier</h5>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Reliable tracking with The Courier Guy & Pargo across SA.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400 shrink-0">
-              <Radio className="w-5 h-5" />
-            </div>
-            <div>
-              <h5 className="font-semibold text-white text-sm">Interactive Live Demos</h5>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Ask questions in real-time before buying. Real maker engagement.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
-              <Sparkles className="w-5 h-5" />
-            </div>
-            <div>
-              <h5 className="font-semibold text-white text-sm">Simulated Payments</h5>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Safe sandbox demo: test instant EFT, Capitec Pay & Card preview.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+      {/* On-Demand Product Detail Drawer / Bottom Sheet */}
+      <ProductDetailDrawer
+        product={selectedDrawerProduct}
+        seller={sellers.find(s => s.id === selectedDrawerProduct?.sellerId)}
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        onAddToCart={onAddToCart}
+        onBuyNow={(prod, qty) => {
+          if (onBuyNow) {
+            onBuyNow(prod, qty);
+          } else {
+            onAddToCart(prod, qty);
+          }
+        }}
+        onViewSeller={onSelectSeller}
+        onOpenLiveRoom={onOpenLiveRoom}
+      />
 
     </div>
   );

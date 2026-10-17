@@ -1,199 +1,207 @@
 import React from 'react';
-import { ShoppingBag, Radio, Compass, Store, Sparkles, ShieldCheck } from 'lucide-react';
+import { ShoppingBag, Compass, Store, Sparkles, ShieldCheck, Search, X } from 'lucide-react';
 import { CartItem } from '../types';
 
+export type MainTab = 'Discover' | 'LIVE' | 'SA Makers' | 'Seller Studio';
+export type AppTab = MainTab | 'Basket';
+
 interface NavigationProps {
-  activeTab: 'discover' | 'live' | 'sellers' | 'basket' | 'studio';
-  setActiveTab: (tab: 'discover' | 'live' | 'sellers' | 'basket' | 'studio') => void;
+  activeTab: AppTab;
+  setActiveTab: (tab: AppTab) => void;
   cartItems: CartItem[];
   onOpenInfoModal: () => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+  onClearSearch: () => void;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
   activeTab,
   setActiveTab,
   cartItems,
-  onOpenInfoModal
+  onOpenInfoModal,
+  searchQuery,
+  onSearchChange,
+  onClearSearch
 }) => {
   const totalItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const cartSubtotal = cartItems.reduce((sum, item) => sum + item.product.priceZAR * item.quantity, 0);
 
+  const tabs: { id: MainTab; label: string; icon: React.ReactNode; isLive?: boolean }[] = [
+    {
+      id: 'Discover',
+      label: 'Discover',
+      icon: <Compass className="w-4 h-4 shrink-0" />
+    },
+    {
+      id: 'LIVE',
+      label: 'LIVE',
+      icon: (
+        <span className="relative flex h-2 w-2 shrink-0">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+        </span>
+      ),
+      isLive: true
+    },
+    {
+      id: 'SA Makers',
+      label: 'SA Makers',
+      icon: <Store className="w-4 h-4 shrink-0" />
+    },
+    {
+      id: 'Seller Studio',
+      label: 'Seller Studio',
+      icon: <Sparkles className="w-4 h-4 shrink-0 text-current" />
+    }
+  ];
+
   return (
-    <>
-      {/* Desktop / Tablet Top Navigation Bar (Adheres to Top Bar Contract) */}
-      <header className="sticky top-0 z-40 bg-[#0c0e12]/95 backdrop-blur-md border-b border-[#212633] transition-colors">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-8">
-          
-          {/* Zone 1: Single text element wordmark */}
-          <button
-            onClick={() => setActiveTab('discover')}
-            className="flex items-center gap-2 group text-left cursor-pointer focus:outline-none"
-          >
-            <div className="w-8 h-8 rounded-lg bg-[#0066ff] flex items-center justify-center font-bold text-white shadow-lg shadow-[#0066ff]/20">
-              S
-            </div>
-            <span className="text-xl font-bold tracking-tight text-white whitespace-nowrap shrink-0">
-              Showmi
-            </span>
-          </button>
+    <header className="sticky top-0 z-40 bg-[#0c0e12]/95 backdrop-blur-md border-b border-[#212633] transition-colors safe-area-top">
+      {/* Top Header Row: Brand, Desktop Search, and Utility Actions */}
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3 sm:gap-4">
+        {/* Brand / Logo */}
+        <button
+          onClick={() => {
+            onClearSearch();
+            setActiveTab('Discover');
+          }}
+          className="flex items-center gap-2.5 group text-left cursor-pointer focus:outline-none min-h-[44px] shrink-0"
+          aria-label="Showmi Home"
+        >
+          <div className="w-8 h-8 rounded-lg bg-[#0066ff] flex items-center justify-center font-bold text-white shadow-lg shadow-[#0066ff]/20 shrink-0 group-hover:scale-105 transition-transform">
+            S
+          </div>
+          <span className="text-xl font-bold tracking-tight text-white whitespace-nowrap shrink-0">
+            Showmi
+          </span>
+        </button>
 
-          {/* Zone 2: Clean single-line navigation links */}
-          <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-300">
-            <button
-              onClick={() => setActiveTab('discover')}
-              className={`hover:text-white transition-colors whitespace-nowrap shrink-0 flex items-center gap-2 cursor-pointer ${
-                activeTab === 'discover' ? 'text-[#0066ff] font-semibold' : ''
-              }`}
-            >
-              <Compass className="w-4 h-4" />
-              Discover
-            </button>
-
-            <button
-              onClick={() => setActiveTab('live')}
-              className={`hover:text-white transition-colors whitespace-nowrap shrink-0 flex items-center gap-2 cursor-pointer relative ${
-                activeTab === 'live' ? 'text-[#0066ff] font-semibold' : ''
-              }`}
-            >
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500"></span>
-              </span>
-              Live Streams
-            </button>
-
-            <button
-              onClick={() => setActiveTab('sellers')}
-              className={`hover:text-white transition-colors whitespace-nowrap shrink-0 flex items-center gap-2 cursor-pointer ${
-                activeTab === 'sellers' ? 'text-[#0066ff] font-semibold' : ''
-              }`}
-            >
-              <Store className="w-4 h-4" />
-              SA Makers
-            </button>
-
-            <button
-              onClick={() => setActiveTab('studio')}
-              className={`hover:text-white transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
-                activeTab === 'studio' ? 'text-[#0066ff] font-semibold' : 'text-slate-200'
-              }`}
-            >
-              <Sparkles className="w-4 h-4 text-[#0066ff]" />
-              Seller Studio (AI)
-            </button>
-
-            <button
-              onClick={onOpenInfoModal}
-              className="hover:text-white text-xs text-slate-400 border border-[#262c3a] px-2.5 py-1 rounded-md transition-colors whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer"
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-[#0066ff]" />
-              Setup & Info
-            </button>
-          </nav>
-
-          {/* Zone 3: Primary Action / Basket & Mobile Info */}
-          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {/* Mobile Setup & Info button */}
-            <button
-              onClick={onOpenInfoModal}
-              className="md:hidden p-2 rounded-lg text-slate-400 hover:text-white bg-[#181c25] border border-[#262c3a] min-h-[40px] min-w-[40px] flex items-center justify-center cursor-pointer transition-colors"
-              title="Showmi Info & Architecture"
-            >
-              <ShieldCheck className="w-4 h-4 text-[#0066ff]" />
-            </button>
-
-            <button
-              onClick={() => setActiveTab('basket')}
-              className={`flex items-center gap-2 sm:gap-2.5 px-3 sm:px-4 py-2 rounded-lg text-xs font-semibold tracking-wide transition-all cursor-pointer min-h-[40px] ${
-                totalItemCount > 0
-                  ? 'bg-[#0066ff] text-white hover:bg-[#0052cc] shadow-md shadow-[#0066ff]/25'
-                  : 'bg-[#181c25] text-slate-200 hover:bg-[#202532] border border-[#262c3a]'
-              }`}
-            >
-              <ShoppingBag className="w-4 h-4" />
-              <span className="whitespace-nowrap">Basket</span>
-              {totalItemCount > 0 && (
-                <span className="bg-white text-[#0066ff] px-1.5 py-0.2 rounded-full text-[11px] font-bold tabular-nums">
-                  {totalItemCount}
-                </span>
-              )}
-              {cartSubtotal > 0 && (
-                <span className="hidden sm:inline font-mono tabular-nums text-slate-100 border-l border-white/20 pl-2">
-                  R {cartSubtotal.toLocaleString()}
-                </span>
-              )}
-            </button>
+        {/* Desktop Integrated Search Bar (Centered, max-w-md to avoid stretching) */}
+        <div className="hidden md:flex flex-1 max-w-md mx-2">
+          <div className="relative w-full">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search streams, makers, or products..."
+              value={searchQuery}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="w-full min-h-[40px] bg-[#14171f] hover:bg-[#181d28] focus:bg-[#14171f] border border-[#212633] focus:border-[#0066ff] rounded-xl pl-10 pr-9 text-xs text-white placeholder-slate-400 focus:outline-none transition-colors"
+            />
+            {searchQuery && (
+              <button
+                onClick={onClearSearch}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-0.5 rounded cursor-pointer"
+                title="Clear search"
+                aria-label="Clear search query"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
-      </header>
 
-      {/* Mobile-First Fixed Bottom Navigation Bar (Thumb-Zone Ergonomics) */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0e1117]/95 backdrop-blur-md border-t border-[#212633] px-1 py-1 safe-area-bottom">
-        <div className="grid grid-cols-5 items-center h-14">
+        {/* Right Actions: Setup & Architecture Info + Basket */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+          {/* Setup & Architecture Info modal trigger */}
           <button
-            onClick={() => setActiveTab('discover')}
-            className={`flex flex-col items-center justify-center h-full min-h-[44px] cursor-pointer transition-colors active:scale-95 ${
-              activeTab === 'discover' ? 'text-[#0066ff]' : 'text-slate-400 hover:text-slate-200'
-            }`}
+            onClick={onOpenInfoModal}
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-[#14171f] hover:bg-[#1c2230] border border-[#212633] transition-colors cursor-pointer min-h-[40px]"
+            title="Showmi Info & Architecture"
           >
-            <Compass className="w-5 h-5" />
-            <span className="text-[10px] font-medium tracking-tight mt-1">Discover</span>
+            <ShieldCheck className="w-4 h-4 text-[#0066ff] shrink-0" />
+            <span className="hidden sm:inline">Setup & Info</span>
           </button>
 
+          {/* Basket Trigger */}
           <button
-            onClick={() => setActiveTab('live')}
-            className={`flex flex-col items-center justify-center h-full min-h-[44px] cursor-pointer relative transition-colors active:scale-95 ${
-              activeTab === 'live' ? 'text-[#0066ff]' : 'text-slate-400 hover:text-slate-200'
+            onClick={() => {
+              onClearSearch();
+              setActiveTab('Basket');
+            }}
+            className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all cursor-pointer min-h-[40px] ${
+              activeTab === 'Basket'
+                ? 'bg-[#0066ff] text-white ring-2 ring-[#0066ff]/40 shadow-md shadow-[#0066ff]/25'
+                : totalItemCount > 0
+                  ? 'bg-[#0066ff] text-white hover:bg-[#0052cc] shadow-md shadow-[#0066ff]/25'
+                  : 'bg-[#14171f] text-slate-200 hover:bg-[#1c2230] border border-[#212633]'
             }`}
+            aria-label={`Basket with ${totalItemCount} items`}
           >
-            <div className="relative">
-              <Radio className="w-5 h-5" />
-              <span className="absolute -top-1 -right-1 flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+            <ShoppingBag className="w-4 h-4 shrink-0" />
+            <span className="whitespace-nowrap">Basket</span>
+            {totalItemCount > 0 && (
+              <span className="bg-white text-[#0066ff] px-1.5 py-0.2 rounded-full text-[11px] font-bold tabular-nums">
+                {totalItemCount}
               </span>
-            </div>
-            <span className="text-[10px] font-medium tracking-tight mt-1">Live Now</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('sellers')}
-            className={`flex flex-col items-center justify-center h-full min-h-[44px] cursor-pointer transition-colors active:scale-95 ${
-              activeTab === 'sellers' ? 'text-[#0066ff]' : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Store className="w-5 h-5" />
-            <span className="text-[10px] font-medium tracking-tight mt-1">Makers</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('studio')}
-            className={`flex flex-col items-center justify-center h-full min-h-[44px] cursor-pointer transition-colors active:scale-95 ${
-              activeTab === 'studio' ? 'text-[#0066ff]' : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Sparkles className="w-5 h-5" />
-            <span className="text-[10px] font-medium tracking-tight mt-1">AI Studio</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('basket')}
-            className={`flex flex-col items-center justify-center h-full min-h-[44px] cursor-pointer relative transition-colors active:scale-95 ${
-              activeTab === 'basket' ? 'text-[#0066ff]' : 'text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <div className="relative">
-              <ShoppingBag className="w-5 h-5" />
-              {totalItemCount > 0 && (
-                <span className="absolute -top-1.5 -right-2 bg-[#0066ff] text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center tabular-nums">
-                  {totalItemCount}
-                </span>
-              )}
-            </div>
-            <span className="text-[10px] font-medium tracking-tight mt-1">Basket</span>
+            )}
+            {cartSubtotal > 0 && (
+              <span className="hidden sm:inline font-mono tabular-nums text-slate-100 border-l border-white/20 pl-2">
+                R {cartSubtotal.toLocaleString()}
+              </span>
+            )}
           </button>
         </div>
-      </nav>
-    </>
+      </div>
+
+      {/* Mobile Search Bar Row (Directly below branding row on mobile) */}
+      <div className="md:hidden px-3 pb-2 pt-0.5">
+        <div className="relative w-full">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Search streams, makers, or products..."
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="w-full min-h-[42px] bg-[#14171f] border border-[#212633] focus:border-[#0066ff] rounded-xl pl-10 pr-9 text-xs text-white placeholder-slate-400 focus:outline-none transition-colors"
+          />
+          {searchQuery && (
+            <button
+              onClick={onClearSearch}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1 rounded cursor-pointer min-h-[32px] min-w-[32px] flex items-center justify-center"
+              title="Clear search"
+              aria-label="Clear search query"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Sticky Horizontal Navigation Bar: Discover | LIVE | SA Makers | Seller Studio */}
+      {/* Positioned directly below the search area on both mobile and desktop */}
+      <div className="border-t border-[#1a1f2c]/80 bg-[#0c0e12]">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6">
+          <nav
+            className="flex flex-row items-center gap-1.5 sm:gap-3 overflow-x-auto whitespace-nowrap scrollbar-none py-1.5 touch-pan-x"
+            role="tablist"
+            aria-label="Main Feed Tabs"
+          >
+            {tabs.map((tab) => {
+              const isActive = activeTab === tab.id && !searchQuery;
+              return (
+                <button
+                  key={tab.id}
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => {
+                    onClearSearch();
+                    setActiveTab(tab.id);
+                  }}
+                  className={`min-h-[42px] px-3.5 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer shrink-0 flex items-center gap-2 select-none ${
+                    isActive
+                      ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/30 ring-1 ring-[#0066ff]'
+                      : 'text-slate-400 hover:text-slate-100 hover:bg-[#14171f] active:scale-95'
+                  }`}
+                >
+                  {tab.icon}
+                  <span className="tracking-tight">{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      </div>
+    </header>
   );
 };

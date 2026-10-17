@@ -361,7 +361,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
       </div>
 
       {/* Mobile Sticky Bottom Purchase Bar (Thumb-Zone Ergonomics) */}
-      <div className="md:hidden fixed bottom-14 left-0 right-0 z-30 p-3 bg-[#0c0e12]/95 backdrop-blur-md border-t border-[#212633] flex items-center gap-3">
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-30 p-3 bg-[#0c0e12]/95 backdrop-blur-md border-t border-[#212633] flex items-center gap-3">
         <div className="min-w-[85px] shrink-0">
           <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Price</span>
           <span className="text-base font-bold font-mono text-white">

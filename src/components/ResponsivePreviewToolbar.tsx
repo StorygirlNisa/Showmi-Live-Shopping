@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Smartphone, Tablet, Monitor, Maximize2, RotateCw, X, ChevronUp, ChevronDown } from 'lucide-react';
 
-export type ViewportMode = 'responsive' | 'mobile-sm' | 'mobile-md' | 'tablet' | 'desktop';
+export type ViewportMode = 'responsive' | 'mobile-xs' | 'mobile-sm' | 'mobile-md' | 'tablet' | 'desktop';
 
 interface ResponsivePreviewToolbarProps {
   currentMode: ViewportMode;
@@ -20,6 +20,7 @@ export const ResponsivePreviewToolbar: React.FC<ResponsivePreviewToolbarProps> =
 
   const presets: { id: ViewportMode; label: string; icon: React.ReactNode; dims: string }[] = [
     { id: 'responsive', label: 'Fluid / Full', icon: <Maximize2 className="w-3.5 h-3.5" />, dims: '100%' },
+    { id: 'mobile-xs', label: 'Narrow (320px)', icon: <Smartphone className="w-3.5 h-3.5" />, dims: '320×568' },
     { id: 'mobile-sm', label: 'Mobile (375px)', icon: <Smartphone className="w-3.5 h-3.5" />, dims: '375×667' },
     { id: 'mobile-md', label: 'Mobile (390px)', icon: <Smartphone className="w-3.5 h-3.5" />, dims: '390×844' },
     { id: 'tablet', label: 'Tablet (768px)', icon: <Tablet className="w-3.5 h-3.5" />, dims: '768×1024' },
