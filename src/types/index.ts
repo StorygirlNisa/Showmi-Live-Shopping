@@ -1,0 +1,151 @@
+export type Category = 
+  | 'all'
+  | 'beauty'
+  | 'streetwear'
+  | 'leather'
+  | 'ceramics'
+  | 'pantry';
+
+export interface Product {
+  id: string;
+  sellerId: string;
+  sellerName: string;
+  sellerLocation: string;
+  name: string;
+  category: Category;
+  categoryLabel: string;
+  priceZAR: number;
+  originalPriceZAR?: number;
+  stock: number;
+  dispatchTime: string; // e.g. "24–48 hours from Cape Town"
+  courierPartner: string; // e.g. "The Courier Guy / Courier Express"
+  images: string[];
+  description: string;
+  features: string[];
+  rating: number;
+  reviewCount: number;
+  liveNowSessionId?: string;
+}
+
+export interface StreamSnippet {
+  id: string;
+  sellerId: string;
+  productId: string;
+  title: string;
+  duration: string;
+  recordedDate: string;
+  thumbnail: string;
+  highlightTag: string;
+  views: string;
+  publishedAt: string;
+  expiresAt: string;
+  expiryDurationHours: number;
+  isArchived?: boolean;
+  userDescription?: string;
+  caption?: string;
+  tags?: string;
+}
+
+export interface Seller {
+  id: string;
+  name: string;
+  handle: string;
+  tagline: string;
+  bio: string;
+  avatar: string;
+  bannerImage: string;
+  city: string;
+  province: string;
+  rating: number;
+  salesCount: number;
+  followersCount: number;
+  verifiedArtisan: boolean;
+  snippets: StreamSnippet[];
+  currentLiveSessionId?: string;
+}
+
+export interface LiveComment {
+  id: string;
+  userName: string;
+  userAvatar?: string;
+  location?: string;
+  text: string;
+  timestamp: string;
+  isHost?: boolean;
+  isCurrentUser?: boolean;
+}
+
+export interface LiveSession {
+  id: string;
+  title: string;
+  sellerId: string;
+  sellerName: string;
+  sellerAvatar: string;
+  sellerLocation: string;
+  viewerCount: number;
+  isLive: boolean;
+  coverImage: string;
+  featuredProductId: string;
+  additionalProductIds: string[];
+  streamCategory: string;
+  initialComments: LiveComment[];
+}
+
+export interface CartItem {
+  product: Product;
+  quantity: number;
+  selectedVariant?: string;
+}
+
+export interface OrderConfirmation {
+  orderId: string;
+  date: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  shippingAddress: string;
+  province: string;
+  postalCode: string;
+  deliveryMethod: string;
+  paymentMethod: string;
+  items: CartItem[];
+  subtotalZAR: number;
+  shippingZAR: number;
+  totalZAR: number;
+  estimatedDeliveryDate: string;
+}
+
+export interface LivePromotion {
+  id: string;
+  sellerId: string;
+  productId: string;
+  title: string;
+  terms: string;
+  discountPercentage?: number;
+  promoPriceZAR?: number;
+  startDate: string;
+  expiresAt: string;
+  isActive: boolean;
+}
+
+export type SalesCoachPromptCategory =
+  | 'welcome'
+  | 'demo'
+  | 'engagement'
+  | 'promotion'
+  | 'stock'
+  | 'cta'
+  | 'close';
+
+export interface SalesCoachPrompt {
+  id: string;
+  category: SalesCoachPromptCategory;
+  categoryLabel: string;
+  title: string;
+  body: string;
+  guidanceTip?: string;
+  sourceContext: string;
+  priority: 'normal' | 'urgent';
+  isDismissed?: boolean;
+  productId?: string;
+}

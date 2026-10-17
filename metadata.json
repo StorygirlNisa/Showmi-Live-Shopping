@@ -1,0 +1,6 @@
+{
+  "name": "Showmi - South African Live Shopping",
+  "description": "Mobile-first live shopping marketplace connecting South African creators, brands, and shoppers with real-time interactive product streams.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
