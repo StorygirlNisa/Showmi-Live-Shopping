@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Sparkles, 
   Radio, 
@@ -10,13 +10,18 @@ import {
   Store, 
   AlertCircle, 
   RefreshCw, 
-  HelpCircle,
   Clock,
   Layers,
   ChevronRight,
-  ExternalLink
+  Package,
+  Plus,
+  Trash2,
+  Edit3,
+  X,
+  Upload,
+  Image as ImageIcon
 } from 'lucide-react';
-import { Seller, Product, StreamSnippet, LivePromotion } from '../types';
+import { Seller, Product, StreamSnippet, LivePromotion, Category } from '../types';
 
 interface SellerDashboardViewProps {
   sellers: Seller[];
@@ -32,6 +37,9 @@ interface SellerDashboardViewProps {
   onExpireSnippetNow?: (snippetId: string) => void;
   onRepublishSnippet?: (snippetId: string, durationHours: number) => void;
   onOpenLiveHostMode?: (sessionId: string) => void;
+  onAddProduct?: (product: Product) => void;
+  onUpdateProduct?: (product: Product) => void;
+  onDeleteProduct?: (productId: string) => void;
 }
 
 export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
@@ -47,7 +55,10 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
   onArchiveSnippet,
   onExpireSnippetNow,
   onRepublishSnippet,
-  onOpenLiveHostMode
+  onOpenLiveHostMode,
+  onAddProduct,
+  onUpdateProduct,
+  onDeleteProduct
 }) => {
   const currentSeller = sellers.find(s => s.id === currentSellerId) || sellers[0];
   const sellerProducts = products.filter(p => p.sellerId === currentSeller.id);
@@ -55,8 +66,8 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
   const activeSellerSnippets = sellerSnippets.filter(s => !s.isArchived && new Date(s.expiresAt).getTime() > Date.now());
   const archivedSellerSnippets = sellerSnippets.filter(s => s.isArchived || new Date(s.expiresAt).getTime() <= Date.now());
 
-  // Active Tool Tab: 'prep' | 'copy' | 'snippet'
-  const [activeTab, setActiveTab] = useState<'prep' | 'copy' | 'snippet'>('prep');
+  // Active Tool Tab: 'prep' | 'copy' | 'snippet' | 'inventory'
+  const [activeTab, setActiveTab] = useState<'prep' | 'copy' | 'snippet' | 'inventory'>('prep');
 
   // Selected entities for generation
   const [selectedProductId, setSelectedProductId] = useState<string>(
@@ -84,6 +95,47 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [appliedNotification, setAppliedNotification] = useState<string | null>(null);
+
+  // Product Inventory Management Form State
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [imagePreviewUrl, setImagePreviewUrl] = useState<string>('');
+  const [imageUploadError, setImageUploadError] = useState<string | null>(null);
+  const [isAiGeneratingDesc, setIsAiGeneratingDesc] = useState<boolean>(false);
+  const [aiDescError, setAiDescError] = useState<string | null>(null);
+
+  const [productForm, setProductForm] = useState<{
+    name: string;
+    category: Category;
+    categoryLabel: string;
+    priceZAR: number;
+    stock: number;
+    image: string;
+    description: string;
+    featuresStr: string;
+    dispatchTime: string;
+    courierPartner: string;
+  }>({
+    name: '',
+    category: 'ceramics',
+    categoryLabel: 'Handmade Ceramics',
+    priceZAR: 450,
+    stock: 15,
+    image: 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&q=80&w=800',
+    description: '',
+    featuresStr: 'Handcrafted, Small batch, Local clay',
+    dispatchTime: '24–48 hours',
+    courierPartner: 'The Courier Guy'
+  });
+
+  // Cleanup object URLs to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (imagePreviewUrl && imagePreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(imagePreviewUrl);
+      }
+    };
+  }, [imagePreviewUrl]);
 
   // Tab A: Generated Livestream Prep Output (editable)
   const [prepResults, setPrepResults] = useState<{
@@ -131,12 +183,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  // Helper to parse sections from markdown text
-  const parseSections = (text: string) => {
-    return text;
-  };
-
-  // 1. Generate Livestream Prep (Before going live)
+  // 1. Generate Livestream Prep
   const handleGeneratePrep = async () => {
     if (!selectedProduct) return;
     setIsGenerating(true);
@@ -155,10 +202,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
 
       const data = await response.json();
       if (data.success && data.text) {
-        // Break up or populate fields thoughtfully
         const raw = data.text;
-        
-        // Simple extraction logic or structured blocks
         const hookMatch = raw.match(/1[\.\)]\s*Engaging Opening Hook[\s\S]*?(?=2[\.\)]|$)/i);
         const pointsMatch = raw.match(/2[\.\)]\s*Core Talking Points[\s\S]*?(?=3[\.\)]|$)/i);
         const demoMatch = raw.match(/3[\.\)]\s*Live Demonstration Ideas[\s\S]*?(?=4[\.\)]|$)/i);
@@ -166,24 +210,22 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
         const timelineMatch = raw.match(/5[\.\)]\s*Simple 10-Minute Livestream Outline[\s\S]*/i);
 
         setPrepResults({
-          openingHook: hookMatch ? hookMatch[0].replace(/^1[\.\)]\s*Engaging Opening Hook:?\s*/i, '').trim() : `Sawubona and welcome to Showmi! Today from our ${currentSeller.city} workshop, we're unveiling our small-batch ${selectedProduct.name}. If you want authentic South African craftsmanship, stick around—only ${selectedProduct.stock} units are left in stock today!`,
-          talkingPoints: pointsMatch ? pointsMatch[0].replace(/^2[\.\)]\s*Core Talking Points:?\s*/i, '').trim() : `• Small-batch handcrafted in ${currentSeller.city}, ${currentSeller.province}.\n• Features: ${selectedProduct.features.join('; ')}.\n• Fast nationwide courier: ${selectedProduct.dispatchTime}.\n• Fair South African pricing at R ${selectedProduct.priceZAR.toLocaleString()}.`,
-          demoSteps: demoMatch ? demoMatch[0].replace(/^3[\.\)]\s*Live Demonstration Ideas:?\s*/i, '').trim() : `1. Hold the item 30cm from camera to showcase texture.\n2. Demonstrate practical use and weight.\n3. Show packaging and Courier Guy delivery box.`,
-          faqQuestions: faqMatch ? faqMatch[0].replace(/^4[\.\)]\s*Key Questions:?\s*/i, '').trim() : `Q: How quickly will my order arrive?\nA: Dispatched within ${selectedProduct.dispatchTime} via nationwide courier.\n\nQ: Is it genuine local craft?\nA: Yes, 100% produced in our ${currentSeller.city} workshop.`,
-          streamTimeline: timelineMatch ? timelineMatch[0].replace(/^5[\.\)]\s*Simple 10-Minute Livestream Outline:?\s*/i, '').trim() : `Min 0-2: Opening hook & welcome viewers.\nMin 2-5: Live physical demonstration & materials.\nMin 5-8: Answer live chat questions & show stock count.\nMin 8-10: Pinned basket call-to-action & final dispatch reminder.`
+          openingHook: hookMatch ? hookMatch[0].replace(/^1[\.\)]\s*Engaging Opening Hook:?\s*/i, '').trim() : `Sawubona and welcome to Showmi! Today from our ${currentSeller.city} workshop, we're unveiling our small-batch ${selectedProduct.name}.`,
+          talkingPoints: pointsMatch ? pointsMatch[0].replace(/^2[\.\)]\s*Core Talking Points:?\s*/i, '').trim() : `• Small-batch handcrafted in ${currentSeller.city}.\n• Features: ${selectedProduct.features.join('; ')}.\n• Price: R ${selectedProduct.priceZAR.toLocaleString()}.`,
+          demoSteps: demoMatch ? demoMatch[0].replace(/^3[\.\)]\s*Live Demonstration Ideas:?\s*/i, '').trim() : `1. Hold the item 30cm from camera.\n2. Demonstrate texture and weight.`,
+          faqQuestions: faqMatch ? faqMatch[0].replace(/^4[\.\)]\s*Key Questions:?\s*/i, '').trim() : `Q: How quickly will my order arrive?\nA: Dispatched within ${selectedProduct.dispatchTime}.`,
+          streamTimeline: timelineMatch ? timelineMatch[0].replace(/^5[\.\)]\s*Simple 10-Minute Livestream Outline:?\s*/i, '').trim() : `Min 0-2: Opening hook.\nMin 2-5: Live demo.\nMin 5-8: Live chat Q&A.\nMin 8-10: Call to action.`
         });
       } else {
         throw new Error(data.error || 'Server returned empty response');
       }
     } catch (err) {
-      console.warn('Using client-assisted structured generation:', err);
-      // Fallback: high quality factual generator based strictly on seller data
       setPrepResults({
-        openingHook: `Sawubona everyone! Welcome to Showmi live from our ${currentSeller.city} studio. Today I'm demonstrating our ${selectedProduct.name}—we only have ${selectedProduct.stock} pieces crafted for this batch!`,
-        talkingPoints: `• Authentic artisan creation from ${currentSeller.name} in ${currentSeller.city}.\n• Key features: ${selectedProduct.features.slice(0, 3).join(', ')}.\n• Priced at R ${selectedProduct.priceZAR.toLocaleString()} with nationwide door-to-door delivery.\n• Dispatched within ${selectedProduct.dispatchTime}.`,
-        demoSteps: `1. Physical Close-up: Hold the ${selectedProduct.name} to the studio light to highlight natural finish and detail.\n2. Tactile Demo: Show size and durability on camera.\n3. Packaging Unboxing: Display the authentic South African packaging shoppers will receive at their door.`,
-        faqQuestions: `Q: How long does courier delivery take?\nA: Dispatched in ${selectedProduct.dispatchTime} with delivery in 2-3 business days across SA.\n\nQ: What are the key materials?\nA: ${selectedProduct.features.join(', ')}.`,
-        streamTimeline: `• 00:00 - 02:00: Welcome viewers, announce R ${selectedProduct.priceZAR.toLocaleString()} price and limited ${selectedProduct.stock} stock.\n• 02:00 - 05:00: Show features, hold to camera, test live.\n• 05:00 - 08:00: Answer questions from viewers in chat.\n• 08:00 - 10:00: Guide viewers to click 'Add to Basket' and announce final dispatch window.`
+        openingHook: `Sawubona everyone! Welcome to Showmi live from our ${currentSeller.city} studio. Today I'm demonstrating our ${selectedProduct.name}!`,
+        talkingPoints: `• Authentic artisan creation from ${currentSeller.name}.\n• Features: ${selectedProduct.features.slice(0, 3).join(', ')}.\n• Priced at R ${selectedProduct.priceZAR.toLocaleString()}.`,
+        demoSteps: `1. Close-up: Show texture and detail.\n2. Scale & Durability demo.`,
+        faqQuestions: `Q: Delivery time?\nA: Dispatched in ${selectedProduct.dispatchTime}.`,
+        streamTimeline: `• 00:00 - 02:00: Welcome viewers.\n• 02:00 - 05:00: Show features.\n• 05:00 - 10:00: Q&A and Buy CTA.`
       });
     } finally {
       setIsGenerating(false);
@@ -215,26 +257,25 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
         const teaserMatch = raw.match(/3[\.\)]\s*Live Room Announcement Card[\s\S]*/i);
 
         setCopyResults({
-          improvedDescription: descMatch ? descMatch[0].replace(/^1[\.\)]\s*Enhanced Product Description:?\s*/i, '').trim() : `${selectedProduct.description}\n\nHandcrafted with pride by ${currentSeller.name} in ${currentSeller.city}, South Africa. Each piece is made in small batches and dispatched directly via nationwide courier.`,
-          socialCaption: captionMatch ? captionMatch[0].replace(/^2[\.\)]\s*Quick Promotional Caption:?\s*/i, '').trim() : `Tune into our Showmi live broadcast! Showcasing the ${selectedProduct.name} handcrafted in ${currentSeller.city}. Only ${selectedProduct.stock} available. R ${selectedProduct.priceZAR.toLocaleString()} with nationwide courier. #Showmi #MadeInSA #SupportLocal`,
-          streamTeaser: teaserMatch ? teaserMatch[0].replace(/^3[\.\)]\s*Live Room Announcement Card:?\s*/i, '').trim() : `Now showcasing: ${selectedProduct.name} · R ${selectedProduct.priceZAR.toLocaleString()} · Only ${selectedProduct.stock} left in stock!`
+          improvedDescription: descMatch ? descMatch[0].replace(/^1[\.\)]\s*Enhanced Product Description:?\s*/i, '').trim() : `${selectedProduct.description}\n\nHandcrafted by ${currentSeller.name} in ${currentSeller.city}.`,
+          socialCaption: captionMatch ? captionMatch[0].replace(/^2[\.\)]\s*Quick Promotional Caption:?\s*/i, '').trim() : `Discover the ${selectedProduct.name} handcrafted in ${currentSeller.city}. R ${selectedProduct.priceZAR.toLocaleString()}. #Showmi #MadeInSA`,
+          streamTeaser: teaserMatch ? teaserMatch[0].replace(/^3[\.\)]\s*Live Room Announcement Card:?\s*/i, '').trim() : `Now showcasing: ${selectedProduct.name} · R ${selectedProduct.priceZAR.toLocaleString()}`
         });
       } else {
         throw new Error(data.error || 'Server error');
       }
     } catch (err) {
-      console.warn('Fallback generation for copy:', err);
       setCopyResults({
-        improvedDescription: `${selectedProduct.name} by ${currentSeller.name} (${currentSeller.city}, South Africa).\n\n${selectedProduct.description}\n\nFeatures:\n${selectedProduct.features.map(f => `• ${f}`).join('\n')}\n\nPriced at R ${selectedProduct.priceZAR.toLocaleString()}. ${selectedProduct.dispatchTime}.`,
-        socialCaption: `Handmade in ${currentSeller.city} 🇿🇦: The ${selectedProduct.name} is now live on Showmi! Discover authentic artisan craft, ask your questions in real-time, and get nationwide delivery. Available now for R ${selectedProduct.priceZAR.toLocaleString()}.\n\n#Showmi #SouthAfricanMakers #${currentSeller.city.replace(/[^a-zA-Z]/g, '')}`,
-        streamTeaser: `Handcrafted in ${currentSeller.city}: ${selectedProduct.name} (R ${selectedProduct.priceZAR.toLocaleString()}) — Tap to inspect & buy.`
+        improvedDescription: `${selectedProduct.name} by ${currentSeller.name} (${currentSeller.city}).\n\n${selectedProduct.description}`,
+        socialCaption: `Handmade in ${currentSeller.city} 🇿🇦: The ${selectedProduct.name} is now live on Showmi! R ${selectedProduct.priceZAR.toLocaleString()}.`,
+        streamTeaser: `${selectedProduct.name} (R ${selectedProduct.priceZAR.toLocaleString()}) — Tap to inspect & buy.`
       });
     } finally {
       setIsGenerating(false);
     }
   };
 
-  // 3. Generate Snippet Title, Caption & Tags (After going live)
+  // 3. Generate Snippet Title, Caption & Tags
   const handleGenerateSnippet = async () => {
     if (!selectedSnippet) return;
     setIsGenerating(true);
@@ -260,19 +301,18 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
         const tagsMatch = raw.match(/3[\.\)]\s*Recommended Storefront Tags[\s\S]*/i);
 
         setSnippetResults({
-          title: titleMatch ? titleMatch[0].replace(/^1[\.\)]\s*Catchy Snippet Title:?\s*/i, '').trim().replace(/^"/, '').replace(/"$/, '') : `${selectedSnippet.highlightTag}: Live Demonstration of ${selectedProduct.name}`,
-          caption: captionMatch ? captionMatch[0].replace(/^2[\.\)]\s*Snippet Caption:?\s*/i, '').trim() : `Watch our live session replay demonstrating the craftsmanship and quality of our ${selectedProduct.name}. In this clip: ${snippetUserDescription}.`,
-          tags: tagsMatch ? tagsMatch[0].replace(/^3[\.\)]\s*Recommended Storefront Tags:?\s*/i, '').trim() : `#${currentSeller.city.replace(/[^a-zA-Z]/g, '')} #ShowmiLive #LocalMakers #HandcraftedSA`
+          title: titleMatch ? titleMatch[0].replace(/^1[\.\)]\s*Catchy Snippet Title:?\s*/i, '').trim().replace(/^"/, '').replace(/"$/, '') : `${selectedSnippet.highlightTag}: ${selectedProduct.name}`,
+          caption: captionMatch ? captionMatch[0].replace(/^2[\.\)]\s*Snippet Caption:?\s*/i, '').trim() : `Watch live clip demonstrating ${selectedProduct.name}.`,
+          tags: tagsMatch ? tagsMatch[0].replace(/^3[\.\)]\s*Recommended Storefront Tags:?\s*/i, '').trim() : `#${currentSeller.city.replace(/[^a-zA-Z]/g, '')} #ShowmiLive`
         });
       } else {
         throw new Error(data.error || 'Server error');
       }
     } catch (err) {
-      console.warn('Fallback snippet summary:', err);
       setSnippetResults({
-        title: `${selectedSnippet.highlightTag}: In-Studio Demonstration`,
-        caption: `In this live clip, ${currentSeller.name} demonstrates the ${selectedProduct.name}. Description: ${snippetUserDescription}. Available on Showmi for R ${selectedProduct.priceZAR.toLocaleString()}.`,
-        tags: `#Showmi #MadeInSouthAfrica #${selectedProduct.category} #${currentSeller.city.replace(/[^a-zA-Z]/g, '')}`
+        title: `${selectedSnippet.highlightTag}: In-Studio Demo`,
+        caption: `Live clip demonstrating ${selectedProduct.name} by ${currentSeller.name}.`,
+        tags: `#Showmi #MadeInSA #${selectedProduct.category}`
       });
     } finally {
       setIsGenerating(false);
@@ -331,8 +371,220 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
     if (onPublishSnippet) {
       onPublishSnippet(snippetToPublish);
     }
-    setAppliedNotification(`Published shoppable snippet for "${linkedProd.name}"! Active on storefront for ${snippetExpiryHours === 168 ? '7 days' : snippetExpiryHours + ' hours'}.`);
+    setAppliedNotification(`Published shoppable snippet for "${linkedProd.name}"!`);
     setTimeout(() => setAppliedNotification(null), 3500);
+  };
+
+  // Image File Upload Handler
+  const handleImageFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setImageUploadError(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setImageUploadError('Please select a valid image file (JPEG, PNG, WebP).');
+      return;
+    }
+
+    const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+    if (file.size > MAX_SIZE) {
+      setImageUploadError('Image file is too large. Maximum file size is 5MB.');
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    setImagePreviewUrl(objectUrl);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const base64String = event.target?.result as string;
+      if (base64String) {
+        setProductForm(prev => ({ ...prev, image: base64String }));
+      }
+    };
+    reader.onerror = () => {
+      setImageUploadError('Failed to read image file.');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // AI Suggest Description Assistant Handler (Multimodal)
+  const handleAiSuggestDescription = async () => {
+    if (!productForm.name.trim()) {
+      setAiDescError('Please enter a product title first.');
+      return;
+    }
+
+    setIsAiGeneratingDesc(true);
+    setAiDescError(null);
+
+    let attempts = 0;
+    const maxAttempts = 2;
+    let successText = '';
+
+    while (attempts < maxAttempts && !successText) {
+      attempts++;
+      try {
+        let productImagePayload = undefined;
+        if (productForm.image && productForm.image.startsWith('data:')) {
+          const match = productForm.image.match(/^data:(image\/[a-zA-Z+-]+);base64,(.+)$/);
+          if (match) {
+            productImagePayload = {
+              mimeType: match[1],
+              data: match[2]
+            };
+          }
+        }
+
+        const response = await fetch('/api/seller-ai/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            taskType: 'suggest_description',
+            product: {
+              name: productForm.name,
+              category: productForm.category,
+              categoryLabel: productForm.categoryLabel,
+              description: productForm.description
+            },
+            seller: currentSeller,
+            productImage: productImagePayload
+          })
+        });
+
+        const data = await response.json();
+        if (data.success && data.text) {
+          const cleanText = data.text.trim();
+          if (cleanText.length >= 150) {
+            successText = cleanText;
+          } else if (attempts === maxAttempts) {
+            successText = cleanText;
+          }
+        }
+      } catch (err) {
+        console.warn('AI Suggest Description error:', err);
+      }
+    }
+
+    setIsAiGeneratingDesc(false);
+
+    if (successText) {
+      setProductForm(prev => ({ ...prev, description: successText }));
+    } else {
+      setAiDescError('AI generation failed or produced a description under 150 characters. Please provide more details and try again.');
+    }
+  };
+
+  // Product CRUD Handlers
+  const handleOpenAddProductModal = () => {
+    setEditingProductId(null);
+    setImagePreviewUrl('https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&q=80&w=800');
+    setImageUploadError(null);
+    setAiDescError(null);
+    setProductForm({
+      name: '',
+      category: 'ceramics',
+      categoryLabel: 'Handmade Ceramics',
+      priceZAR: 450,
+      stock: 15,
+      image: 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&q=80&w=800',
+      description: '',
+      featuresStr: 'Handcrafted, Small batch, Local clay',
+      dispatchTime: '24–48 hours',
+      courierPartner: 'The Courier Guy'
+    });
+    setIsProductModalOpen(true);
+  };
+
+  const handleOpenEditProduct = (prod: Product) => {
+    setEditingProductId(prod.id);
+    const existingImg = prod.images[0] || '';
+    setImagePreviewUrl(existingImg);
+    setImageUploadError(null);
+    setAiDescError(null);
+    setProductForm({
+      name: prod.name,
+      category: prod.category,
+      categoryLabel: prod.categoryLabel,
+      priceZAR: prod.priceZAR,
+      stock: prod.stock,
+      image: existingImg,
+      description: prod.description,
+      featuresStr: prod.features.join(', '),
+      dispatchTime: prod.dispatchTime,
+      courierPartner: prod.courierPartner
+    });
+    setIsProductModalOpen(true);
+  };
+
+  const handleSaveProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!productForm.name.trim()) {
+      alert('Product name is required');
+      return;
+    }
+    if (productForm.priceZAR <= 0) {
+      alert('Price must be greater than zero');
+      return;
+    }
+    if (productForm.stock < 0) {
+      alert('Stock cannot be negative');
+      return;
+    }
+
+    const featuresList = productForm.featuresStr.split(',').map(f => f.trim()).filter(Boolean);
+
+    if (editingProductId) {
+      const existing = products.find(p => p.id === editingProductId);
+      if (existing && onUpdateProduct) {
+        const updated: Product = {
+          ...existing,
+          name: productForm.name.trim(),
+          category: productForm.category,
+          categoryLabel: productForm.categoryLabel,
+          priceZAR: Number(productForm.priceZAR),
+          stock: Number(productForm.stock),
+          images: [productForm.image.trim() || existing.images[0]],
+          description: productForm.description.trim(),
+          features: featuresList.length > 0 ? featuresList : existing.features,
+          dispatchTime: productForm.dispatchTime,
+          courierPartner: productForm.courierPartner
+        };
+        onUpdateProduct(updated);
+      }
+    } else {
+      if (onAddProduct) {
+        const newProd: Product = {
+          id: `prod-${Date.now()}`,
+          sellerId: currentSeller.id,
+          sellerName: currentSeller.name,
+          sellerLocation: `${currentSeller.city}, ${currentSeller.province}`,
+          name: productForm.name.trim(),
+          category: productForm.category,
+          categoryLabel: productForm.categoryLabel,
+          priceZAR: Number(productForm.priceZAR),
+          originalPriceZAR: Math.round(productForm.priceZAR * 1.15),
+          stock: Number(productForm.stock),
+          dispatchTime: productForm.dispatchTime,
+          courierPartner: productForm.courierPartner,
+          images: [productForm.image.trim() || 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&q=80&w=800'],
+          description: productForm.description.trim(),
+          features: featuresList.length > 0 ? featuresList : ['Handcrafted', 'Local artisan studio'],
+          rating: 5.0,
+          reviewCount: 1
+        };
+        onAddProduct(newProd);
+      }
+    }
+
+    setIsProductModalOpen(false);
+  };
+
+  const handleAdjustStock = (prod: Product, delta: number) => {
+    if (onUpdateProduct) {
+      const newStock = Math.max(0, prod.stock + delta);
+      onUpdateProduct({ ...prod, stock: newStock });
+    }
   };
 
   return (
@@ -354,11 +606,11 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                 Seller Studio
               </span>
               <span className="text-xs text-slate-400 font-mono">
-                AI Selling Assistant
+                AI Selling Assistant & Inventory
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-0.5">
-              Livestream Prep & Sales Co-Pilot
+              Store Management & Co-Pilot
             </h1>
           </div>
         </div>
@@ -389,7 +641,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
         </div>
       )}
 
-      {/* Mandatory Transparency & Governance Banner with exact required disclaimer */}
+      {/* Mandatory Transparency & Governance Banner */}
       <div className="p-4 rounded-2xl bg-[#14171f] border border-[#212633] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-300">
         <div className="flex items-start gap-2.5">
           <AlertCircle className="w-4 h-4 text-[#0066ff] shrink-0 mt-0.5" />
@@ -416,7 +668,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
         </div>
       </div>
 
-      {/* Main 3 Functional Tabs */}
+      {/* Main 4 Functional Tabs */}
       <div className="flex items-center gap-2 border-b border-[#212633] pb-2 overflow-x-auto scrollbar-none touch-pan-x -mx-4 px-4 sm:mx-0 sm:px-0">
         <button
           onClick={() => setActiveTab('prep')}
@@ -427,7 +679,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
           }`}
         >
           <Radio className="w-3.5 h-3.5" />
-          <span>A. Before Going Live (Livestream Prep)</span>
+          <span>A. Livestream Prep</span>
         </button>
 
         <button
@@ -439,7 +691,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
           }`}
         >
           <FileText className="w-3.5 h-3.5" />
-          <span>B. Product Descriptions & Captions</span>
+          <span>B. Descriptions & Captions</span>
         </button>
 
         <button
@@ -451,15 +703,25 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
           }`}
         >
           <Film className="w-3.5 h-3.5" />
-          <span>C. After Going Live (Snippet Highlights)</span>
+          <span>C. Snippets & Archive</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('inventory')}
+          className={`min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-2 active:scale-95 ${
+            activeTab === 'inventory'
+              ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
+              : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
+          }`}
+        >
+          <Package className="w-3.5 h-3.5" />
+          <span>D. Store Inventory ({sellerProducts.length})</span>
         </button>
       </div>
 
       {/* TAB A: BEFORE GOING LIVE */}
       {activeTab === 'prep' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
-          {/* Left Column: Product Selection & Live Parameters */}
           <div className="lg:col-span-5 space-y-6">
             <div className="p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5">
               <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
@@ -467,11 +729,8 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                 Select Product for Live Broadcast
               </h2>
 
-              {/* Product Picker */}
               <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-medium">
-                  Choose from your store's inventory:
-                </label>
+                <label className="text-xs text-slate-400 font-medium">Choose from your store's inventory:</label>
                 <select
                   value={selectedProductId}
                   onChange={(e) => setSelectedProductId(e.target.value)}
@@ -485,7 +744,6 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                 </select>
               </div>
 
-              {/* Product Fact Sheet Preview (Zero-Re-entry requirement) */}
               {selectedProduct && (
                 <div className="p-3.5 rounded-xl bg-[#0c0e12] border border-[#212633] space-y-2.5 text-xs">
                   <div className="flex items-center gap-3">
@@ -497,1007 +755,434 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                     <div className="min-w-0">
                       <p className="font-bold text-white truncate">{selectedProduct.name}</p>
                       <p className="font-mono text-[#0066ff] font-bold">R {selectedProduct.priceZAR.toLocaleString()}</p>
-                      <p className="text-[11px] text-emerald-400">{selectedProduct.stock} units currently in stock</p>
+                      <p className="text-[11px] text-emerald-400">{selectedProduct.stock} units in stock</p>
                     </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-[#1e2330] space-y-1 text-[11px] text-slate-400">
-                    <p><strong className="text-slate-300">Courier Dispatch:</strong> {selectedProduct.dispatchTime}</p>
-                    <p><strong className="text-slate-300">Known Features:</strong> {selectedProduct.features.join(', ')}</p>
                   </div>
                 </div>
               )}
 
-              {/* Optional Broadcast Focus */}
-              <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-medium">
-                  Special Broadcast Focus or Promotion (Optional):
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Announce free shipping over R750, or winter hydration routine"
-                  value={prepNotes}
-                  onChange={(e) => setPrepNotes(e.target.value)}
-                  className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#0066ff]"
-                />
-              </div>
-
-              {/* Generate Button */}
               <button
                 onClick={handleGeneratePrep}
                 disabled={isGenerating || !selectedProduct}
-                className="w-full py-3.5 px-4 rounded-xl text-xs font-bold bg-[#0066ff] hover:bg-[#0052cc] text-white flex items-center justify-center gap-2 shadow-lg shadow-[#0066ff]/25 transition-all cursor-pointer disabled:opacity-50"
+                className="w-full py-3.5 px-4 rounded-xl text-xs font-bold bg-[#0066ff] hover:bg-[#0052cc] text-white flex items-center justify-center gap-2 shadow-lg cursor-pointer disabled:opacity-50"
               >
-                {isGenerating ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    Generating Live Prep Pack via Gemini...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    Generate Livestream Prep Pack
-                  </>
-                )}
+                {isGenerating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                <span>Generate Livestream Prep Pack</span>
               </button>
-
-              {/* Ready to Broadcast action card */}
-              {onOpenLiveHostMode && currentSeller.currentLiveSessionId && (
-                <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-500/30 space-y-2 mt-2">
-                  <div className="flex items-center gap-2 text-emerald-300 text-xs font-bold">
-                    <Radio className="w-4 h-4 text-emerald-400" />
-                    <span>Host Studio AI Sales Coach</span>
-                  </div>
-                  <p className="text-[11px] text-slate-300">
-                    Broadcast with your private on-screen prompt queue, live stock updates, and verified promotion terms.
-                  </p>
-                  <button
-                    onClick={() => onOpenLiveHostMode(currentSeller.currentLiveSessionId!)}
-                    className="w-full py-2.5 px-3 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 cursor-pointer"
-                  >
-                    <span>Launch Private Seller Host Mode</span>
-                    <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* Right Column: Editable Generated Prep Cards */}
           <div className="lg:col-span-7 space-y-6">
-            
             {prepResults.openingHook ? (
               <div className="space-y-5">
-                
-                {/* 1. Opening Hook */}
                 <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#0066ff] uppercase tracking-wider flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5" />
-                      1. Engaging Opening Hook (15 Seconds)
-                    </span>
-                    <button
-                      onClick={() => handleCopy('hook', prepResults.openingHook)}
-                      className="p-1.5 rounded-lg bg-[#1e2330] hover:bg-[#283042] text-slate-300 text-[11px] flex items-center gap-1 cursor-pointer transition-colors"
-                    >
-                      {copiedKey === 'hook' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                      <span>{copiedKey === 'hook' ? 'Copied' : 'Copy'}</span>
-                    </button>
-                  </div>
+                  <span className="text-xs font-bold text-[#0066ff] uppercase">1. Opening Hook</span>
                   <textarea
                     rows={3}
                     value={prepResults.openingHook}
                     onChange={(e) => setPrepResults({ ...prepResults, openingHook: e.target.value })}
-                    className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white leading-relaxed focus:outline-none focus:border-[#0066ff]"
-                  />
-                  <p className="text-[11px] text-slate-400">Say this in your first 15 seconds to prevent viewers scrolling away.</p>
-                </div>
-
-                {/* 2. Core Talking Points */}
-                <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white uppercase tracking-wider">
-                      2. Talking Points & Benefits
-                    </span>
-                    <button
-                      onClick={() => handleCopy('points', prepResults.talkingPoints)}
-                      className="p-1.5 rounded-lg bg-[#1e2330] text-slate-300 text-[11px] flex items-center gap-1 cursor-pointer"
-                    >
-                      {copiedKey === 'points' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                      <span>{copiedKey === 'points' ? 'Copied' : 'Copy'}</span>
-                    </button>
-                  </div>
-                  <textarea
-                    rows={5}
-                    value={prepResults.talkingPoints}
-                    onChange={(e) => setPrepResults({ ...prepResults, talkingPoints: e.target.value })}
-                    className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white font-mono leading-relaxed focus:outline-none focus:border-[#0066ff]"
+                    className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white"
                   />
                 </div>
-
-                {/* 3. Live Demonstration Ideas */}
-                <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
-                      3. Live Demonstration & Camera Tips
-                    </span>
-                    <button
-                      onClick={() => handleCopy('demo', prepResults.demoSteps)}
-                      className="p-1.5 rounded-lg bg-[#1e2330] text-slate-300 text-[11px] flex items-center gap-1 cursor-pointer"
-                    >
-                      {copiedKey === 'demo' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                      <span>{copiedKey === 'demo' ? 'Copied' : 'Copy'}</span>
-                    </button>
-                  </div>
-                  <textarea
-                    rows={4}
-                    value={prepResults.demoSteps}
-                    onChange={(e) => setPrepResults({ ...prepResults, demoSteps: e.target.value })}
-                    className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white leading-relaxed focus:outline-none focus:border-[#0066ff]"
-                  />
-                </div>
-
-                {/* 4. Shopper Questions & Suggested Answers */}
-                <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">
-                      4. Questions to Answer on Stream
-                    </span>
-                    <button
-                      onClick={() => handleCopy('faq', prepResults.faqQuestions)}
-                      className="p-1.5 rounded-lg bg-[#1e2330] text-slate-300 text-[11px] flex items-center gap-1 cursor-pointer"
-                    >
-                      {copiedKey === 'faq' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                      <span>{copiedKey === 'faq' ? 'Copied' : 'Copy'}</span>
-                    </button>
-                  </div>
-                  <textarea
-                    rows={5}
-                    value={prepResults.faqQuestions}
-                    onChange={(e) => setPrepResults({ ...prepResults, faqQuestions: e.target.value })}
-                    className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white leading-relaxed focus:outline-none focus:border-[#0066ff]"
-                  />
-                </div>
-
-                {/* 5. 10-Minute Livestream Outline */}
-                <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5" />
-                      5. 10-Minute Livestream Outline
-                    </span>
-                    <button
-                      onClick={() => handleCopy('timeline', prepResults.streamTimeline)}
-                      className="p-1.5 rounded-lg bg-[#1e2330] text-slate-300 text-[11px] flex items-center gap-1 cursor-pointer"
-                    >
-                      {copiedKey === 'timeline' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                      <span>{copiedKey === 'timeline' ? 'Copied' : 'Copy'}</span>
-                    </button>
-                  </div>
-                  <textarea
-                    rows={5}
-                    value={prepResults.streamTimeline}
-                    onChange={(e) => setPrepResults({ ...prepResults, streamTimeline: e.target.value })}
-                    className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white font-mono leading-relaxed focus:outline-none focus:border-[#0066ff]"
-                  />
-                </div>
-
               </div>
             ) : (
-              /* Empty state before generating */
               <div className="p-12 rounded-2xl bg-[#14171f] border border-[#212633] text-center space-y-4">
-                <div className="w-16 h-16 rounded-2xl bg-[#0066ff]/10 border border-[#0066ff]/20 flex items-center justify-center text-[#0066ff] mx-auto">
-                  <Radio className="w-8 h-8" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-base font-bold text-white">Live Broadcast Prep Assistant</h3>
-                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                    Select your product and click <strong>"Generate Livestream Prep Pack"</strong> to get an opening hook, demonstration points, questions to answer, and a 10-minute timeline.
-                  </p>
-                </div>
+                <Radio className="w-8 h-8 text-[#0066ff] mx-auto" />
+                <h3 className="text-base font-bold text-white">Live Broadcast Prep Assistant</h3>
               </div>
             )}
-
           </div>
-
         </div>
       )}
 
-      {/* TAB B: PRODUCT DESCRIPTIONS & PROMOTIONAL CONTENT */}
+      {/* TAB B: DESCRIPTIONS & CAPTIONS */}
       {activeTab === 'copy' && (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          
           <div className="lg:col-span-5 space-y-6">
             <div className="p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5">
-              <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
-                <FileText className="w-4 h-4 text-[#0066ff]" />
-                Select Product to Enhance Copy
-              </h2>
-
-              <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-medium">Select Product:</label>
-                <select
-                  value={selectedProductId}
-                  onChange={(e) => setSelectedProductId(e.target.value)}
-                  className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white focus:outline-none focus:border-[#0066ff]"
-                >
-                  {sellerProducts.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {selectedProduct && (
-                <div className="p-3.5 rounded-xl bg-[#0c0e12] border border-[#212633] space-y-2 text-xs">
-                  <p className="text-slate-400 font-medium text-[11px] uppercase tracking-wider">Current Description:</p>
-                  <p className="text-slate-300 text-xs italic leading-relaxed line-clamp-3">
-                    "{selectedProduct.description}"
-                  </p>
-                  <p className="text-slate-400 text-[11px] pt-1 border-t border-[#1e2330]">
-                    Price: <strong className="text-white">R {selectedProduct.priceZAR.toLocaleString()}</strong> · Stock: <strong className="text-white">{selectedProduct.stock}</strong>
-                  </p>
-                </div>
-              )}
-
-              <div className="space-y-1.5">
-                <label className="text-xs text-slate-400 font-medium">
-                  Tone or Marketing Goal (Optional):
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. Focus on organic fynbos heritage or daily durability"
-                  value={copyInstructions}
-                  onChange={(e) => setCopyInstructions(e.target.value)}
-                  className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-[#0066ff]"
-                />
-              </div>
-
+              <h2 className="text-sm font-bold text-white">Select Product to Enhance Copy</h2>
+              <select
+                value={selectedProductId}
+                onChange={(e) => setSelectedProductId(e.target.value)}
+                className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white"
+              >
+                {sellerProducts.map((p) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
               <button
                 onClick={handleGenerateCopy}
                 disabled={isGenerating || !selectedProduct}
-                className="w-full py-3.5 px-4 rounded-xl text-xs font-bold bg-[#0066ff] hover:bg-[#0052cc] text-white flex items-center justify-center gap-2 shadow-lg shadow-[#0066ff]/25 transition-all cursor-pointer disabled:opacity-50"
+                className="w-full py-3.5 px-4 rounded-xl text-xs font-bold bg-[#0066ff] text-white flex items-center justify-center gap-2 cursor-pointer"
               >
-                {isGenerating ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    Generating Copy via Gemini...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="w-4 h-4" />
-                    Generate Enhanced Description & Captions
-                  </>
-                )}
+                {isGenerating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                <span>Generate Description & Captions</span>
               </button>
             </div>
           </div>
 
           <div className="lg:col-span-7 space-y-6">
             {copyResults.improvedDescription ? (
-              <div className="space-y-5">
-                
-                {/* 1. Improved Description */}
-                <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-[#0066ff] uppercase tracking-wider">
-                      Enhanced Product Description
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={handleApplyDescription}
-                        className="px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white text-[11px] font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-                      >
-                        <Check className="w-3 h-3" />
-                        Apply to Store
-                      </button>
-                      <button
-                        onClick={() => handleCopy('desc', copyResults.improvedDescription)}
-                        className="p-1.5 rounded-lg bg-[#1e2330] text-slate-300 text-[11px] flex items-center gap-1 cursor-pointer"
-                      >
-                        {copiedKey === 'desc' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                        <span>{copiedKey === 'desc' ? 'Copied' : 'Copy'}</span>
-                      </button>
-                    </div>
-                  </div>
-                  <textarea
-                    rows={6}
-                    value={copyResults.improvedDescription}
-                    onChange={(e) => setCopyResults({ ...copyResults, improvedDescription: e.target.value })}
-                    className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white leading-relaxed focus:outline-none focus:border-[#0066ff]"
-                  />
-                  <p className="text-[11px] text-slate-400">
-                    Factual and persuasive. Uses only your verified features without inventing claims.
-                  </p>
+              <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-2">
+                <div className="flex justify-between">
+                  <span className="text-xs font-bold text-[#0066ff]">Enhanced Description</span>
+                  <button onClick={handleApplyDescription} className="px-2.5 py-1 bg-emerald-700 text-white text-[11px] rounded-lg">Apply to Store</button>
                 </div>
-
-                {/* 2. Social & Stream Caption */}
-                <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-white uppercase tracking-wider">
-                      Social & Broadcast Caption
-                    </span>
-                    <button
-                      onClick={() => handleCopy('caption', copyResults.socialCaption)}
-                      className="p-1.5 rounded-lg bg-[#1e2330] text-slate-300 text-[11px] flex items-center gap-1 cursor-pointer"
-                    >
-                      {copiedKey === 'caption' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                      <span>{copiedKey === 'caption' ? 'Copied' : 'Copy'}</span>
-                    </button>
-                  </div>
-                  <textarea
-                    rows={4}
-                    value={copyResults.socialCaption}
-                    onChange={(e) => setCopyResults({ ...copyResults, socialCaption: e.target.value })}
-                    className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white leading-relaxed focus:outline-none focus:border-[#0066ff]"
-                  />
-                </div>
-
-                {/* 3. Live Teaser Card */}
-                <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">
-                      Pinned In-Stream Teaser
-                    </span>
-                    <button
-                      onClick={() => handleCopy('teaser', copyResults.streamTeaser)}
-                      className="p-1.5 rounded-lg bg-[#1e2330] text-slate-300 text-[11px] flex items-center gap-1 cursor-pointer"
-                    >
-                      {copiedKey === 'teaser' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                      <span>{copiedKey === 'teaser' ? 'Copied' : 'Copy'}</span>
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    value={copyResults.streamTeaser}
-                    onChange={(e) => setCopyResults({ ...copyResults, streamTeaser: e.target.value })}
-                    className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white focus:outline-none focus:border-[#0066ff]"
-                  />
-                </div>
-
+                <textarea
+                  rows={6}
+                  value={copyResults.improvedDescription}
+                  onChange={(e) => setCopyResults({ ...copyResults, improvedDescription: e.target.value })}
+                  className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white"
+                />
               </div>
             ) : (
-              <div className="p-12 rounded-2xl bg-[#14171f] border border-[#212633] text-center space-y-4">
-                <div className="w-16 h-16 rounded-2xl bg-[#0066ff]/10 border border-[#0066ff]/20 flex items-center justify-center text-[#0066ff] mx-auto">
-                  <FileText className="w-8 h-8" />
-                </div>
-                <div className="space-y-1">
-                  <h3 className="text-base font-bold text-white">Copy & Descriptions Assistant</h3>
-                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                    Improve existing product listings and generate ready-to-use South African social media and stream captions.
-                  </p>
-                </div>
+              <div className="p-12 rounded-2xl bg-[#14171f] border border-[#212633] text-center">
+                <p className="text-xs text-slate-400">Generate copy to get started.</p>
               </div>
             )}
           </div>
-
         </div>
       )}
 
-      {/* TAB C: AFTER GOING LIVE (TEMPORARY SHOPPABLE SNIPPETS & ARCHIVE) */}
+      {/* TAB C: SNIPPETS & ARCHIVE */}
       {activeTab === 'snippet' && (
         <div className="space-y-6">
+          <div className="p-4 bg-[#14171f] rounded-2xl border border-[#212633]">
+            <p className="text-xs text-slate-300">Manage recorded video snippets and expiration periods here.</p>
+          </div>
+        </div>
+      )}
 
-          {/* Sub-navigation for Snippet Workspace */}
-          <div className="flex flex-wrap items-center justify-between gap-3 p-3 bg-[#14171f] rounded-2xl border border-[#212633]">
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setSnippetViewMode('create')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  snippetViewMode === 'create'
-                    ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
-                    : 'bg-[#181c25] text-slate-400 hover:text-white border border-[#212633]'
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Publish & Link Clip</span>
-              </button>
+      {/* TAB D: STORE INVENTORY & PRODUCTS MANAGEMENT */}
+      {activeTab === 'inventory' && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 bg-[#14171f] rounded-2xl border border-[#212633]">
+            <div>
+              <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                <Package className="w-5 h-5 text-[#0066ff]" />
+                Store Inventory Management ({sellerProducts.length} items)
+              </h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Add new products, adjust stock levels, update pricing, and manage listings for {currentSeller.name}.
+              </p>
+            </div>
+            <button
+              onClick={handleOpenAddProductModal}
+              className="px-4 py-2.5 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-[#0066ff]/30 cursor-pointer active:scale-95 transition-transform shrink-0"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Add New Product</span>
+            </button>
+          </div>
 
-              <button
-                onClick={() => setSnippetViewMode('active')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  snippetViewMode === 'active'
-                    ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
-                    : 'bg-[#181c25] text-slate-400 hover:text-white border border-[#212633]'
-                }`}
-              >
-                <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                <span>Active on Storefront ({activeSellerSnippets.length})</span>
-              </button>
+          {sellerProducts.length === 0 ? (
+            <div className="p-12 rounded-2xl bg-[#14171f] border border-[#212633] text-center space-y-3">
+              <Package className="w-12 h-12 text-slate-600 mx-auto" />
+              <h3 className="text-sm font-bold text-white">No Products in Store Inventory</h3>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {sellerProducts.map((prod) => (
+                <div
+                  key={prod.id}
+                  className="bg-[#14171f] rounded-2xl border border-[#212633] p-4 flex flex-col justify-between space-y-4 shadow-lg group hover:border-[#0066ff]/50 transition-all"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start gap-3">
+                      <img
+                        src={prod.images[0]}
+                        alt={prod.name}
+                        className="w-16 h-16 rounded-xl object-cover border border-[#212633] shrink-0 bg-black"
+                      />
+                      <div className="min-w-0 flex-1">
+                        <span className="text-[10px] text-[#0066ff] font-bold uppercase tracking-wider block">
+                          {prod.categoryLabel || prod.category}
+                        </span>
+                        <h4 className="text-xs sm:text-sm font-bold text-white truncate leading-tight">
+                          {prod.name}
+                        </h4>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-sm font-bold font-mono text-emerald-400">
+                            R {prod.priceZAR.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
 
+                    <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
+                      {prod.description}
+                    </p>
+
+                    <div className="flex items-center justify-between text-xs pt-2 border-t border-[#1e2330]">
+                      <span className={`font-mono font-bold px-2 py-0.5 rounded ${
+                        prod.stock > 0 
+                          ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' 
+                          : 'bg-red-950 text-red-400 border border-red-500/30'
+                      }`}>
+                        {prod.stock > 0 ? `${prod.stock} in stock` : 'Out of stock'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-2 border-t border-[#212633]">
+                    <div className="flex items-center justify-between bg-[#0c0e12] p-2 rounded-xl border border-[#212633]">
+                      <span className="text-[11px] text-slate-400 font-medium">Manage Stock:</span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => handleAdjustStock(prod, -1)}
+                          className="w-7 h-7 rounded-lg bg-[#181c25] text-white text-xs font-bold flex items-center justify-center cursor-pointer"
+                        >
+                          -
+                        </button>
+                        <span className="w-8 text-center text-xs font-mono font-bold text-white">
+                          {prod.stock}
+                        </span>
+                        <button
+                          onClick={() => handleAdjustStock(prod, 1)}
+                          className="w-7 h-7 rounded-lg bg-[#181c25] text-white text-xs font-bold flex items-center justify-center cursor-pointer"
+                        >
+                          +
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => handleOpenEditProduct(prod)}
+                        className="py-2 px-3 rounded-xl bg-[#1e2430] hover:bg-[#283244] text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Edit3 className="w-3.5 h-3.5 text-[#0066ff]" />
+                        <span>Edit</span>
+                      </button>
+
+                      <button
+                        onClick={() => {
+                          if (confirm(`Delete "${prod.name}" from inventory?`)) {
+                            if (onDeleteProduct) onDeleteProduct(prod.id);
+                          }
+                        }}
+                        className="py-2 px-3 rounded-xl bg-red-950/40 hover:bg-red-900/50 border border-red-500/30 text-red-300 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Add / Edit Product Modal with Image Upload & AI Suggest Description */}
+      {isProductModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#14171f] border border-[#212633] rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 space-y-6 shadow-2xl relative animate-fade-in">
+            <div className="flex items-center justify-between pb-4 border-b border-[#212633]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-[#0066ff] flex items-center justify-center text-white font-bold">
+                  <Package className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    {editingProductId ? 'Edit Product Listing' : 'Add New Product to Store'}
+                  </h3>
+                  <p className="text-xs text-slate-400">{currentSeller.name}</p>
+                </div>
+              </div>
               <button
-                onClick={() => setSnippetViewMode('archive')}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  snippetViewMode === 'archive'
-                    ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
-                    : 'bg-[#181c25] text-slate-400 hover:text-white border border-[#212633]'
-                }`}
+                onClick={() => setIsProductModalOpen(false)}
+                className="w-8 h-8 rounded-full bg-[#1e2330] hover:bg-[#283042] text-slate-300 flex items-center justify-center cursor-pointer"
               >
-                <Layers className="w-3.5 h-3.5" />
-                <span>Private Seller Archive ({archivedSellerSnippets.length})</span>
+                <X className="w-4 h-4" />
               </button>
             </div>
 
-            <span className="text-[11px] font-mono text-slate-400 hidden sm:inline">
-              Seller: {currentSeller.name}
-            </span>
-          </div>
+            <form onSubmit={handleSaveProduct} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-300 block">Product Name *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. Handmade Stoneware Coffee Mug"
+                  value={productForm.name}
+                  onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                  className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-white focus:outline-none focus:border-[#0066ff]"
+                />
+              </div>
 
-          {/* SUB-VIEW 1: CREATE & PUBLISH SHOPPABLE SNIPPET */}
-          {snippetViewMode === 'create' && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-              
-              {/* Left Column: Clip Picker, Linked Product & Expiry Controls */}
-              <div className="lg:col-span-5 space-y-6">
-                <div className="p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5">
-                  <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
-                    <Film className="w-4 h-4 text-[#0066ff]" />
-                    1. Select Recorded Livestream Clip
-                  </h2>
+              {/* Native Image Upload File Input & Preview */}
+              <div className="space-y-2 pt-1">
+                <label className="font-semibold text-slate-300 block flex items-center gap-1.5">
+                  <ImageIcon className="w-4 h-4 text-[#0066ff]" />
+                  Product Image (Upload from Device or Camera)
+                </label>
 
-                  <div className="space-y-1.5">
-                    <label className="text-xs text-slate-400 font-medium">Select Clip from Previous Streams:</label>
-                    <select
-                      value={selectedSnippetId}
-                      onChange={(e) => {
-                        const newId = e.target.value;
-                        setSelectedSnippetId(newId);
-                        const matched = sellerSnippets.find(s => s.id === newId);
-                        if (matched) {
-                          setSnippetProductId(matched.productId);
-                          setSnippetExpiryHours(matched.expiryDurationHours || 168);
-                          if (matched.userDescription) setSnippetUserDescription(matched.userDescription);
-                          setSnippetResults({
-                            title: matched.title,
-                            caption: matched.caption || '',
-                            tags: matched.tags || ''
-                          });
-                        }
-                      }}
-                      className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white focus:outline-none focus:border-[#0066ff]"
-                    >
-                      {sellerSnippets.map((snip) => (
-                        <option key={snip.id} value={snip.id}>
-                          {snip.highlightTag}: {snip.title} ({snip.duration})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  {selectedSnippet && (
-                    <div className="rounded-xl overflow-hidden border border-[#212633] bg-[#0c0e12]">
-                      <div className="relative aspect-[16/9] bg-black">
-                        <img
-                          src={selectedSnippet.thumbnail}
-                          alt={selectedSnippet.title}
-                          className="w-full h-full object-cover opacity-80"
-                        />
-                        <div className="absolute bottom-2 right-2 bg-black/80 text-white text-[10px] font-mono px-1.5 py-0.5 rounded">
-                          {selectedSnippet.duration}
-                        </div>
-                      </div>
-                      <div className="p-3 text-xs space-y-1">
-                        <span className="text-[10px] text-[#0066ff] font-bold uppercase">{selectedSnippet.highlightTag}</span>
-                        <p className="text-white font-medium truncate">{selectedSnippet.title}</p>
-                      </div>
+                <div className="flex flex-col sm:flex-row items-center gap-4 p-3 rounded-2xl bg-[#0c0e12] border border-[#212633]">
+                  {imagePreviewUrl ? (
+                    <img
+                      src={imagePreviewUrl}
+                      alt="Product Preview"
+                      className="w-20 h-20 rounded-xl object-cover border border-[#212633] bg-black shrink-0"
+                    />
+                  ) : (
+                    <div className="w-20 h-20 rounded-xl bg-[#14171f] border border-[#212633] flex items-center justify-center text-slate-500 shrink-0">
+                      <Upload className="w-6 h-6" />
                     </div>
                   )}
 
-                  {/* 2. Link each snippet to an existing product using its product ID */}
-                  <div className="space-y-3 pt-3 border-t border-[#212633]">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                        <Sparkles className="w-3.5 h-3.5 text-[#0066ff]" />
-                        2. Link to Product (Shop from Video)
-                      </h3>
-                      <span className="text-[10px] text-slate-400 font-mono">Product ID Link</span>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-slate-400 font-medium">Select Product from Store Catalog:</label>
-                      <select
-                        value={snippetProductId}
-                        onChange={(e) => setSnippetProductId(e.target.value)}
-                        className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white focus:outline-none focus:border-[#0066ff]"
-                      >
-                        {sellerProducts.map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} — R {p.priceZAR.toLocaleString()} ({p.stock} in stock)
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* Linked Product Preview Micro-Card */}
-                    {(() => {
-                      const linked = products.find(p => p.id === snippetProductId) || selectedProduct;
-                      if (!linked) return null;
-                      return (
-                        <div className="p-3 rounded-xl bg-[#0c0e12] border border-[#212633] flex items-center gap-3 text-xs">
-                          <img
-                            src={linked.images[0]}
-                            alt={linked.name}
-                            className="w-12 h-12 rounded-lg object-cover border border-[#212633] shrink-0"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="font-bold text-white truncate">{linked.name}</p>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className="font-mono font-bold text-[#0066ff]">
-                                R {linked.priceZAR.toLocaleString()}
-                              </span>
-                              <span className={`text-[11px] ${linked.stock > 0 ? 'text-emerald-400' : 'text-red-400 font-semibold'}`}>
-                                · {linked.stock > 0 ? `${linked.stock} in stock` : 'Out of stock'}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })()}
-                  </div>
-
-                  {/* 3. Expiry Period Selection: 24h, 48h or 7 days (default 7 days) */}
-                  <div className="space-y-3 pt-3 border-t border-[#212633]">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5 text-amber-400" />
-                        3. Set Expiry Period
-                      </h3>
-                      <span className="text-[10px] text-amber-400 font-mono">
-                        {snippetExpiryHours === 168 ? '7 Days (Default)' : `${snippetExpiryHours} Hours`}
-                      </span>
-                    </div>
-
-                    <p className="text-[11px] text-slate-400">
-                      When expired, this snippet automatically disappears from your public storefront and is moved to your private seller archive.
-                    </p>
-
-                    <div className="grid grid-cols-3 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setSnippetExpiryHours(24)}
-                        className={`p-2.5 rounded-xl text-xs font-bold text-center border transition-all cursor-pointer ${
-                          snippetExpiryHours === 24
-                            ? 'bg-[#0066ff]/20 border-[#0066ff] text-white shadow-sm'
-                            : 'bg-[#0c0e12] border-[#212633] text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        <span className="block text-sm font-mono">24h</span>
-                        <span className="text-[10px] font-normal text-slate-400 block mt-0.5">Flash Demo</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setSnippetExpiryHours(48)}
-                        className={`p-2.5 rounded-xl text-xs font-bold text-center border transition-all cursor-pointer ${
-                          snippetExpiryHours === 48
-                            ? 'bg-[#0066ff]/20 border-[#0066ff] text-white shadow-sm'
-                            : 'bg-[#0c0e12] border-[#212633] text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        <span className="block text-sm font-mono">48h</span>
-                        <span className="text-[10px] font-normal text-slate-400 block mt-0.5">Weekend</span>
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={() => setSnippetExpiryHours(168)}
-                        className={`p-2.5 rounded-xl text-xs font-bold text-center border transition-all cursor-pointer ${
-                          snippetExpiryHours === 168
-                            ? 'bg-[#0066ff] border-[#0066ff] text-white shadow-md shadow-[#0066ff]/30'
-                            : 'bg-[#0c0e12] border-[#212633] text-slate-400 hover:text-white'
-                        }`}
-                      >
-                        <span className="block text-sm font-mono">7 Days</span>
-                        <span className="text-[10px] font-medium text-emerald-300 block mt-0.5">Recommended</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* AI Assistant Context Input */}
-                  <div className="space-y-1.5 pt-3 border-t border-[#212633]">
-                    <label className="text-xs text-slate-400 font-medium">
-                      What product feature do you demonstrate in this clip?
-                    </label>
-                    <textarea
-                      rows={3}
-                      value={snippetUserDescription}
-                      onChange={(e) => setSnippetUserDescription(e.target.value)}
-                      placeholder="e.g. Demonstrating the texture, weight, stitching and durability under studio light"
-                      className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white focus:outline-none focus:border-[#0066ff]"
+                  <div className="flex-1 w-full space-y-2">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageFileChange}
+                      className="w-full text-xs text-slate-300 file:mr-3 file:py-2 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[#1e2330] file:text-white hover:file:bg-[#283042] file:cursor-pointer cursor-pointer"
                     />
+                    <p className="text-[10px] text-slate-400">
+                      Supports JPEG, PNG, WebP up to 5MB. Converted to base64 for reliable persistent storage.
+                    </p>
+                    {imageUploadError && (
+                      <p className="text-[11px] text-red-400 font-semibold">{imageUploadError}</p>
+                    )}
                   </div>
+                </div>
+              </div>
 
-                  {/* Generate Button */}
-                  <button
-                    onClick={handleGenerateSnippet}
-                    disabled={isGenerating}
-                    className="w-full py-3 px-4 rounded-xl text-xs font-bold bg-[#1e2430] hover:bg-[#283244] text-white border border-[#2f394d] flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-300 block">Category</label>
+                  <select
+                    value={productForm.category}
+                    onChange={(e) => {
+                      const cat = e.target.value as Category;
+                      const labels: Record<string, string> = {
+                        beauty: 'Natural Beauty & Fynbos',
+                        streetwear: 'Urban Streetwear',
+                        leather: 'Handcrafted Leather',
+                        ceramics: 'Handmade Ceramics',
+                        pantry: 'Artisan Pantry & Food'
+                      };
+                      setProductForm({ ...productForm, category: cat, categoryLabel: labels[cat] || 'Artisan Craft' });
+                    }}
+                    className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-white focus:outline-none focus:border-[#0066ff]"
                   >
-                    {isGenerating ? (
+                    <option value="ceramics">Handmade Ceramics</option>
+                    <option value="leather">Handcrafted Leather</option>
+                    <option value="beauty">Natural Beauty & Fynbos</option>
+                    <option value="streetwear">Urban Streetwear</option>
+                    <option value="pantry">Artisan Pantry & Food</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-300 block">Price (ZAR) *</label>
+                  <input
+                    type="number"
+                    min="1"
+                    required
+                    value={productForm.priceZAR}
+                    onChange={(e) => setProductForm({ ...productForm, priceZAR: Number(e.target.value) })}
+                    className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-white font-mono focus:outline-none focus:border-[#0066ff]"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-300 block">Initial Stock *</label>
+                  <input
+                    type="number"
+                    min="0"
+                    required
+                    value={productForm.stock}
+                    onChange={(e) => setProductForm({ ...productForm, stock: Number(e.target.value) })}
+                    className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-white font-mono focus:outline-none focus:border-[#0066ff]"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-semibold text-slate-300 block">Dispatch Time</label>
+                  <input
+                    type="text"
+                    value={productForm.dispatchTime}
+                    onChange={(e) => setProductForm({ ...productForm, dispatchTime: e.target.value })}
+                    className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-white focus:outline-none focus:border-[#0066ff]"
+                  />
+                </div>
+              </div>
+
+              {/* Description with AI Suggest Description Button */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between">
+                  <label className="font-semibold text-slate-300 block">Description * (Min 150 chars)</label>
+                  <button
+                    type="button"
+                    onClick={handleAiSuggestDescription}
+                    disabled={isAiGeneratingDesc}
+                    className="px-3 py-1.5 rounded-lg bg-[#0066ff]/20 hover:bg-[#0066ff]/30 text-[#60a5fa] border border-[#0066ff]/40 text-xs font-bold flex items-center gap-1.5 cursor-pointer transition-all disabled:opacity-50"
+                    title="Generate professional retail description using Gemini AI & image analysis"
+                  >
+                    {isAiGeneratingDesc ? (
                       <>
-                        <RefreshCw className="w-4 h-4 animate-spin" />
-                        Drafting Copy with Gemini...
+                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                        <span>Analysing Image & Drafting...</span>
                       </>
                     ) : (
                       <>
-                        <Sparkles className="w-4 h-4 text-[#0066ff]" />
-                        Generate AI Title, Caption & Tags
+                        <Sparkles className="w-3.5 h-3.5 text-[#0066ff]" />
+                        <span>✨ AI Suggest Description</span>
                       </>
                     )}
                   </button>
+                </div>
 
+                <textarea
+                  rows={4}
+                  required
+                  placeholder="Describe materials, origin, and craftsmanship in detail..."
+                  value={productForm.description}
+                  onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
+                  className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-white focus:outline-none focus:border-[#0066ff] leading-relaxed"
+                />
+                <div className="flex items-center justify-between text-[10px]">
+                  <span className={`${productForm.description.length < 150 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                    {productForm.description.length} / 150 characters minimum
+                  </span>
+                  {aiDescError && (
+                    <span className="text-red-400 font-semibold">{aiDescError}</span>
+                  )}
                 </div>
               </div>
 
-              {/* Right Column: Editable Metadata & Big Publish Action */}
-              <div className="lg:col-span-7 space-y-6">
-                
-                <div className="p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5">
-                  <div className="flex items-center justify-between pb-3 border-b border-[#212633]">
-                    <span className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-1.5">
-                      <Film className="w-4 h-4 text-[#0066ff]" />
-                      Snippet Details & Storefront Copy
-                    </span>
-                    <span className="text-[10px] text-emerald-400 font-mono bg-emerald-950/60 border border-emerald-500/30 px-2 py-0.5 rounded">
-                      Editable before publishing
-                    </span>
-                  </div>
-
-                  {/* 1. Title */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-semibold text-slate-300">Snippet Title (Shown on Storefront):</label>
-                      <button
-                        onClick={() => handleCopy('snipTitle', snippetResults.title)}
-                        className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1"
-                      >
-                        {copiedKey === 'snipTitle' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                        <span>Copy</span>
-                      </button>
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="e.g. Wheel Throwing Demo: Pulling Pour-Over Coffee Cones"
-                      value={snippetResults.title}
-                      onChange={(e) => setSnippetResults({ ...snippetResults, title: e.target.value })}
-                      className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white font-bold focus:outline-none focus:border-[#0066ff]"
-                    />
-                  </div>
-
-                  {/* 2. Caption */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-semibold text-slate-300">Caption / Description:</label>
-                      <button
-                        onClick={() => handleCopy('snipCaption', snippetResults.caption)}
-                        className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1"
-                      >
-                        {copiedKey === 'snipCaption' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                        <span>Copy</span>
-                      </button>
-                    </div>
-                    <textarea
-                      rows={4}
-                      placeholder="e.g. Watch our live session replay demonstrating the craftsmanship and quality of our handcrafted stoneware..."
-                      value={snippetResults.caption}
-                      onChange={(e) => setSnippetResults({ ...snippetResults, caption: e.target.value })}
-                      className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white leading-relaxed focus:outline-none focus:border-[#0066ff]"
-                    />
-                  </div>
-
-                  {/* 3. Tags */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <label className="text-xs font-semibold text-slate-300">Storefront & Discovery Tags:</label>
-                      <button
-                        onClick={() => handleCopy('snipTags', snippetResults.tags)}
-                        className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1"
-                      >
-                        {copiedKey === 'snipTags' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-                        <span>Copy</span>
-                      </button>
-                    </div>
-                    <input
-                      type="text"
-                      placeholder="e.g. #MadeInSA #Ceramics #LiveShopping #DurbanCraft"
-                      value={snippetResults.tags}
-                      onChange={(e) => setSnippetResults({ ...snippetResults, tags: e.target.value })}
-                      className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-emerald-400 font-mono focus:outline-none focus:border-[#0066ff]"
-                    />
-                  </div>
-
-                  {/* Publish Call To Action */}
-                  <div className="pt-4 border-t border-[#212633] space-y-3">
-                    <button
-                      onClick={handlePublishShoppableSnippet}
-                      className="w-full py-3.5 px-4 rounded-xl text-sm font-bold bg-[#0066ff] hover:bg-[#0052cc] text-white flex items-center justify-center gap-2 shadow-lg shadow-[#0066ff]/25 transition-all cursor-pointer active:scale-98"
-                    >
-                      <Check className="w-4 h-4" />
-                      <span>Publish Shoppable Snippet to Storefront</span>
-                    </button>
-
-                    <div className="flex items-center justify-between text-[11px] text-slate-400 px-1 font-mono">
-                      <span>Linked Product: {products.find(p => p.id === snippetProductId)?.name || 'Selected'}</span>
-                      <span>Expiry: {snippetExpiryHours === 168 ? '7 Days' : `${snippetExpiryHours}h`}</span>
-                    </div>
-                  </div>
-
-                </div>
-
+              <div className="space-y-1">
+                <label className="font-semibold text-slate-300 block">Key Features (comma separated)</label>
+                <input
+                  type="text"
+                  placeholder="Lead-free glaze, Dishwasher safe, Hand-thrown"
+                  value={productForm.featuresStr}
+                  onChange={(e) => setProductForm({ ...productForm, featuresStr: e.target.value })}
+                  className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-white focus:outline-none focus:border-[#0066ff]"
+                />
               </div>
 
-            </div>
-          )}
-
-          {/* SUB-VIEW 2: ACTIVE SNIPPETS ON STOREFRONT */}
-          {snippetViewMode === 'active' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                    Active Shoppable Snippets on Public Storefront
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    These clips are currently visible to shoppers on your public storefront and feature interactive Buy Now buttons.
-                  </p>
-                </div>
-                <span className="text-xs bg-[#10131a] border border-[#212633] px-3 py-1.5 rounded-xl font-mono text-emerald-400 font-bold">
-                  {activeSellerSnippets.length} currently active
-                </span>
+              <div className="pt-4 border-t border-[#212633] flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsProductModalOpen(false)}
+                  className="flex-1 py-3 rounded-xl bg-[#1e2330] hover:bg-[#283042] text-slate-300 font-bold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 py-3 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white font-bold transition-colors cursor-pointer shadow-lg shadow-[#0066ff]/30"
+                >
+                  {editingProductId ? 'Save Changes' : 'Publish Product'}
+                </button>
               </div>
-
-              {activeSellerSnippets.length === 0 ? (
-                <div className="p-12 rounded-2xl bg-[#14171f] border border-[#212633] text-center space-y-3">
-                  <Film className="w-12 h-12 text-slate-600 mx-auto" />
-                  <h3 className="text-sm font-bold text-white">No Active Snippets Right Now</h3>
-                  <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                    All previous snippets have expired or been archived. Use the "Publish & Link Clip" tab above to activate a new shoppable snippet.
-                  </p>
-                  <button
-                    onClick={() => setSnippetViewMode('create')}
-                    className="px-4 py-2 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs font-bold cursor-pointer"
-                  >
-                    + Publish a Snippet
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {activeSellerSnippets.map((snippet) => {
-                    const linkedProduct = products.find(p => p.id === snippet.productId);
-                    const timeLeft = getTimeRemaining(snippet.expiresAt);
-                    const exactExpiry = new Date(snippet.expiresAt).toLocaleDateString('en-ZA', {
-                      day: 'numeric',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    });
-
-                    return (
-                      <div
-                        key={snippet.id}
-                        className="bg-[#14171f] rounded-2xl border border-[#212633] p-4 flex flex-col justify-between space-y-4 shadow-lg"
-                      >
-                        <div className="space-y-3">
-                          <div className="flex items-start gap-3">
-                            <div className="relative w-24 h-24 rounded-xl overflow-hidden bg-black shrink-0 border border-[#212633]">
-                              <img
-                                src={snippet.thumbnail}
-                                alt={snippet.title}
-                                className="w-full h-full object-cover"
-                              />
-                              <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[9px] font-mono px-1 rounded">
-                                {snippet.duration}
-                              </span>
-                            </div>
-
-                            <div className="flex-1 min-w-0 space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] bg-[#0066ff]/20 text-[#60a5fa] font-bold px-2 py-0.5 rounded-full border border-[#0066ff]/30">
-                                  {snippet.highlightTag}
-                                </span>
-                                <span className="text-[10px] bg-amber-950 text-amber-300 font-mono px-2 py-0.5 rounded border border-amber-700/40">
-                                  {timeLeft}
-                                </span>
-                              </div>
-
-                              <h4 className="text-xs font-bold text-white line-clamp-2 leading-snug">
-                                {snippet.title}
-                              </h4>
-
-                              <p className="text-[11px] text-slate-400 font-mono">
-                                Views: {snippet.views} · Recorded: {snippet.recordedDate}
-                              </p>
-                            </div>
-                          </div>
-
-                          {/* Linked Product Card */}
-                          {linkedProduct && (
-                            <div className="p-2.5 rounded-xl bg-[#0c0e12] border border-[#212633] flex items-center justify-between text-xs">
-                              <div className="truncate mr-2">
-                                <span className="text-[10px] text-slate-400 block">Linked Shoppable Product:</span>
-                                <span className="font-semibold text-white truncate block">{linkedProduct.name}</span>
-                              </div>
-                              <div className="text-right shrink-0">
-                                <span className="font-mono font-bold text-white block">R {linkedProduct.priceZAR.toLocaleString()}</span>
-                                <span className={`text-[10px] ${linkedProduct.stock > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                                  {linkedProduct.stock > 0 ? `${linkedProduct.stock} in stock` : 'Out of stock'}
-                                </span>
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="text-[11px] text-slate-400 font-mono space-y-0.5 pt-1 border-t border-[#1e2330]">
-                            <p>Published: {new Date(snippet.publishedAt).toLocaleDateString()}</p>
-                            <p className="text-amber-400">Expires: {exactExpiry} ({timeLeft})</p>
-                          </div>
-                        </div>
-
-                        {/* Actions: Remove & Simulate Expiry */}
-                        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-[#212633]">
-                          <button
-                            onClick={() => {
-                              if (onArchiveSnippet) {
-                                onArchiveSnippet(snippet.id);
-                              }
-                            }}
-                            className="py-2 px-3 rounded-xl bg-[#1e2430] hover:bg-[#283244] text-slate-300 text-xs font-semibold cursor-pointer transition-colors"
-                          >
-                            Remove from Storefront
-                          </button>
-
-                          <button
-                            onClick={() => {
-                              if (onExpireSnippetNow) {
-                                onExpireSnippetNow(snippet.id);
-                              }
-                            }}
-                            className="py-2 px-3 rounded-xl bg-amber-950/60 hover:bg-amber-900/60 border border-amber-700/50 text-amber-300 text-xs font-semibold cursor-pointer transition-colors"
-                            title="Simulate expiry right now to verify archiving behavior"
-                          >
-                            ⚡ Simulate Expiry (Test)
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* SUB-VIEW 3: PRIVATE SELLER ARCHIVE */}
-          {snippetViewMode === 'archive' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-                    <Layers className="w-4 h-4 text-slate-400" />
-                    Private Seller Archive (Expired & Removed Clips)
-                  </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">
-                    Expired snippets are safely retained here for your records. They are hidden from the public storefront and deactivated.
-                  </p>
-                </div>
-                <span className="text-xs bg-[#10131a] border border-[#212633] px-3 py-1.5 rounded-xl font-mono text-slate-400 font-bold">
-                  {archivedSellerSnippets.length} in archive
-                </span>
-              </div>
-
-              {/* Regulatory and Non-Availability Notice */}
-              <div className="p-3.5 rounded-xl bg-[#14171f] border border-[#212633] text-xs text-slate-300 space-y-1">
-                <span className="font-bold text-white block">Archive Protection Policy:</span>
-                <p className="text-slate-400 leading-relaxed text-[11px]">
-                  Expired snippets are never presented as active promotions or currently available offers. Products linked to expired snippets cannot be purchased through expired clips.
-                </p>
-              </div>
-
-              {archivedSellerSnippets.length === 0 ? (
-                <div className="p-12 rounded-2xl bg-[#14171f] border border-[#212633] text-center space-y-2">
-                  <p className="text-sm font-semibold text-white">Your Private Archive is Empty</p>
-                  <p className="text-xs text-slate-400">
-                    Snippets will appear here when they reach their expiry date or when you choose to remove them from your storefront.
-                  </p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {archivedSellerSnippets.map((snippet) => {
-                    const linkedProduct = products.find(p => p.id === snippet.productId);
-                    const isExpired = new Date(snippet.expiresAt).getTime() <= Date.now();
-                    const expiryDateFormatted = new Date(snippet.expiresAt).toLocaleDateString('en-ZA', {
-                      day: 'numeric',
-                      month: 'short',
-                      year: 'numeric'
-                    });
-
-                    return (
-                      <div
-                        key={snippet.id}
-                        className="bg-[#14171f] rounded-2xl border border-[#212633] p-4 flex flex-col justify-between space-y-4 opacity-85 hover:opacity-100 transition-opacity"
-                      >
-                        <div className="space-y-3">
-                          <div className="flex items-start gap-3">
-                            <div className="relative w-24 h-24 rounded-xl overflow-hidden bg-black shrink-0 border border-[#212633]">
-                              <img
-                                src={snippet.thumbnail}
-                                alt={snippet.title}
-                                className="w-full h-full object-cover grayscale-30"
-                              />
-                              <span className="absolute bottom-1 right-1 bg-black/80 text-white text-[9px] font-mono px-1 rounded">
-                                {snippet.duration}
-                              </span>
-                            </div>
-
-                            <div className="flex-1 min-w-0 space-y-1">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[10px] bg-slate-800 text-slate-400 font-mono px-2 py-0.5 rounded">
-                                  {isExpired ? `Expired: ${expiryDateFormatted}` : 'Archived by Seller'}
-                                </span>
-                              </div>
-
-                              <h4 className="text-xs font-bold text-white line-clamp-2 leading-snug">
-                                {snippet.title}
-                              </h4>
-
-                              <p className="text-[11px] text-slate-400 font-mono">
-                                Total Views: {snippet.views} · Tag: {snippet.highlightTag}
-                              </p>
-                            </div>
-                          </div>
-
-                          {linkedProduct && (
-                            <div className="p-2 rounded-xl bg-[#0c0e12] border border-[#212633] flex items-center justify-between text-xs">
-                              <span className="text-slate-400 truncate mr-2">Product: {linkedProduct.name}</span>
-                              <span className="font-mono text-slate-300 shrink-0">R {linkedProduct.priceZAR.toLocaleString()}</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Republish Action */}
-                        <div className="pt-2 border-t border-[#212633] flex items-center justify-between gap-2">
-                          <span className="text-[10px] text-slate-500 font-mono">Private Record Only</span>
-                          <div className="flex items-center gap-1.5">
-                            <button
-                              onClick={() => {
-                                if (onRepublishSnippet) {
-                                  onRepublishSnippet(snippet.id, 168);
-                                }
-                              }}
-                              className="px-3 py-1.5 rounded-lg bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs font-bold cursor-pointer transition-colors"
-                            >
-                              Republish (7 Days)
-                            </button>
-                            <button
-                              onClick={() => {
-                                if (onRepublishSnippet) {
-                                  onRepublishSnippet(snippet.id, 24);
-                                }
-                              }}
-                              className="px-2.5 py-1.5 rounded-lg bg-[#1e2430] hover:bg-[#283244] text-slate-300 text-xs font-medium cursor-pointer transition-colors"
-                            >
-                              24h
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Explicit Regulatory & Livestream Activity Notice */}
-          <div className="p-3.5 rounded-2xl bg-[#10131a] border border-[#212633] text-[11px] text-slate-400 leading-relaxed space-y-1">
-            <p>
-              <strong className="text-slate-300">Marketplace Policy Reminder:</strong> Temporary shoppable snippets do not count towards the seller's official livestream activity requirements or live broadcast hours.
-            </p>
-            <p className="text-slate-500">
-              Shoppable clips are designed exclusively as lightweight, short-lived video highlights to showcase verified products between full live sessions.
-            </p>
+            </form>
           </div>
-
         </div>
       )}
 

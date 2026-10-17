@@ -13,7 +13,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 
 // Initialize GoogleGenAI SDK on server side
 const ai = new GoogleGenAI({
@@ -28,7 +28,7 @@ const ai = new GoogleGenAI({
 // API Route for AI Selling Assistant
 app.post('/api/seller-ai/generate', async (req, res) => {
   try {
-    const { taskType, product, seller, customContext, snippet } = req.body;
+    const { taskType, product, seller, customContext, snippet, productImage } = req.body;
 
     if (!taskType) {
       return res.status(400).json({ error: 'Missing taskType in request' });
@@ -73,6 +73,19 @@ Generate:
 1. Enhanced Product Description (Polished, evocative 2-paragraph description highlighting authentic craftsmanship without inventing facts)
 2. Quick Promotional Caption (Engaging 2-3 line caption for social media and stream announcement, with natural South African tone and relevant hashtags)
 3. Live Room Announcement Card (A short, punchy 1-sentence teaser to display in the live broadcast feed)`;
+    } else if (taskType === 'suggest_description') {
+      prompt = `Write a professional, engaging retail product description for this South African artisan product:
+Product Title: ${product?.name || 'Handcrafted Product'}
+Category: ${product?.categoryLabel || product?.category || 'Artisan Craft'}
+Existing Description: ${product?.description || 'None provided'}
+Maker: ${seller?.name || 'Local Artisan'} (${seller?.city || 'South Africa'})
+
+Requirements:
+1. Write a clear, engaging, professional retail description based strictly on the title, category, and visible image (if attached).
+2. MUST be at least 150 characters long.
+3. Highlight authentic craftsmanship and practical features.
+4. Do NOT invent materials, dimensions, ingredients, certifications, warranties, or unsupported claims. If details are missing, describe the visible item accurately and invite shoppers to inspect specs.
+5. Return ONLY the description text without conversational filler.`;
     } else if (taskType === 'snippet_summary') {
       prompt = `Generate a title, caption, and tags for a recorded livestream snippet:
 Product: ${product?.name || 'Artisan item'} (${seller?.name || 'Local Maker'})
@@ -98,15 +111,28 @@ Keep each tip under 25 words. Warm South African tone. Never invent unlisted fea
       prompt = `Help the South African seller with this request: ${customContext || 'Provide livestream selling guidance'}. Product: ${product?.name || ''}`;
     }
 
+    // Build multimodal contents if productImage is provided
+    let contents: any = prompt;
+    if (productImage && productImage.data && productImage.mimeType) {
+      contents = [
+        prompt,
+        {
+          inlineData: {
+            data: productImage.data,
+            mimeType: productImage.mimeType,
+          }
+        }
+      ];
+    }
+
     // Call Gemini model
-    // We use 'gemini-3.1-flash-lite' as our primary free, low-latency text model.
     let responseText = '';
     let modelUsed = 'gemini-3.1-flash-lite';
 
     try {
       const result = await ai.models.generateContent({
         model: 'gemini-3.1-flash-lite',
-        contents: prompt,
+        contents,
         config: {
           systemInstruction,
           temperature: 0.7,
@@ -115,10 +141,9 @@ Keep each tip under 25 words. Warm South African tone. Never invent unlisted fea
       responseText = result.text || '';
     } catch (modelError: any) {
       console.warn('Primary model error, attempting fallback:', modelError?.message);
-      // Fallback attempt to gemini-3.8-flash if temporary demand spike
       const fallbackResult = await ai.models.generateContent({
         model: 'gemini-3.8-flash',
-        contents: prompt,
+        contents,
         config: {
           systemInstruction,
           temperature: 0.7,

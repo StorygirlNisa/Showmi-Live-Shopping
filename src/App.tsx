@@ -294,6 +294,24 @@ export default function App() {
     showNotification(`Snippet republished! Active for ${durationHours === 168 ? '7 days' : durationHours + ' hours'}`);
   };
 
+  // Product Inventory CRUD Handlers for Seller Studio
+  const handleAddProduct = (product: Product) => {
+    setProductsList(prev => [product, ...prev]);
+    showNotification(`Added new product "${product.name}" to store inventory`);
+  };
+
+  const handleUpdateProduct = (updatedProduct: Product) => {
+    setProductsList(prev =>
+      prev.map(p => (p.id === updatedProduct.id ? updatedProduct : p))
+    );
+    showNotification(`Updated product "${updatedProduct.name}"`);
+  };
+
+  const handleDeleteProduct = (productId: string) => {
+    setProductsList(prev => prev.filter(p => p.id !== productId));
+    showNotification('Removed product from store inventory');
+  };
+
   const handleResetDemoData = () => {
     localStorage.removeItem(STORAGE_KEYS.PRODUCTS);
     localStorage.removeItem(STORAGE_KEYS.CART);
@@ -568,6 +586,9 @@ export default function App() {
             onExpireSnippetNow={handleExpireSnippetNow}
             onRepublishSnippet={handleRepublishSnippet}
             onOpenLiveHostMode={handleOpenHostMode}
+            onAddProduct={handleAddProduct}
+            onUpdateProduct={handleUpdateProduct}
+            onDeleteProduct={handleDeleteProduct}
           />
         ) : activeTab === 'Basket' ? (
           /* View: Basket & Checkout Preview */
