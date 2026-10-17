@@ -724,9 +724,9 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
 
       {/* TAB A: BEFORE GOING LIVE */}
       {activeTab === 'prep' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          <div className="lg:col-span-5 space-y-6">
-            <div className="p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5">
+        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 items-start w-full min-w-0">
+          <div className="lg:col-span-5 w-full min-w-0 space-y-6">
+            <div className="p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5 w-full min-w-0">
               <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
                 <Radio className="w-4 h-4 text-red-500" />
                 Select Product for Live Broadcast
@@ -770,10 +770,10 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
             </div>
           </div>
 
-          <div className="lg:col-span-7 space-y-6">
+          <div className="lg:col-span-7 w-full min-w-0 space-y-6">
             {prepResults.openingHook ? (
-              <div className="space-y-5">
-                <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-2">
+              <div className="space-y-5 w-full min-w-0">
+                <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-2 w-full min-w-0">
                   <span className="text-xs font-bold text-[#0066ff] uppercase">1. Opening Hook</span>
                   <textarea
                     rows={3}
@@ -784,7 +784,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="p-12 rounded-2xl bg-[#14171f] border border-[#212633] text-center space-y-4">
+              <div className="p-12 rounded-2xl bg-[#14171f] border border-[#212633] text-center space-y-4 w-full min-w-0">
                 <Radio className="w-8 h-8 text-[#0066ff] mx-auto" />
                 <h3 className="text-base font-bold text-white">Live Broadcast Prep Assistant</h3>
               </div>
@@ -795,9 +795,9 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
 
       {/* TAB B: DESCRIPTIONS & CAPTIONS */}
       {activeTab === 'copy' && (
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          <div className="lg:col-span-5 space-y-6">
-            <div className="p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5">
+        <div className="flex flex-col lg:grid lg:grid-cols-12 gap-6 items-start w-full min-w-0">
+          <div className="lg:col-span-5 w-full min-w-0 space-y-6">
+            <div className="p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5 w-full min-w-0">
               <h2 className="text-sm font-bold text-white">Select Product to Enhance Copy</h2>
               <div className="max-h-48 overflow-y-auto space-y-2 pr-1 scrollbar-none">
                 {sellerProducts.map((p) => {
@@ -833,10 +833,10 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
             </div>
           </div>
 
-          <div className="lg:col-span-7 space-y-6">
+          <div className="lg:col-span-7 w-full min-w-0 space-y-6">
             {copyResults.improvedDescription ? (
-              <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-2">
-                <div className="flex justify-between">
+              <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-2 w-full min-w-0">
+                <div className="flex justify-between items-center">
                   <span className="text-xs font-bold text-[#0066ff]">Enhanced Description</span>
                   <button onClick={handleApplyDescription} className="px-2.5 py-1 bg-emerald-700 text-white text-[11px] rounded-lg">Apply to Store</button>
                 </div>
@@ -848,7 +848,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                 />
               </div>
             ) : (
-              <div className="p-12 rounded-2xl bg-[#14171f] border border-[#212633] text-center">
+              <div className="p-12 rounded-2xl bg-[#14171f] border border-[#212633] text-center w-full min-w-0">
                 <p className="text-xs text-slate-400">Generate copy to get started.</p>
               </div>
             )}

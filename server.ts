@@ -41,7 +41,8 @@ CRITICAL RULES:
 1. Ground your output strictly on the product and seller details provided.
 2. NEVER invent features, synthetic materials, clinical certifications, fake prices, or claims not stated in the inputs.
 3. Keep the tone natural, encouraging, persuasive, and grounded in South African small business culture.
-4. Output cleanly formatted Markdown with clear headings and bullet points where helpful.`;
+4. Output cleanly formatted Markdown with clear headings and bullet points where helpful.
+5. Use natural South African English spelling and wording consistently across all output (e.g., centre, personalise, organise, colour, recognise, programme, local phrasing).`;
 
     if (taskType === 'livestream_prep') {
       prompt = `Create a comprehensive live shopping preparation pack for this South African product:
