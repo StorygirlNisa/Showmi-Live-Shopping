@@ -588,41 +588,41 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
   };
 
   return (
-    <div className="pb-28 pt-4 px-4 sm:px-6 max-w-7xl mx-auto space-y-8">
+    <div className="pb-28 pt-4 px-4 sm:px-6 max-w-7xl mx-auto space-y-6 w-full min-w-0 overflow-x-hidden">
       
       {/* Top Banner and Navigation */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-[#212633]">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col gap-4 pb-4 border-b border-[#212633] w-full min-w-0">
+        <div className="flex items-center gap-3 w-full min-w-0">
           <button
             onClick={onBackToShopping}
-            className="p-2 rounded-xl bg-[#14171f] text-slate-300 hover:text-white border border-[#212633] transition-colors cursor-pointer"
+            className="p-2 rounded-xl bg-[#14171f] text-slate-300 hover:text-white border border-[#212633] transition-colors cursor-pointer shrink-0"
           >
             <ArrowLeft className="w-4 h-4" />
           </button>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs bg-[#0066ff]/20 text-[#60a5fa] border border-[#0066ff]/30 px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs bg-[#0066ff]/20 text-[#60a5fa] border border-[#0066ff]/30 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 shrink-0">
                 <Sparkles className="w-3 h-3 text-[#0066ff]" />
                 Seller Studio
               </span>
-              <span className="text-xs text-slate-400 font-mono">
+              <span className="text-xs text-slate-400 font-mono truncate">
                 AI Selling Assistant & Inventory
               </span>
             </div>
-            <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-0.5">
+            <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight mt-1 break-words">
               Store Management & Co-Pilot
             </h1>
           </div>
         </div>
 
-        {/* Seller Switcher */}
-        <div className="flex items-center gap-2 bg-[#14171f] p-1.5 rounded-xl border border-[#212633]">
-          <Store className="w-4 h-4 text-[#0066ff] ml-1.5" />
-          <span className="text-xs text-slate-400">Managing:</span>
+        {/* Managing Selector on a separate row underneath */}
+        <div className="flex items-center gap-2 bg-[#14171f] p-2.5 rounded-xl border border-[#212633] w-full sm:w-fit min-w-0">
+          <Store className="w-4 h-4 text-[#0066ff] ml-1 shrink-0" />
+          <span className="text-xs text-slate-400 shrink-0">Managing:</span>
           <select
             value={currentSeller.id}
             onChange={(e) => onSelectSeller(e.target.value)}
-            className="bg-[#0c0e12] border border-[#212633] rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none focus:border-[#0066ff]"
+            className="bg-[#0c0e12] border border-[#212633] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#0066ff] w-full sm:w-auto truncate"
           >
             {sellers.map((s) => (
               <option key={s.id} value={s.id}>
@@ -635,41 +635,44 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
 
       {/* Applied Notification */}
       {appliedNotification && (
-        <div className="p-3 bg-emerald-950/60 border border-emerald-500/40 rounded-xl text-emerald-300 text-xs font-semibold flex items-center gap-2">
-          <Check className="w-4 h-4" />
-          <span>{appliedNotification}</span>
+        <div className="p-3 bg-emerald-950/60 border border-emerald-500/40 rounded-xl text-emerald-300 text-xs font-semibold flex items-center gap-2 w-full min-w-0">
+          <Check className="w-4 h-4 shrink-0" />
+          <span className="break-words">{appliedNotification}</span>
         </div>
       )}
 
-      {/* Mandatory Transparency & Governance Banner */}
-      <div className="p-4 rounded-2xl bg-[#14171f] border border-[#212633] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-slate-300">
-        <div className="flex items-start gap-2.5">
+      {/* Mandatory Transparency & Governance Banner & Launch Live Host Mode */}
+      <div className="p-4 rounded-2xl bg-[#14171f] border border-[#212633] flex flex-col gap-4 w-full min-w-0">
+        <div className="flex items-start gap-2.5 w-full min-w-0">
           <AlertCircle className="w-4 h-4 text-[#0066ff] shrink-0 mt-0.5" />
-          <div>
+          <div className="min-w-0 flex-1">
             <span className="font-bold text-white block">Seller Responsibility & Transparency Notice:</span>
-            <span className="text-slate-400 leading-relaxed">
+            <span className="text-slate-400 leading-relaxed text-xs block break-words mt-0.5">
               “AI-generated content is for guidance and inspiration only. Review all suggestions for accuracy before using them. You are responsible for the claims you make about your products.”
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {onOpenLiveHostMode && currentSeller.currentLiveSessionId && (
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-[#212633] w-full min-w-0">
+          {onOpenLiveHostMode && currentSeller.currentLiveSessionId ? (
             <button
               onClick={() => onOpenLiveHostMode(currentSeller.currentLiveSessionId!)}
-              className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-600/20 cursor-pointer"
+              className="w-full sm:w-auto py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 cursor-pointer"
             >
-              <Radio className="w-3.5 h-3.5" />
+              <Radio className="w-4 h-4" />
               <span>Launch Live Host Mode</span>
             </button>
+          ) : (
+            <div />
           )}
-          <div className="bg-[#0c0e12] px-2.5 py-1.5 rounded-md text-[11px] text-slate-400 font-mono border border-[#212633]">
+          <div className="bg-[#0c0e12] px-3 py-2 rounded-xl text-[11px] text-slate-400 font-mono border border-[#212633] text-center sm:text-right shrink-0">
             Gemini 3.1 Flash Lite
           </div>
         </div>
       </div>
 
       {/* Main 4 Functional Tabs */}
-      <div className="flex items-center gap-2 border-b border-[#212633] pb-2 overflow-x-auto scrollbar-none touch-pan-x -mx-4 px-4 sm:mx-0 sm:px-0">
+      <div className="flex flex-row items-center gap-2 border-b border-[#212633] pb-2 overflow-x-auto scrollbar-none touch-pan-x -mx-4 px-4 sm:mx-0 sm:px-0 w-full min-w-0">
         <button
           onClick={() => setActiveTab('prep')}
           className={`min-h-[44px] px-4 py-2.5 rounded-xl text-xs font-bold whitespace-nowrap shrink-0 transition-all cursor-pointer flex items-center gap-2 active:scale-95 ${
