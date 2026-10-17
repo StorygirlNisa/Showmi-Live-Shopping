@@ -22,6 +22,8 @@ import {
   Image as ImageIcon
 } from 'lucide-react';
 import { Seller, Product, StreamSnippet, LivePromotion, Category } from '../types';
+import { MobileSellerStudio } from './MobileSellerStudio';
+
 
 interface SellerDashboardViewProps {
   sellers: Seller[];
@@ -590,149 +592,214 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
   return (
     <div className="pb-28 pt-4 px-4 sm:px-6 max-w-7xl mx-auto space-y-6 w-full min-w-0 overflow-x-hidden">
       
-      {/* Top Banner and Navigation */}
-      <div className="flex flex-col gap-4 pb-4 border-b border-[#212633] w-full min-w-0">
-        <div className="flex items-center gap-3 w-full min-w-0">
-          <button
-            onClick={onBackToShopping}
-            className="p-2 rounded-xl bg-[#14171f] text-slate-300 hover:text-white border border-[#212633] transition-colors cursor-pointer shrink-0"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs bg-[#0066ff]/20 text-[#60a5fa] border border-[#0066ff]/30 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 shrink-0">
-                <Sparkles className="w-3 h-3 text-[#0066ff]" />
-                Seller Studio
-              </span>
-              <span className="text-xs text-slate-400 font-mono truncate">
-                AI Selling Assistant & Inventory
+      {/* Desktop Dashboard View */}
+      <div className="hidden md:block w-full min-w-0 space-y-6">
+        {/* Top Banner and Navigation */}
+        <div className="flex flex-col gap-4 pb-4 border-b border-[#212633] w-full min-w-0">
+          <div className="flex items-center gap-3 w-full min-w-0">
+            <button
+              onClick={onBackToShopping}
+              className="p-2 rounded-xl bg-[#14171f] text-slate-300 hover:text-white border border-[#212633] transition-colors cursor-pointer shrink-0"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs bg-[#0066ff]/20 text-[#60a5fa] border border-[#0066ff]/30 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 shrink-0">
+                  <Sparkles className="w-3 h-3 text-[#0066ff]" />
+                  Seller Studio
+                </span>
+                <span className="text-xs text-slate-400 font-mono truncate">
+                  AI Selling Assistant & Inventory
+                </span>
+              </div>
+              <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight mt-1 break-words">
+                Store Management & Co-Pilot
+              </h1>
+            </div>
+          </div>
+
+          {/* Managing Selector on a separate row underneath */}
+          <div className="flex items-center gap-2 bg-[#14171f] p-2.5 rounded-xl border border-[#212633] w-full sm:w-fit min-w-0">
+            <Store className="w-4 h-4 text-[#0066ff] ml-1 shrink-0" />
+            <span className="text-xs text-slate-400 shrink-0">Managing:</span>
+            <select
+              value={currentSeller.id}
+              onChange={(e) => onSelectSeller(e.target.value)}
+              className="bg-[#0c0e12] border border-[#212633] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#0066ff] w-full sm:w-auto truncate"
+            >
+              {sellers.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name} ({s.city})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Applied Notification */}
+        {appliedNotification && (
+          <div className="p-3 bg-emerald-950/60 border border-emerald-500/40 rounded-xl text-emerald-300 text-xs font-semibold flex items-center gap-2 w-full min-w-0">
+            <Check className="w-4 h-4 shrink-0" />
+            <span className="break-words">{appliedNotification}</span>
+          </div>
+        )}
+
+        {/* Mandatory Transparency & Governance Banner & Launch Live Host Mode */}
+        <div className="p-4 rounded-2xl bg-[#14171f] border border-[#212633] flex flex-col gap-4 w-full min-w-0">
+          <div className="flex items-start gap-2.5 w-full min-w-0">
+            <AlertCircle className="w-4 h-4 text-[#0066ff] shrink-0 mt-0.5" />
+            <div className="min-w-0 flex-1">
+              <span className="font-bold text-white block">Seller Responsibility & Transparency Notice:</span>
+              <span className="text-slate-400 leading-relaxed text-xs block break-words mt-0.5">
+                “AI-generated content is for guidance and inspiration only. Review all suggestions for accuracy before using them. You are responsible for the claims you make about your products.”
               </span>
             </div>
-            <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight mt-1 break-words">
-              Store Management & Co-Pilot
-            </h1>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-[#212633] w-full min-w-0">
+            {onOpenLiveHostMode && currentSeller.currentLiveSessionId ? (
+              <button
+                onClick={() => onOpenLiveHostMode(currentSeller.currentLiveSessionId!)}
+                className="w-full sm:w-auto py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 cursor-pointer"
+              >
+                <Radio className="w-4 h-4" />
+                <span>Launch Live Host Mode</span>
+              </button>
+            ) : (
+              <div />
+            )}
+            <div className="bg-[#0c0e12] px-3 py-2 rounded-xl text-[11px] text-slate-400 font-mono border border-[#212633] text-center sm:text-right shrink-0">
+              Gemini 3.1 Flash Lite
+            </div>
           </div>
         </div>
 
-        {/* Managing Selector on a separate row underneath */}
-        <div className="flex items-center gap-2 bg-[#14171f] p-2.5 rounded-xl border border-[#212633] w-full sm:w-fit min-w-0">
-          <Store className="w-4 h-4 text-[#0066ff] ml-1 shrink-0" />
-          <span className="text-xs text-slate-400 shrink-0">Managing:</span>
-          <select
-            value={currentSeller.id}
-            onChange={(e) => onSelectSeller(e.target.value)}
-            className="bg-[#0c0e12] border border-[#212633] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#0066ff] w-full sm:w-auto truncate"
+        {/* Main 4 Functional Tabs */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pb-2 -mx-2 sm:mx-0 px-2 sm:px-0 w-full min-w-0">
+          <button
+            onClick={() => setActiveTab('prep')}
+            className={`min-h-[44px] px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
+              activeTab === 'prep'
+                ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
+                : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
+            }`}
           >
-            {sellers.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name} ({s.city})
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
+            <Radio className="w-3.5 h-3.5" />
+            <span>Prep</span>
+          </button>
 
-      {/* Applied Notification */}
-      {appliedNotification && (
-        <div className="p-3 bg-emerald-950/60 border border-emerald-500/40 rounded-xl text-emerald-300 text-xs font-semibold flex items-center gap-2 w-full min-w-0">
-          <Check className="w-4 h-4 shrink-0" />
-          <span className="break-words">{appliedNotification}</span>
-        </div>
-      )}
+          <button
+            onClick={() => setActiveTab('copy')}
+            className={`min-h-[44px] px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
+              activeTab === 'copy'
+                ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
+                : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
+            }`}
+          >
+            <FileText className="w-3.5 h-3.5" />
+            <span>Copy</span>
+          </button>
 
-      {/* Mandatory Transparency & Governance Banner & Launch Live Host Mode */}
-      <div className="p-4 rounded-2xl bg-[#14171f] border border-[#212633] flex flex-col gap-4 w-full min-w-0">
-        <div className="flex items-start gap-2.5 w-full min-w-0">
-          <AlertCircle className="w-4 h-4 text-[#0066ff] shrink-0 mt-0.5" />
-          <div className="min-w-0 flex-1">
-            <span className="font-bold text-white block">Seller Responsibility & Transparency Notice:</span>
-            <span className="text-slate-400 leading-relaxed text-xs block break-words mt-0.5">
-              “AI-generated content is for guidance and inspiration only. Review all suggestions for accuracy before using them. You are responsible for the claims you make about your products.”
-            </span>
+          <button
+            onClick={() => setActiveTab('snippet')}
+            className={`min-h-[44px] px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
+              activeTab === 'snippet'
+                ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
+                : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
+            }`}
+          >
+            <Film className="w-3.5 h-3.5" />
+            <span>Snippets</span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('inventory')}
+            className={`min-h-[44px] px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
+              activeTab === 'inventory'
+                ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
+                : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
+            }`}
+          >
+            <Package className="w-3.5 h-3.5" />
+            <span>Inventory ({sellerProducts.length})</span>
+          </button>
+        </div>
+
+        {/* TAB A: BEFORE GOING LIVE */}
+        {activeTab === 'prep' && (
+          <div className="flex flex-col w-full min-w-0 gap-6">
+            <div className="p-5 sm:p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5 w-full min-w-0">
+              <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
+                <Radio className="w-4 h-4 text-red-500" />
+                Select Product for Live Broadcast
+              </h2>
+
+              <div className="space-y-1.5 w-full min-w-0">
+                <label className="text-xs text-slate-400 font-medium">Choose from your store's inventory:</label>
+                <div className="max-h-48 overflow-y-auto space-y-2 pr-1 scrollbar-none w-full">
+                  {sellerProducts.map((p) => {
+                    const isSelected = selectedProductId === p.id;
+                    return (
+                      <div
+                        key={p.id}
+                        onClick={() => setSelectedProductId(p.id)}
+                        className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all w-full min-w-0 ${
+                          isSelected
+                            ? 'bg-[#0066ff]/15 border-[#0066ff] text-white'
+                            : 'bg-[#0c0e12] border-[#212633] text-slate-300 hover:border-slate-600'
+                        }`}
+                      >
+                        <img
+                          src={p.images[0]}
+                          alt={p.name}
+                          className="w-10 h-10 rounded-lg object-cover border border-[#212633] shrink-0 bg-black"
+                        />
+                        <span className="text-xs font-bold truncate flex-1">{p.name}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <button
+                onClick={handleGeneratePrep}
+                disabled={isGenerating || !selectedProduct}
+                className="w-full py-3.5 px-4 rounded-xl text-xs font-bold bg-[#0066ff] hover:bg-[#0052cc] text-white flex items-center justify-center gap-2 shadow-lg cursor-pointer disabled:opacity-50"
+              >
+                {isGenerating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                <span>Generate Livestream Prep Pack</span>
+              </button>
+            </div>
+
+            <div className="w-full min-w-0 space-y-6">
+              {prepResults.openingHook ? (
+                <div className="space-y-5 w-full min-w-0">
+                  <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-2 w-full min-w-0">
+                    <span className="text-xs font-bold text-[#0066ff] uppercase">1. Opening Hook</span>
+                    <textarea
+                      rows={3}
+                      value={prepResults.openingHook}
+                      onChange={(e) => setPrepResults({ ...prepResults, openingHook: e.target.value })}
+                      className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="p-12 rounded-2xl bg-[#14171f] border border-[#212633] text-center space-y-4 w-full min-w-0">
+                  <Radio className="w-8 h-8 text-[#0066ff] mx-auto" />
+                  <h3 className="text-base font-bold text-white">Live Broadcast Prep Assistant</h3>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-[#212633] w-full min-w-0">
-          {onOpenLiveHostMode && currentSeller.currentLiveSessionId ? (
-            <button
-              onClick={() => onOpenLiveHostMode(currentSeller.currentLiveSessionId!)}
-              className="w-full sm:w-auto py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 cursor-pointer"
-            >
-              <Radio className="w-4 h-4" />
-              <span>Launch Live Host Mode</span>
-            </button>
-          ) : (
-            <div />
-          )}
-          <div className="bg-[#0c0e12] px-3 py-2 rounded-xl text-[11px] text-slate-400 font-mono border border-[#212633] text-center sm:text-right shrink-0">
-            Gemini 3.1 Flash Lite
-          </div>
-        </div>
-      </div>
-
-      {/* Main 4 Functional Tabs */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pb-2 -mx-2 sm:mx-0 px-2 sm:px-0 w-full min-w-0">
-        <button
-          onClick={() => setActiveTab('prep')}
-          className={`min-h-[44px] px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
-            activeTab === 'prep'
-              ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
-              : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
-          }`}
-        >
-          <Radio className="w-3.5 h-3.5" />
-          <span>Prep</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('copy')}
-          className={`min-h-[44px] px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
-            activeTab === 'copy'
-              ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
-              : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
-          }`}
-        >
-          <FileText className="w-3.5 h-3.5" />
-          <span>Copy</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('snippet')}
-          className={`min-h-[44px] px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
-            activeTab === 'snippet'
-              ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
-              : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
-          }`}
-        >
-          <Film className="w-3.5 h-3.5" />
-          <span>Snippets</span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('inventory')}
-          className={`min-h-[44px] px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
-            activeTab === 'inventory'
-              ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
-              : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
-          }`}
-        >
-          <Package className="w-3.5 h-3.5" />
-          <span>Inventory ({sellerProducts.length})</span>
-        </button>
-      </div>
-
-      {/* TAB A: BEFORE GOING LIVE */}
-      {activeTab === 'prep' && (
-        <div className="flex flex-col w-full min-w-0 gap-6">
-          <div className="p-5 sm:p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5 w-full min-w-0">
-            <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
-              <Radio className="w-4 h-4 text-red-500" />
-              Select Product for Live Broadcast
-            </h2>
-
-            <div className="space-y-1.5 w-full min-w-0">
-              <label className="text-xs text-slate-400 font-medium">Choose from your store's inventory:</label>
+        {/* TAB B: DESCRIPTIONS & CAPTIONS */}
+        {activeTab === 'copy' && (
+          <div className="flex flex-col w-full min-w-0 gap-6">
+            <div className="p-5 sm:p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5 w-full min-w-0">
+              <h2 className="text-sm font-bold text-white">Select Product to Enhance Copy</h2>
               <div className="max-h-48 overflow-y-auto space-y-2 pr-1 scrollbar-none w-full">
                 {sellerProducts.map((p) => {
                   const isSelected = selectedProductId === p.id;
@@ -756,262 +823,199 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                   );
                 })}
               </div>
+              <button
+                onClick={handleGenerateCopy}
+                disabled={isGenerating || !selectedProduct}
+                className="w-full py-3.5 px-4 rounded-xl text-xs font-bold bg-[#0066ff] hover:bg-[#0052cc] text-white flex items-center justify-center gap-2 cursor-pointer"
+              >
+                {isGenerating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                <span>Generate Description & Captions</span>
+              </button>
             </div>
 
-            <button
-              onClick={handleGeneratePrep}
-              disabled={isGenerating || !selectedProduct}
-              className="w-full py-3.5 px-4 rounded-xl text-xs font-bold bg-[#0066ff] hover:bg-[#0052cc] text-white flex items-center justify-center gap-2 shadow-lg cursor-pointer disabled:opacity-50"
-            >
-              {isGenerating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              <span>Generate Livestream Prep Pack</span>
-            </button>
-          </div>
-
-          <div className="w-full min-w-0 space-y-6">
-            {prepResults.openingHook ? (
-              <div className="space-y-5 w-full min-w-0">
-                <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-2 w-full min-w-0">
-                  <span className="text-xs font-bold text-[#0066ff] uppercase">1. Opening Hook</span>
+            <div className="w-full min-w-0 space-y-6">
+              {copyResults.improvedDescription ? (
+                <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-3 w-full min-w-0">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs font-bold text-[#0066ff]">Enhanced Description</span>
+                    <button onClick={handleApplyDescription} className="px-2.5 py-1 bg-emerald-700 text-white text-[11px] rounded-lg cursor-pointer">Apply to Store</button>
+                  </div>
                   <textarea
-                    rows={3}
-                    value={prepResults.openingHook}
-                    onChange={(e) => setPrepResults({ ...prepResults, openingHook: e.target.value })}
+                    rows={6}
+                    value={copyResults.improvedDescription}
+                    onChange={(e) => setCopyResults({ ...copyResults, improvedDescription: e.target.value })}
                     className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white"
                   />
                 </div>
-              </div>
-            ) : (
-              <div className="p-12 rounded-2xl bg-[#14171f] border border-[#212633] text-center space-y-4 w-full min-w-0">
-                <Radio className="w-8 h-8 text-[#0066ff] mx-auto" />
-                <h3 className="text-base font-bold text-white">Live Broadcast Prep Assistant</h3>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* TAB B: DESCRIPTIONS & CAPTIONS */}
-      {activeTab === 'copy' && (
-        <div className="flex flex-col w-full min-w-0 gap-6">
-          <div className="p-5 sm:p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5 w-full min-w-0">
-            <h2 className="text-sm font-bold text-white">Select Product to Enhance Copy</h2>
-            <div className="max-h-48 overflow-y-auto space-y-2 pr-1 scrollbar-none w-full">
-              {sellerProducts.map((p) => {
-                const isSelected = selectedProductId === p.id;
-                return (
-                  <div
-                    key={p.id}
-                    onClick={() => setSelectedProductId(p.id)}
-                    className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all w-full min-w-0 ${
-                      isSelected
-                        ? 'bg-[#0066ff]/15 border-[#0066ff] text-white'
-                        : 'bg-[#0c0e12] border-[#212633] text-slate-300 hover:border-slate-600'
-                    }`}
-                  >
-                    <img
-                      src={p.images[0]}
-                      alt={p.name}
-                      className="w-10 h-10 rounded-lg object-cover border border-[#212633] shrink-0 bg-black"
-                    />
-                    <span className="text-xs font-bold truncate flex-1">{p.name}</span>
-                  </div>
-                );
-              })}
-            </div>
-            <button
-              onClick={handleGenerateCopy}
-              disabled={isGenerating || !selectedProduct}
-              className="w-full py-3.5 px-4 rounded-xl text-xs font-bold bg-[#0066ff] hover:bg-[#0052cc] text-white flex items-center justify-center gap-2 cursor-pointer"
-            >
-              {isGenerating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-              <span>Generate Description & Captions</span>
-            </button>
-          </div>
-
-          <div className="w-full min-w-0 space-y-6">
-            {copyResults.improvedDescription ? (
-              <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-3 w-full min-w-0">
-                <div className="flex justify-between items-center">
-                  <span className="text-xs font-bold text-[#0066ff]">Enhanced Description</span>
-                  <button onClick={handleApplyDescription} className="px-2.5 py-1 bg-emerald-700 text-white text-[11px] rounded-lg cursor-pointer">Apply to Store</button>
+              ) : (
+                <div className="p-12 rounded-2xl bg-[#14171f] border border-[#212633] text-center w-full min-w-0">
+                  <p className="text-xs text-slate-400">Generate copy to get started.</p>
                 </div>
-                <textarea
-                  rows={6}
-                  value={copyResults.improvedDescription}
-                  onChange={(e) => setCopyResults({ ...copyResults, improvedDescription: e.target.value })}
-                  className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white"
-                />
-              </div>
-            ) : (
-              <div className="p-12 rounded-2xl bg-[#14171f] border border-[#212633] text-center w-full min-w-0">
-                <p className="text-xs text-slate-400">Generate copy to get started.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* TAB C: SNIPPETS & ARCHIVE */}
-      {activeTab === 'snippet' && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-white">Manage Snippets</h2>
-            <div className="flex gap-2">
-              <button 
-                onClick={() => setSnippetViewMode('active')}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold ${snippetViewMode === 'active' ? 'bg-[#1e2330] text-white' : 'text-slate-400'}`}
-              >Active</button>
-              <button 
-                onClick={() => setSnippetViewMode('archive')}
-                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold ${snippetViewMode === 'archive' ? 'bg-[#1e2330] text-white' : 'text-slate-400'}`}
-              >Archive</button>
+              )}
             </div>
           </div>
-          <div className="space-y-3">
-            {(snippetViewMode === 'active' ? activeSellerSnippets : archivedSellerSnippets).map(snippet => (
-              <div key={snippet.id} className="p-4 bg-[#14171f] rounded-2xl border border-[#212633] flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <img src={snippet.thumbnail} alt={snippet.title} className="w-12 h-12 rounded-lg object-cover" />
-                  <div>
-                    <h4 className="text-xs font-bold text-white">{snippet.title}</h4>
-                    <p className="text-[10px] text-slate-400">{getTimeRemaining(snippet.expiresAt)}</p>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  {!snippet.isArchived && onArchiveSnippet && (
-                    <button onClick={() => onArchiveSnippet(snippet.id)} className="p-2 bg-[#1e2330] rounded-lg text-slate-300">
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
+        )}
+
+        {/* TAB C: SNIPPETS & ARCHIVE */}
+        {activeTab === 'snippet' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-sm font-bold text-white">Manage Snippets</h2>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setSnippetViewMode('active')}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold ${snippetViewMode === 'active' ? 'bg-[#1e2330] text-white' : 'text-slate-400'}`}
+                >Active</button>
+                <button 
+                  onClick={() => setSnippetViewMode('archive')}
+                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold ${snippetViewMode === 'archive' ? 'bg-[#1e2330] text-white' : 'text-slate-400'}`}
+                >Archive</button>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* TAB D: STORE INVENTORY & PRODUCTS MANAGEMENT */}
-      {activeTab === 'inventory' && (
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 bg-[#14171f] rounded-2xl border border-[#212633]">
-            <div>
-              <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
-                <Package className="w-5 h-5 text-[#0066ff]" />
-                Store Inventory Management ({sellerProducts.length} items)
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">
-                Add new products, adjust stock levels, update pricing, and manage listings for {currentSeller.name}.
-              </p>
             </div>
-            <button
-              onClick={handleOpenAddProductModal}
-              className="px-4 py-2.5 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-[#0066ff]/30 cursor-pointer active:scale-95 transition-transform shrink-0"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Add New Product</span>
-            </button>
-          </div>
-
-          {sellerProducts.length === 0 ? (
-            <div className="p-12 rounded-2xl bg-[#14171f] border border-[#212633] text-center space-y-3">
-              <Package className="w-12 h-12 text-slate-600 mx-auto" />
-              <h3 className="text-sm font-bold text-white">No Products in Store Inventory</h3>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {sellerProducts.map((prod) => (
-                <div
-                  key={prod.id}
-                  className="bg-[#14171f] rounded-2xl border border-[#212633] p-4 flex flex-col justify-between space-y-4 shadow-lg group hover:border-[#0066ff]/50 transition-all"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-start gap-3">
-                      <img
-                        src={prod.images[0]}
-                        alt={prod.name}
-                        className="w-16 h-16 rounded-xl object-cover border border-[#212633] shrink-0 bg-black"
-                      />
-                      <div className="min-w-0 flex-1">
-                        <span className="text-[10px] text-[#0066ff] font-bold uppercase tracking-wider block">
-                          {prod.categoryLabel || prod.category}
-                        </span>
-                        <h4 className="text-xs sm:text-sm font-bold text-white truncate leading-tight">
-                          {prod.name}
-                        </h4>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-sm font-bold font-mono text-emerald-400">
-                            R {prod.priceZAR.toLocaleString()}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
-                      {prod.description}
-                    </p>
-
-                    <div className="flex items-center justify-between text-xs pt-2 border-t border-[#1e2330]">
-                      <span className={`font-mono font-bold px-2 py-0.5 rounded ${
-                        prod.stock > 0 
-                          ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' 
-                          : 'bg-red-950 text-red-400 border border-red-500/30'
-                      }`}>
-                        {prod.stock > 0 ? `${prod.stock} in stock` : 'Out of stock'}
-                      </span>
+            <div className="space-y-3">
+              {(snippetViewMode === 'active' ? activeSellerSnippets : archivedSellerSnippets).map(snippet => (
+                <div key={snippet.id} className="p-4 bg-[#14171f] rounded-2xl border border-[#212633] flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <img src={snippet.thumbnail} alt={snippet.title} className="w-12 h-12 rounded-lg object-cover" />
+                    <div>
+                      <h4 className="text-xs font-bold text-white">{snippet.title}</h4>
+                      <p className="text-[10px] text-slate-400">{getTimeRemaining(snippet.expiresAt)}</p>
                     </div>
                   </div>
-
-                  <div className="space-y-2 pt-2 border-t border-[#212633]">
-                    <div className="flex items-center justify-between bg-[#0c0e12] p-2 rounded-xl border border-[#212633]">
-                      <span className="text-[11px] text-slate-400 font-medium">Manage Stock:</span>
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          onClick={() => handleAdjustStock(prod, -1)}
-                          className="w-7 h-7 rounded-lg bg-[#181c25] text-white text-xs font-bold flex items-center justify-center cursor-pointer"
-                        >
-                          -
-                        </button>
-                        <span className="w-8 text-center text-xs font-mono font-bold text-white">
-                          {prod.stock}
-                        </span>
-                        <button
-                          onClick={() => handleAdjustStock(prod, 1)}
-                          className="w-7 h-7 rounded-lg bg-[#181c25] text-white text-xs font-bold flex items-center justify-center cursor-pointer"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        onClick={() => handleOpenEditProduct(prod)}
-                        className="py-2 px-3 rounded-xl bg-[#1e2430] hover:bg-[#283244] text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
-                        <Edit3 className="w-3.5 h-3.5 text-[#0066ff]" />
-                        <span>Edit</span>
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          if (confirm(`Delete "${prod.name}" from inventory?`)) {
-                            if (onDeleteProduct) onDeleteProduct(prod.id);
-                          }
-                        }}
-                        className="py-2 px-3 rounded-xl bg-red-950/40 hover:bg-red-900/50 border border-red-500/30 text-red-300 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
-                      >
+                  <div className="flex gap-2">
+                    {!snippet.isArchived && onArchiveSnippet && (
+                      <button onClick={() => onArchiveSnippet(snippet.id)} className="p-2 bg-[#1e2330] rounded-lg text-slate-300">
                         <Trash2 className="w-3.5 h-3.5" />
-                        <span>Delete</span>
                       </button>
-                    </div>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
-          )}
-        </div>
-      )}
+          </div>
+        )}
+
+        {/* TAB D: STORE INVENTORY & PRODUCTS MANAGEMENT */}
+        {activeTab === 'inventory' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 bg-[#14171f] rounded-2xl border border-[#212633]">
+              <div>
+                <h2 className="text-base font-bold text-white tracking-tight flex items-center gap-2">
+                  <Package className="w-5 h-5 text-[#0066ff]" />
+                  Store Inventory Management ({sellerProducts.length} items)
+                </h2>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Add new products, adjust stock levels, update pricing, and manage listings for {currentSeller.name}.
+                </p>
+              </div>
+              <button
+                onClick={handleOpenAddProductModal}
+                className="px-4 py-2.5 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs font-bold flex items-center gap-2 shadow-lg shadow-[#0066ff]/30 cursor-pointer active:scale-95 transition-transform shrink-0"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Add New Product</span>
+              </button>
+            </div>
+
+            {sellerProducts.length === 0 ? (
+              <div className="p-12 rounded-2xl bg-[#14171f] border border-[#212633] text-center space-y-3">
+                <Package className="w-12 h-12 text-slate-600 mx-auto" />
+                <h3 className="text-sm font-bold text-white">No Products in Store Inventory</h3>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {sellerProducts.map((prod) => (
+                  <div
+                    key={prod.id}
+                    className="bg-[#14171f] rounded-2xl border border-[#212633] p-4 flex flex-col justify-between space-y-4 shadow-lg group hover:border-[#0066ff]/50 transition-all"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-start gap-3">
+                        <img
+                          src={prod.images[0]}
+                          alt={prod.name}
+                          className="w-16 h-16 rounded-xl object-cover border border-[#212633] shrink-0 bg-black"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <span className="text-[10px] text-[#0066ff] font-bold uppercase tracking-wider block">
+                            {prod.categoryLabel || prod.category}
+                          </span>
+                          <h4 className="text-xs sm:text-sm font-bold text-white truncate leading-tight">
+                            {prod.name}
+                          </h4>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-sm font-bold font-mono text-emerald-400">
+                              R {prod.priceZAR.toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed">
+                        {prod.description}
+                      </p>
+
+                      <div className="flex items-center justify-between text-xs pt-2 border-t border-[#1e2330]">
+                        <span className={`font-mono font-bold px-2 py-0.5 rounded ${
+                          prod.stock > 0 
+                            ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/30' 
+                            : 'bg-red-950 text-red-400 border border-red-500/30'
+                        }`}>
+                          {prod.stock > 0 ? `${prod.stock} in stock` : 'Out of stock'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2 pt-2 border-t border-[#212633]">
+                      <div className="flex items-center justify-between bg-[#0c0e12] p-2 rounded-xl border border-[#212633]">
+                        <span className="text-[11px] text-slate-400 font-medium">Manage Stock:</span>
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={() => handleAdjustStock(prod, -1)}
+                            className="w-7 h-7 rounded-lg bg-[#181c25] text-white text-xs font-bold flex items-center justify-center cursor-pointer"
+                          >
+                            -
+                          </button>
+                          <span className="w-8 text-center text-xs font-mono font-bold text-white">
+                            {prod.stock}
+                          </span>
+                          <button
+                            onClick={() => handleAdjustStock(prod, 1)}
+                            className="w-7 h-7 rounded-lg bg-[#181c25] text-white text-xs font-bold flex items-center justify-center cursor-pointer"
+                          >
+                            +
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          onClick={() => handleOpenEditProduct(prod)}
+                          className="py-2 px-3 rounded-xl bg-[#1e2430] hover:bg-[#283244] text-slate-200 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 text-[#0066ff]" />
+                          <span>Edit</span>
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            if (confirm(`Delete "${prod.name}" from inventory?`)) {
+                              if (onDeleteProduct) onDeleteProduct(prod.id);
+                            }
+                          }}
+                          className="py-2 px-3 rounded-xl bg-red-950/40 hover:bg-red-900/50 border border-red-500/30 text-red-300 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Delete</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
       {/* Add / Edit Product Modal with Image Upload & AI Suggest Description */}
       {isProductModalOpen && (
@@ -1223,6 +1227,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
           </div>
         </div>
       )}
+      </div>
 
     </div>
   );
