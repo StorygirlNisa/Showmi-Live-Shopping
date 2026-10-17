@@ -1229,6 +1229,18 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
       )}
       </div>
 
+      {/* Mobile Seller Studio View */}
+      <div className="md:hidden w-full min-w-0 space-y-4">
+        <MobileSellerStudio 
+          seller={currentSeller}
+          products={sellerProducts}
+          snippets={sellerSnippets}
+          onOpenLiveHostMode={onOpenLiveHostMode!}
+          onUpdateProduct={onUpdateProduct!}
+          onArchiveSnippet={onArchiveSnippet!}
+        />
+      </div>
+
     </div>
   );
 };
