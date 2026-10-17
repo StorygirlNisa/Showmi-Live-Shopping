@@ -15,7 +15,9 @@ import {
   Info,
   Truck,
   ShieldCheck,
-  Star
+  Star,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { LiveSession, Product, Seller, LiveComment } from '../types';
 
@@ -61,6 +63,8 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   const [heartCount, setHeartCount] = useState(842);
   const [addedProductId, setAddedProductId] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  // Default description to collapsed per requirement
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   const commentsContainerRef = useRef<HTMLDivElement>(null);
   const featuredProduct = products.find(p => p.id === session.featuredProductId) || products[0];
@@ -72,15 +76,15 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     }
   }, [comments]);
 
-  // Simulate incoming live viewers & chat messages periodically
+  // Simulate incoming live viewers & chat messages periodically (no location to protect buyer privacy)
   useEffect(() => {
     const automatedComments = [
-      { userName: 'Zandi K.', location: 'Cape Town', text: 'Does it smell like natural fynbos?' },
-      { userName: 'Lungile M.', location: 'Durban', text: 'The packaging looks so premium! Adding to cart 🇿🇦' },
-      { userName: 'Kobus V.', location: 'Pretoria', text: 'Can this be shipped via Pargo locker?' },
-      { userName: 'Nthabi P.', location: 'Sandton', text: 'Watching live from Joburg, love your brand!' },
-      { userName: 'Sipho B.', location: 'Polokwane', text: 'Does it come with the guarantee certificate?' },
-      { userName: 'Carla D.', location: 'Stellenbosch', text: 'Ordered! Can’t wait for The Courier Guy delivery.' }
+      { userName: 'Zandi K.', text: 'Does it smell like natural fynbos?' },
+      { userName: 'Lungile M.', text: 'The packaging looks so premium! Adding to cart 🇿🇦' },
+      { userName: 'Kobus V.', text: 'Can this be shipped via Pargo locker?' },
+      { userName: 'Nthabi P.', text: 'Watching live, love your brand!' },
+      { userName: 'Sipho B.', text: 'Does it come with the guarantee certificate?' },
+      { userName: 'Carla D.', text: 'Ordered! Can’t wait for The Courier Guy delivery.' }
     ];
 
     let messageIndex = 0;
@@ -92,7 +96,6 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           {
             id: `auto-${Date.now()}`,
             userName: item.userName,
-            location: item.location,
             text: item.text,
             timestamp: 'Just now'
           }
@@ -112,7 +115,6 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     const newComment: LiveComment = {
       id: `user-${Date.now()}`,
       userName: 'You (Shopper)',
-      location: 'Mzansi',
       text: commentInput.trim(),
       timestamp: 'Just now',
       isCurrentUser: true
@@ -340,33 +342,54 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               </div>
             </div>
 
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-              {featuredProduct.description}
-            </p>
+            {/* Collapsible Product Description (collapsed by default so live chat is easily accessible) */}
+            <div className="space-y-1.5">
+              <p className={`text-xs sm:text-sm text-slate-300 leading-relaxed ${!isDescriptionExpanded ? 'line-clamp-2' : ''}`}>
+                {featuredProduct.description}
+              </p>
+              
+              <button
+                type="button"
+                onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                className="text-xs font-bold text-[#0066ff] hover:text-blue-400 inline-flex items-center gap-1 cursor-pointer transition-colors py-0.5"
+                aria-label={isDescriptionExpanded ? "Collapse product description" : "Expand full product description"}
+              >
+                <span>{isDescriptionExpanded ? 'Show less' : 'More'}</span>
+                {isDescriptionExpanded ? (
+                  <ChevronUp className="w-3.5 h-3.5" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5" />
+                )}
+              </button>
+            </div>
 
-            {/* Features list */}
-            {featuredProduct.features && featuredProduct.features.length > 0 && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-[#212633]">
-                {featuredProduct.features.map((feature, idx) => (
-                  <div key={idx} className="flex items-center gap-2 text-xs text-slate-300">
-                    <Check className="w-3.5 h-3.5 text-[#0066ff] shrink-0" />
-                    <span>{feature}</span>
+            {/* Extended Features & Courier Info (visible when expanded) */}
+            {isDescriptionExpanded && (
+              <div className="space-y-3 pt-2 border-t border-[#212633] animate-fade-in">
+                {featuredProduct.features && featuredProduct.features.length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {featuredProduct.features.map((feature, idx) => (
+                      <div key={idx} className="flex items-center gap-2 text-xs text-slate-300">
+                        <Check className="w-3.5 h-3.5 text-[#0066ff] shrink-0" />
+                        <span>{feature}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                )}
+
+                {/* Dispatch & Courier Info */}
+                <div className="flex flex-wrap items-center gap-4 pt-2 border-t border-[#1e2433] text-xs text-slate-400">
+                  <div className="flex items-center gap-1.5">
+                    <Truck className="w-4 h-4 text-[#0066ff]" />
+                    <span>{featuredProduct.dispatchTime}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                    <span>{featuredProduct.courierPartner}</span>
+                  </div>
+                </div>
               </div>
             )}
-
-            {/* Dispatch & Courier Info */}
-            <div className="flex flex-wrap items-center gap-4 pt-3 border-t border-[#212633] text-xs text-slate-400">
-              <div className="flex items-center gap-1.5">
-                <Truck className="w-4 h-4 text-[#0066ff]" />
-                <span>{featuredProduct.dispatchTime}</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                <span>{featuredProduct.courierPartner}</span>
-              </div>
-            </div>
 
             {/* Action Buttons */}
             <div className="flex items-center gap-3 pt-2">
@@ -436,7 +459,6 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                     comment.isHost ? 'text-amber-400' : comment.isCurrentUser ? 'text-[#60a5fa]' : 'text-slate-400'
                   }`}>
                     {comment.userName}
-                    {comment.location && ` (${comment.location})`}
                   </span>
                   <span className="text-[10px] text-slate-500 font-mono">{comment.timestamp}</span>
                 </div>

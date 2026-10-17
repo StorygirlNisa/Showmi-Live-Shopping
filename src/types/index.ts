@@ -68,7 +68,6 @@ export interface LiveComment {
   id: string;
   userName: string;
   userAvatar?: string;
-  location?: string;
   text: string;
   timestamp: string;
   isHost?: boolean;

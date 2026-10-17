@@ -491,12 +491,6 @@ export default function App() {
     showNotification(`Signed in as seller: ${SELLERS.find(s => s.id === sellerId)?.name || 'Maker'}`);
   };
 
-  const handleSwitchToBuyer = () => {
-    setUserRole('buyer');
-    setActiveTab('LIVE');
-    showNotification('Switched to buyer-facing shopping view');
-  };
-
   // Navigation handlers
   const handleSelectProduct = (productId: string) => {
     setSelectedProductId(productId);
@@ -619,7 +613,6 @@ export default function App() {
         userRole={userRole}
         currentSeller={SELLERS.find(s => s.id === currentSellerId)}
         onOpenSellerSignIn={() => setIsSellerSignInModalOpen(true)}
-        onSwitchToBuyer={handleSwitchToBuyer}
       />
 
       {/* Main Content Area */}

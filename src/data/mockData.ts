@@ -392,21 +392,18 @@ export const LIVE_SESSIONS: LiveSession[] = [
       {
         id: 'c1',
         userName: 'Mandi S.',
-        location: 'Cape Town',
         text: 'The glow on camera is unreal! Just ordered my 2nd bottle ❤️',
         timestamp: '1m ago'
       },
       {
         id: 'c2',
         userName: 'Thabo M.',
-        location: 'Soweto',
         text: 'Does this work well for combination dry skin during winter in JHB?',
         timestamp: '45s ago'
       },
       {
         id: 'c3',
         userName: "Mandisa (Host)",
-        location: 'Host',
         text: 'Thabo! Yes! The high linoleic ratio makes it absorb in 30 seconds without shine.',
         timestamp: '30s ago',
         isHost: true
@@ -414,14 +411,12 @@ export const LIVE_SESSIONS: LiveSession[] = [
       {
         id: 'c4',
         userName: 'Zoe van der Merwe',
-        location: 'Stellenbosch',
         text: 'How quickly does The Courier Guy deliver to Stellenbosch?',
         timestamp: '15s ago'
       },
       {
         id: 'c5',
         userName: 'Kagiso N.',
-        location: 'Durban North',
         text: 'Added to basket! Can you show the dropper texture on your wrist again?',
         timestamp: 'Just now'
       }
@@ -444,21 +439,18 @@ export const LIVE_SESSIONS: LiveSession[] = [
       {
         id: 'cj1',
         userName: 'Siya D.',
-        location: 'Braamfontein',
         text: 'That electric blue suede pops so hard 🔥🔥',
         timestamp: '2m ago'
       },
       {
         id: 'cj2',
         userName: 'Bongani K.',
-        location: 'Pretoria',
         text: 'Are sizes true to size or size up for wide feet?',
         timestamp: '1m ago'
       },
       {
         id: 'cj3',
         userName: 'Jozi Lab Host',
-        location: 'Host',
         text: 'True to size! Sbu is wearing UK 10 right now with sports socks.',
         timestamp: '30s ago',
         isHost: true
@@ -482,21 +474,18 @@ export const LIVE_SESSIONS: LiveSession[] = [
       {
         id: 'ck1',
         userName: 'Christo P.',
-        location: 'Bloemfontein',
         text: 'The brass buckle detailing is superb Danie. Pure Karoo quality.',
         timestamp: '3m ago'
       },
       {
         id: 'ck2',
         userName: 'Nadia B.',
-        location: 'Port Elizabeth',
         text: 'Does it fit as carry-on for FlySafair flights?',
         timestamp: '1m ago'
       },
       {
         id: 'ck3',
         userName: 'Danie (Maker)',
-        location: 'Host',
         text: 'Fits all domestic airline overhead bins perfectly! 52 x 28 x 26cm.',
         timestamp: '20s ago',
         isHost: true
@@ -568,11 +557,11 @@ export const INITIAL_PROMOTIONS: LivePromotion[] = [
 export const INITIAL_ORDERS: Order[] = [
   {
     id: 'SHW-582914',
-    buyerId: 'buyer-current',
-    customerName: 'Nisa Bardien',
-    customerEmail: 'nisabardien@gmail.com',
-    customerPhone: '+27 82 555 1234',
-    shippingAddress: '14 Kloof Nek Road, Gardens',
+    buyerId: 'buyer-demo-01',
+    customerName: 'Demo Shopper',
+    customerEmail: 'demo.shopper@example.co.za',
+    customerPhone: '+27 82 000 1234',
+    shippingAddress: '100 Demonstration Lane, Artisan Square',
     city: 'Cape Town',
     province: 'Western Cape',
     postalCode: '8001',
@@ -613,11 +602,11 @@ export const INITIAL_ORDERS: Order[] = [
   },
   {
     id: 'SHW-319042',
-    buyerId: 'buyer-current',
-    customerName: 'Nisa Bardien',
-    customerEmail: 'nisabardien@gmail.com',
-    customerPhone: '+27 82 555 1234',
-    shippingAddress: '14 Kloof Nek Road, Gardens',
+    buyerId: 'buyer-demo-01',
+    customerName: 'Demo Shopper',
+    customerEmail: 'demo.shopper@example.co.za',
+    customerPhone: '+27 82 000 1234',
+    shippingAddress: '100 Demonstration Lane, Artisan Square',
     city: 'Cape Town',
     province: 'Western Cape',
     postalCode: '8001',

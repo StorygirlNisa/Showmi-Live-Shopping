@@ -74,16 +74,45 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
   const [completedOrder, setCompletedOrder] = useState<OrderConfirmation | null>(null);
   const [checkoutStockError, setCheckoutStockError] = useState<string | null>(null);
 
-  // Customer Details
+  // Customer Details (Strictly fictional demonstration defaults; never real personal data)
   const [formData, setFormData] = useState({
-    fullName: 'Nisa Bardien',
-    email: 'nisabardien@gmail.com',
-    phone: '+27 82 555 1234',
-    address: '14 Kloof Nek Road, Gardens',
+    fullName: 'Demo Shopper',
+    email: 'demo.shopper@example.co.za',
+    phone: '+27 82 000 1234',
+    address: '100 Demonstration Lane, Artisan Park',
     city: 'Cape Town',
     province: 'Western Cape',
     postalCode: '8001'
   });
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const handleFillDemoDetails = () => {
+    setFormData({
+      fullName: 'Demo Shopper',
+      email: 'demo.shopper@example.co.za',
+      phone: '+27 82 000 1234',
+      address: '100 Demonstration Lane, Artisan Park',
+      city: 'Cape Town',
+      province: 'Western Cape',
+      postalCode: '8001'
+    });
+    setFieldErrors({});
+    setCheckoutStockError(null);
+  };
+
+  const handleClearForm = () => {
+    setFormData({
+      fullName: '',
+      email: '',
+      phone: '',
+      address: '',
+      city: '',
+      province: 'Western Cape',
+      postalCode: ''
+    });
+    setFieldErrors({});
+    setCheckoutStockError(null);
+  };
 
   // CRITICAL FIX: Match every cart item to the latest product record in productsList by product ID.
   // Never rely on stale product snapshots stored in cartItems.
@@ -143,15 +172,51 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
   const grandTotalZAR = subtotalZAR + deliveryCost + buyerProtectionFee;
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData({
-      ...formData,
-      [e.target.name]: e.target.value
-    });
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    if (fieldErrors[name]) {
+      setFieldErrors(prev => {
+        const next = { ...prev };
+        delete next[name];
+        return next;
+      });
+    }
   };
 
   const handleSimulatePayment = (e: React.FormEvent) => {
     e.preventDefault();
     setCheckoutStockError(null);
+    setFieldErrors({});
+
+    // Validate required fields
+    const errors: Record<string, string> = {};
+    if (!formData.fullName.trim() || formData.fullName.trim().length < 2) {
+      errors.fullName = 'Full Name is required (minimum 2 characters)';
+    }
+    if (!formData.phone.trim() || formData.phone.trim().length < 7) {
+      errors.phone = 'Valid South African phone number is required';
+    }
+    if (!formData.address.trim() || formData.address.trim().length < 4) {
+      errors.address = 'Street address is required';
+    }
+    if (!formData.city.trim() || formData.city.trim().length < 2) {
+      errors.city = 'City / Suburb is required';
+    }
+    if (!formData.postalCode.trim() || formData.postalCode.trim().length < 3) {
+      errors.postalCode = 'Valid postal code is required';
+    }
+    if (!formData.email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      errors.email = 'Valid email address is required for waybill notifications';
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      setCheckoutStockError('Please provide all required delivery details before proceeding.');
+      return;
+    }
 
     // Artisan integrity check
     if (hasOwnArtisanProduct) {
@@ -532,64 +597,127 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
               
               {/* Delivery Address Card */}
               <div className="p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-4">
-                <div className="flex items-center gap-2 text-sm font-bold text-white">
-                  <MapPin className="w-4 h-4 text-[#0066ff]" />
-                  <span>South African Delivery Address</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-sm font-bold text-white">
+                    <MapPin className="w-4 h-4 text-[#0066ff]" />
+                    <span>South African Delivery Destination</span>
+                  </div>
+
+                  {/* Fictional demo data helpers */}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleFillDemoDetails}
+                      className="px-2.5 py-1 text-[11px] font-semibold bg-[#1e2330] hover:bg-[#283244] text-[#60a5fa] border border-[#2e374d] rounded-lg transition-colors cursor-pointer"
+                      title="Fill sample fictional demonstration details"
+                    >
+                      Fill Demo Data
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleClearForm}
+                      className="px-2.5 py-1 text-[11px] font-semibold bg-[#1e2330] hover:bg-[#283244] text-slate-300 hover:text-white border border-[#2e374d] rounded-lg transition-colors cursor-pointer"
+                      title="Clear fields to test required validation"
+                    >
+                      Clear Fields
+                    </button>
+                  </div>
+                </div>
+
+                {/* Demonstration Sandbox Notice */}
+                <div className="p-3 bg-blue-950/30 border border-blue-500/30 rounded-xl text-xs text-blue-200 flex items-start gap-2.5">
+                  <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                    <strong className="text-white">Prototype Demonstration:</strong> Fictional demo details are provided for evaluation. No real personal identities, bank cards, or deliveries are processed. You can edit any field or test required validation before placing an order.
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
                   <div className="space-y-1">
-                    <label className="text-slate-400">Full Name</label>
+                    <label className="text-slate-400 flex items-center justify-between">
+                      <span>Full Name</span>
+                      <span className="text-[10px] text-slate-500">Required</span>
+                    </label>
                     <input
                       type="text"
                       name="fullName"
                       value={formData.fullName}
                       onChange={handleInputChange}
-                      className="w-full min-h-[44px] bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#0066ff]"
-                      required
+                      placeholder="e.g. Demo Shopper"
+                      className={`w-full min-h-[44px] bg-[#0c0e12] border rounded-xl p-2.5 text-white focus:outline-none ${
+                        fieldErrors.fullName ? 'border-red-500' : 'border-[#212633] focus:border-[#0066ff]'
+                      }`}
                     />
+                    {fieldErrors.fullName && (
+                      <p className="text-[11px] text-red-400 font-medium">{fieldErrors.fullName}</p>
+                    )}
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-slate-400">Mobile Phone (SA)</label>
+                    <label className="text-slate-400 flex items-center justify-between">
+                      <span>Mobile Phone (SA)</span>
+                      <span className="text-[10px] text-slate-500">Required</span>
+                    </label>
                     <input
                       type="tel"
                       name="phone"
                       value={formData.phone}
                       onChange={handleInputChange}
-                      placeholder="+27 82 123 4567"
-                      className="w-full min-h-[44px] bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#0066ff]"
-                      required
+                      placeholder="+27 82 000 1234"
+                      className={`w-full min-h-[44px] bg-[#0c0e12] border rounded-xl p-2.5 text-white focus:outline-none ${
+                        fieldErrors.phone ? 'border-red-500' : 'border-[#212633] focus:border-[#0066ff]'
+                      }`}
                     />
+                    {fieldErrors.phone && (
+                      <p className="text-[11px] text-red-400 font-medium">{fieldErrors.phone}</p>
+                    )}
                   </div>
 
                   <div className="sm:col-span-2 space-y-1">
-                    <label className="text-slate-400">Street Address</label>
+                    <label className="text-slate-400 flex items-center justify-between">
+                      <span>Street Address</span>
+                      <span className="text-[10px] text-slate-500">Required</span>
+                    </label>
                     <input
                       type="text"
                       name="address"
                       value={formData.address}
                       onChange={handleInputChange}
-                      placeholder="e.g. 14 Kloof Nek Road, Gardens"
-                      className="w-full min-h-[44px] bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#0066ff]"
-                      required
+                      placeholder="e.g. 100 Demonstration Lane, Artisan Park"
+                      className={`w-full min-h-[44px] bg-[#0c0e12] border rounded-xl p-2.5 text-white focus:outline-none ${
+                        fieldErrors.address ? 'border-red-500' : 'border-[#212633] focus:border-[#0066ff]'
+                      }`}
                     />
+                    {fieldErrors.address && (
+                      <p className="text-[11px] text-red-400 font-medium">{fieldErrors.address}</p>
+                    )}
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-slate-400">City / Suburb</label>
+                    <label className="text-slate-400 flex items-center justify-between">
+                      <span>City / Suburb</span>
+                      <span className="text-[10px] text-slate-500">Required</span>
+                    </label>
                     <input
                       type="text"
                       name="city"
                       value={formData.city}
                       onChange={handleInputChange}
-                      className="w-full min-h-[44px] bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#0066ff]"
-                      required
+                      placeholder="e.g. Cape Town"
+                      className={`w-full min-h-[44px] bg-[#0c0e12] border rounded-xl p-2.5 text-white focus:outline-none ${
+                        fieldErrors.city ? 'border-red-500' : 'border-[#212633] focus:border-[#0066ff]'
+                      }`}
                     />
+                    {fieldErrors.city && (
+                      <p className="text-[11px] text-red-400 font-medium">{fieldErrors.city}</p>
+                    )}
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-slate-400">Province</label>
+                    <label className="text-slate-400 flex items-center justify-between">
+                      <span>Province</span>
+                      <span className="text-[10px] text-slate-500">Required</span>
+                    </label>
                     <select
                       name="province"
                       value={formData.province}
@@ -603,28 +731,43 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-slate-400">Postal Code</label>
+                    <label className="text-slate-400 flex items-center justify-between">
+                      <span>Postal Code</span>
+                      <span className="text-[10px] text-slate-500">Required</span>
+                    </label>
                     <input
                       type="text"
                       name="postalCode"
                       value={formData.postalCode}
                       onChange={handleInputChange}
                       placeholder="8001"
-                      className="w-full min-h-[44px] bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#0066ff]"
-                      required
+                      className={`w-full min-h-[44px] bg-[#0c0e12] border rounded-xl p-2.5 text-white focus:outline-none ${
+                        fieldErrors.postalCode ? 'border-red-500' : 'border-[#212633] focus:border-[#0066ff]'
+                      }`}
                     />
+                    {fieldErrors.postalCode && (
+                      <p className="text-[11px] text-red-400 font-medium">{fieldErrors.postalCode}</p>
+                    )}
                   </div>
 
                   <div className="space-y-1 sm:col-span-2">
-                    <label className="text-slate-400">Email for Courier Tracking</label>
+                    <label className="text-slate-400 flex items-center justify-between">
+                      <span>Email for Courier Tracking</span>
+                      <span className="text-[10px] text-slate-500">Required</span>
+                    </label>
                     <input
                       type="email"
                       name="email"
                       value={formData.email}
                       onChange={handleInputChange}
-                      className="w-full min-h-[44px] bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-white focus:outline-none focus:border-[#0066ff]"
-                      required
+                      placeholder="demo.shopper@example.co.za"
+                      className={`w-full min-h-[44px] bg-[#0c0e12] border rounded-xl p-2.5 text-white focus:outline-none ${
+                        fieldErrors.email ? 'border-red-500' : 'border-[#212633] focus:border-[#0066ff]'
+                      }`}
                     />
+                    {fieldErrors.email && (
+                      <p className="text-[11px] text-red-400 font-medium">{fieldErrors.email}</p>
+                    )}
                   </div>
                 </div>
               </div>

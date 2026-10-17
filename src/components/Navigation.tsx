@@ -16,7 +16,6 @@ interface NavigationProps {
   userRole: 'buyer' | 'seller';
   currentSeller?: Seller;
   onOpenSellerSignIn: () => void;
-  onSwitchToBuyer?: () => void;
   ordersCount?: number;
 }
 
@@ -31,7 +30,6 @@ export const Navigation: React.FC<NavigationProps> = ({
   userRole,
   currentSeller,
   onOpenSellerSignIn,
-  onSwitchToBuyer,
   ordersCount = 0
 }) => {
   const totalItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -113,33 +111,19 @@ export const Navigation: React.FC<NavigationProps> = ({
           </div>
         </div>
 
-        {/* Right Actions: Seller Auth Badge (if seller) with switch to buyer, Basket */}
+        {/* Right Actions: Seller Auth Badge (if seller), Basket */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {userRole === 'seller' && (
-            <div className="flex items-center gap-1.5 sm:gap-2">
-              {currentSeller && (
-                <div className="flex items-center gap-2 bg-[#14171f] border border-[#212633] px-2.5 py-1 rounded-xl">
-                  <img
-                    src={currentSeller.avatar}
-                    alt={currentSeller.name}
-                    referrerPolicy="no-referrer"
-                    className="w-6 h-6 rounded-md object-cover bg-black"
-                  />
-                  <span className="text-xs font-bold text-white hidden lg:inline truncate max-w-[100px]">
-                    {currentSeller.name}
-                  </span>
-                </div>
-              )}
-              {onSwitchToBuyer && (
-                <button
-                  onClick={onSwitchToBuyer}
-                  className="px-2.5 py-1.5 rounded-xl bg-[#1e2330] hover:bg-[#283244] border border-[#2e374d] text-slate-300 hover:text-white text-[11px] font-semibold cursor-pointer transition-colors"
-                  title="Switch to Buyer View"
-                >
-                  <span className="hidden sm:inline">Buyer View</span>
-                  <span className="sm:hidden">Buyer</span>
-                </button>
-              )}
+          {userRole === 'seller' && currentSeller && (
+            <div className="flex items-center gap-2 bg-[#14171f] border border-[#212633] px-2.5 py-1 rounded-xl">
+              <img
+                src={currentSeller.avatar}
+                alt={currentSeller.name}
+                referrerPolicy="no-referrer"
+                className="w-6 h-6 rounded-md object-cover bg-black"
+              />
+              <span className="text-xs font-bold text-white hidden lg:inline truncate max-w-[100px]">
+                {currentSeller.name}
+              </span>
             </div>
           )}
 

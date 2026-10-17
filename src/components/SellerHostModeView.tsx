@@ -130,9 +130,9 @@ export const SellerHostModeView: React.FC<SellerHostModeViewProps> = ({
   // Automated viewer chat simulation for host practice
   useEffect(() => {
     const automatedComments = [
-      { userName: 'Zandi K.', location: 'Cape Town', text: 'Does it feel lightweight in the hand?' },
-      { userName: 'Lungile M.', location: 'Durban', text: 'Love this color! How soon can you dispatch?' },
-      { userName: 'Kobus V.', location: 'Pretoria', text: 'Is nationwide courier door-to-door?' }
+      { userName: 'Zandi K.', text: 'Does it feel lightweight in the hand?' },
+      { userName: 'Lungile M.', text: 'Love this color! How soon can you dispatch?' },
+      { userName: 'Kobus V.', text: 'Is nationwide courier door-to-door?' }
     ];
 
     let idx = 0;
@@ -144,7 +144,6 @@ export const SellerHostModeView: React.FC<SellerHostModeViewProps> = ({
           {
             id: `host-chat-${Date.now()}`,
             userName: item.userName,
-            location: item.location,
             text: item.text,
             timestamp: 'Just now'
           }
@@ -424,7 +423,7 @@ export const SellerHostModeView: React.FC<SellerHostModeViewProps> = ({
                 >
                   <div className="flex items-center justify-between text-[10px] mb-0.5">
                     <span className={`font-bold ${c.isHost ? 'text-amber-400' : 'text-blue-400'}`}>
-                      {c.userName} {c.location ? `(${c.location})` : ''}
+                      {c.userName}
                     </span>
                     <span className="text-slate-500 font-mono">{c.timestamp}</span>
                   </div>
