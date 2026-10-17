@@ -18,8 +18,8 @@ import { SellerHostModeView } from './components/SellerHostModeView';
 import { ResponsivePreviewToolbar, ViewportMode } from './components/ResponsivePreviewToolbar';
 import { SearchResultsView } from './components/SearchResultsView';
 
-import { PRODUCTS, SELLERS, LIVE_SESSIONS, INITIAL_PROMOTIONS, INITIAL_ORDERS } from './data/mockData';
-import { Product, CartItem, StreamSnippet, LivePromotion, Order, OrderItem } from './types';
+import { PRODUCTS, SELLERS, LIVE_SESSIONS, INITIAL_PROMOTIONS, INITIAL_ORDERS, INITIAL_ISSUES } from './data/mockData';
+import { Product, CartItem, StreamSnippet, LivePromotion, Order, OrderItem, OrderIssue, IssueType } from './types';
 import { MyOrdersView } from './components/MyOrdersView';
 import { OrderPlacementPayload } from './components/BasketCheckoutView';
 
@@ -29,6 +29,7 @@ const STORAGE_KEYS = {
   SNIPPETS: 'showmi_snippets_v1',
   PROMOTIONS: 'showmi_promotions_v1',
   ORDERS: 'showmi_orders_v1',
+  ORDER_ISSUES: 'showmi_order_issues_v1',
   USER_ROLE: 'showmi_user_role_v1',
   SELLER_ID: 'showmi_current_seller_id_v1',
   FOLLOWED_SELLERS: 'showmi_followed_sellers_v1'

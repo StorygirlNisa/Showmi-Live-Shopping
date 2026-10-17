@@ -135,6 +135,30 @@ export interface Order {
   confirmedAt?: string;
 }
 
+export type IssueType = 'item_not_received' | 'item_damaged' | 'incorrect_item' | 'missing_items' | 'other';
+export type IssueStatus = 'submitted' | 'seller_responded' | 'resolved';
+
+export interface SellerResponse {
+  message: string;
+  resolutionNote?: string;
+  respondedAt: string;
+}
+
+export interface OrderIssue {
+  id: string;
+  orderId: string;
+  productId: string;
+  buyerId: string;
+  sellerId: string;
+  issueType: IssueType;
+  issueTypeLabel: string;
+  description: string;
+  evidenceImage?: string;
+  status: IssueStatus;
+  createdAt: string;
+  sellerResponse?: SellerResponse;
+}
+
 export interface OrderConfirmation {
   orderId: string;
   date: string;

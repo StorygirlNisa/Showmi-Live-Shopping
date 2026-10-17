@@ -1,4 +1,4 @@
-import { Product, Seller, LiveSession, LivePromotion, Order } from '../types';
+import { Product, Seller, LiveSession, LivePromotion, Order, OrderIssue } from '../types';
 
 // Real high-fidelity local assets generated for Showmi
 import streamCapeImg from '../assets/images/stream_cape_botanics_1791709648933.jpg';
@@ -637,5 +637,26 @@ export const INITIAL_ORDERS: Order[] = [
     paymentMethod: 'Capitec Pay (Simulated)'
   }
 ];
+
+export const INITIAL_ISSUES: OrderIssue[] = [
+  {
+    id: 'ISS-1001',
+    orderId: 'SHW-582914',
+    productId: 'prod-marula-elixir',
+    buyerId: 'buyer-demo-01',
+    sellerId: 'seller-cape-botanics',
+    issueType: 'item_damaged',
+    issueTypeLabel: 'Item damaged',
+    description: 'Outer carton arrived crushed and dropper pipette glass was fractured upon opening.',
+    status: 'seller_responded',
+    createdAt: new Date(Date.now() - 12 * 3600000).toISOString(),
+    sellerResponse: {
+      message: 'Hello Demo Shopper, we are so sorry about the courier transit damage! We have dispatched a replacement glass pipette and fresh amber bottle via Priority Courier (Waybill #TCG-ZA-99210).',
+      resolutionNote: 'Replacement part dispatched with priority courier.',
+      respondedAt: new Date(Date.now() - 4 * 3600000).toISOString()
+    }
+  }
+];
+
 
 
