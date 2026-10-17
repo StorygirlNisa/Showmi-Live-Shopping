@@ -104,7 +104,7 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
             <article
               key={session.id}
               onClick={() => onOpenLiveRoom(session.id)}
-              className="w-full h-[calc(100vh-154px)] sm:h-[calc(100dvh-154px)] md:h-[calc(100dvh-114px)] snap-start snap-always shrink-0 relative overflow-hidden bg-black select-none max-w-md lg:max-w-lg md:rounded-2xl md:my-1.5 md:border md:border-[#212633] shadow-2xl cursor-pointer group"
+              className="w-full h-[calc(100vh-154px)] sm:h-[calc(100dvh-154px)] md:h-[calc(100dvh-114px)] snap-start snap-always shrink-0 relative overflow-hidden bg-black select-none max-w-md mx-auto lg:max-w-lg md:rounded-2xl md:my-1.5 md:border md:border-[#212633] shadow-2xl cursor-pointer group"
               role="button"
               tabIndex={0}
               aria-label={`Open live stream: ${session.title}`}
