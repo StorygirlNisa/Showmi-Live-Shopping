@@ -232,9 +232,6 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                     <span className="font-bold text-sm text-white drop-shadow">
                       {session.sellerName}
                     </span>
-                    <span className="text-[10px] text-emerald-400 font-semibold bg-emerald-950/80 px-1.5 py-0.2 rounded border border-emerald-500/30">
-                      Broadcasting
-                    </span>
                   </div>
 
                   <p className="text-[11px] text-slate-300 flex items-center gap-1 drop-shadow">

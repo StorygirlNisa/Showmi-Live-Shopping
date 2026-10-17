@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingBag, Store, Sparkles, ShieldCheck, Search, X, LogOut } from 'lucide-react';
+import { ShoppingBag, Store, Sparkles, ShieldCheck, Search, X } from 'lucide-react';
 import { CartItem, Seller } from '../types';
 
 export type MainTab = 'LIVE' | 'SA Makers' | 'Seller Studio';
@@ -16,7 +16,6 @@ interface NavigationProps {
   userRole: 'buyer' | 'seller';
   currentSeller?: Seller;
   onOpenSellerSignIn: () => void;
-  onSwitchToBuyer: () => void;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
@@ -29,8 +28,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   onClearSearch,
   userRole,
   currentSeller,
-  onOpenSellerSignIn,
-  onSwitchToBuyer
+  onOpenSellerSignIn
 }) => {
   const totalItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const cartSubtotal = cartItems.reduce((sum, item) => sum + item.product.priceZAR * item.quantity, 0);
@@ -107,7 +105,6 @@ export const Navigation: React.FC<NavigationProps> = ({
 
         {/* Right Actions: Seller Auth Badge (if seller), Setup Info & Basket */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          
           {userRole === 'seller' && currentSeller && (
             <div className="flex items-center gap-2 bg-[#14171f] border border-[#212633] px-2.5 py-1 rounded-xl">
               <img
@@ -119,26 +116,10 @@ export const Navigation: React.FC<NavigationProps> = ({
               <span className="text-xs font-bold text-white hidden lg:inline truncate max-w-[100px]">
                 {currentSeller.name}
               </span>
-              <button
-                onClick={onSwitchToBuyer}
-                className="text-[11px] text-slate-400 hover:text-white bg-[#1e2330] hover:bg-[#283042] px-2 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1"
-                title="Switch to Buyer View"
-              >
-                <LogOut className="w-3 h-3" />
-                <span className="hidden sm:inline">Buyer View</span>
-              </button>
             </div>
           )}
 
-          {/* Setup & Architecture Info modal trigger */}
-          <button
-            onClick={onOpenInfoModal}
-            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-medium text-slate-300 hover:text-white bg-[#14171f] hover:bg-[#1c2230] border border-[#212633] transition-colors cursor-pointer min-h-[40px]"
-            title="Showmi Info & Architecture"
-          >
-            <ShieldCheck className="w-4 h-4 text-[#0066ff] shrink-0" />
-            <span className="hidden sm:inline">Setup & Info</span>
-          </button>
+          {/* Setup & Architecture Info modal trigger removed */}
 
           {/* Basket Trigger */}
           <button

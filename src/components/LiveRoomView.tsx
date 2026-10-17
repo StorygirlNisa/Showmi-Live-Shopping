@@ -464,37 +464,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           </form>
         </div>
 
-        {/* Other Live Streams Switcher Strip */}
-        <div className="bg-[#14171f] border border-[#212633] rounded-3xl p-4 space-y-2">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
-            Other Active Live Streams
-          </span>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {allLiveSessions.filter(s => s.id !== session.id).map((s) => (
-              <div
-                key={s.id}
-                onClick={() => onSwitchSession(s.id)}
-                className="flex items-center gap-3 p-2.5 rounded-2xl bg-[#0c0e12] border border-[#212633] hover:border-[#0066ff]/60 transition-colors cursor-pointer group"
-              >
-                <img
-                  src={s.sellerAvatar}
-                  alt={s.sellerName}
-                  referrerPolicy="no-referrer"
-                  className="w-10 h-10 rounded-xl object-cover border border-[#212633] shrink-0"
-                />
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-bold text-white truncate group-hover:text-[#0066ff] transition-colors">
-                    {s.sellerName}
-                  </p>
-                  <p className="text-[11px] text-slate-400 truncate">
-                    {s.title}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
+        {/* Other Active Live Streams removed */}
       </div>
 
     </div>

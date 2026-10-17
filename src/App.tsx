@@ -563,12 +563,15 @@ export default function App() {
             onOpenLiveRoom={handleOpenLiveRoom}
             onAddToCart={handleAddToCart}
             onBuyNow={handleBuyNow}
-            onOpenStudio={(sellerId) => {
-              setUserRole('seller');
-              setCurrentSellerId(sellerId);
-              setSelectedSellerId(null);
-              setActiveTab('Seller Studio');
-            }}
+            onOpenStudio={
+              (userRole === 'seller' && currentSellerId === selectedSeller.id) 
+                ? (sellerId) => {
+                    setCurrentSellerId(sellerId);
+                    setSelectedSellerId(null);
+                    setActiveTab('Seller Studio');
+                  }
+                : undefined
+            }
           />
         ) : activeTab === 'Seller Studio' && userRole === 'seller' ? (
           /* View: Seller Dashboard & AI Selling Assistant */

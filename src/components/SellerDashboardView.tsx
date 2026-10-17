@@ -623,17 +623,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
           <div className="flex items-center gap-2 bg-[#14171f] p-2.5 rounded-xl border border-[#212633] w-full sm:w-fit min-w-0">
             <Store className="w-4 h-4 text-[#0066ff] ml-1 shrink-0" />
             <span className="text-xs text-slate-400 shrink-0">Managing:</span>
-            <select
-              value={currentSeller.id}
-              onChange={(e) => onSelectSeller(e.target.value)}
-              className="bg-[#0c0e12] border border-[#212633] rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#0066ff] w-full sm:w-auto truncate"
-            >
-              {sellers.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name} ({s.city})
-                </option>
-              ))}
-            </select>
+            <span className="text-xs text-white font-bold">{currentSeller.name}</span>
           </div>
         </div>
 
