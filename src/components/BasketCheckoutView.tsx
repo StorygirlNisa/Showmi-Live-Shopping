@@ -340,7 +340,7 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
               Order Confirmed & Saved!
             </h1>
             <p className="text-sm text-slate-300 max-w-md mx-auto">
-              Thank you, {completedOrder.customerName}. Your order has been registered in Showmi and scheduled for artisan dispatch.
+              Thank you, {completedOrder.customerName}. Your order has been registered in Showmi and scheduled for seller dispatch.
             </p>
           </div>
 
@@ -356,23 +356,34 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
             </div>
           </div>
 
-          {/* 14-Day Buyer Protection Period Notice */}
-          <div className="p-4 rounded-2xl bg-[#0c0e12] border border-[#0066ff]/40 text-left space-y-2.5">
+          {/* Payment-Protection Journey Confirmation Banner */}
+          <div className="p-5 rounded-2xl bg-[#0c0e12] border-2 border-[#0066ff] text-left space-y-3 shadow-xl shadow-[#0066ff]/10">
             <div className="flex items-center justify-between flex-wrap gap-2">
-              <span className="text-xs font-bold text-white flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4 text-[#0066ff]" />
-                Showmi 14-Day Buyer Protection Active
-              </span>
-              <span className="text-[11px] font-mono text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-0.5 rounded">
-                8% Fee Paid (R {completedOrder.protectionFeeZAR.toLocaleString()})
+              <span className="text-sm font-bold text-white flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-[#0066ff]" />
+                Your payment is protected
               </span>
             </div>
+            <p className="text-xs text-slate-200 leading-relaxed">
+              A third-party financial institution would hold your payment until you confirm receipt. Check your items carefully before confirming.
+            </p>
             <p className="text-xs text-slate-300 leading-relaxed">
-              Protection is active for <strong>14 days calculated from estimated delivery ({completedOrder.estimatedDeliveryDate})</strong>, valid through <strong>{completedOrder.protectionExpiresAt}</strong>. Covers transit damage, non-delivery, or items not as described.
+              After payment is released, refunds must be arranged directly with the seller.
             </p>
-            <p className="text-[11px] text-slate-400 leading-relaxed pt-1 border-t border-[#212633]">
-              <em>Demonstration Sandbox: Safe simulation of Showmi's 8% Buyer Protection. Real payment processing, escrow holding, and return disputes are not active in this prototype.</em>
-            </p>
+            <div className="pt-2 border-t border-[#212633] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+              <p className="text-[11px] text-slate-400 italic">
+                Demo only. No real funds are held or transferred.
+              </p>
+              {onViewOrders && (
+                <button
+                  onClick={onViewOrders}
+                  className="px-3.5 py-1.5 rounded-lg bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs font-bold transition-colors cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>Go to My Orders</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Courier Waybill Preview */}
@@ -416,7 +427,7 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
                 <span className="font-mono text-white">R {completedOrder.subtotalZAR.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-slate-400">
-                <span>Buyer Protection Fee (8%)</span>
+                <span>Payment Protection Fee (8%)</span>
                 <span className="font-mono text-white">R {completedOrder.protectionFeeZAR.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-slate-400">
@@ -683,7 +694,7 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
                       name="address"
                       value={formData.address}
                       onChange={handleInputChange}
-                      placeholder="e.g. 100 Demonstration Lane, Artisan Park"
+                      placeholder="e.g. 100 Demonstration Lane, Business Park"
                       className={`w-full min-h-[44px] bg-[#0c0e12] border rounded-xl p-2.5 text-white focus:outline-none ${
                         fieldErrors.address ? 'border-red-500' : 'border-[#212633] focus:border-[#0066ff]'
                       }`}
@@ -943,7 +954,7 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
               </div>
 
               <div className="flex items-center justify-between text-slate-300">
-                <span>Buyer Protection Fee (8%)</span>
+                <span>Payment Protection Fee (8%)</span>
                 <span className="font-mono text-white">
                   R {buyerProtectionFee.toLocaleString()}
                 </span>
@@ -985,7 +996,7 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
                 {hasOwnArtisanProduct && (
                   <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-300 flex items-center gap-2">
                     <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-                    <span>Artisan integrity rule: Sellers cannot purchase their own products. Please remove items from your workshop to proceed.</span>
+                    <span>Platform integrity rule: Sellers cannot purchase their own products. Please remove items from your storefront to proceed.</span>
                   </div>
                 )}
                 {cartItems.some(i => i.product.stock <= 0) && (
@@ -1030,18 +1041,14 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
               <div className="flex items-start gap-2 text-slate-300">
                 <ShieldCheck className="w-4 h-4 text-[#0066ff] shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-bold text-white block">8% Showmi Buyer Protection Included</span>
+                  <span className="font-bold text-white block">Payment Protection</span>
                   <span className="text-[10px] text-slate-400 leading-snug block mt-0.5">
-                    Covers parcel transit and item authenticity. 14-day protection window is calculated from estimated delivery date.
+                    Our intended payment-protection system would use a third-party financial institution to hold payment until you confirm receipt, subject to the agreed terms.
                   </span>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Truck className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                <span>Estimated dispatch 24–48 hours from artisan workshops.</span>
-              </div>
               <p className="text-[10px] text-slate-500 italic pt-1 border-t border-[#1e2330]">
-                Prototype sandbox: payments and protection claims are simulated for testing.
+                Demo only. No real funds are held or transferred.
               </p>
             </div>
 

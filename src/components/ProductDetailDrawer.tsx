@@ -75,7 +75,7 @@ export const ProductDetailDrawer: React.FC<ProductDetailDrawerProps> = ({
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-[#0066ff]" />
             <span className="text-xs font-bold uppercase tracking-wider text-slate-300">
-              Artisan Product Details
+              Product Details
             </span>
           </div>
 
@@ -198,7 +198,7 @@ export const ProductDetailDrawer: React.FC<ProductDetailDrawerProps> = ({
               </div>
 
               <span className="text-xs font-bold text-[#0066ff] flex items-center gap-1 shrink-0 pl-2">
-                Visit Atelier <ArrowRight className="w-3.5 h-3.5" />
+                Visit Storefront <ArrowRight className="w-3.5 h-3.5" />
               </span>
             </div>
           )}
@@ -238,7 +238,7 @@ export const ProductDetailDrawer: React.FC<ProductDetailDrawerProps> = ({
             </div>
             <p className="text-[11px] text-slate-400 leading-relaxed">
               Dispatches {product.dispatchTime || 'within 24–48 hours'} via {product.courierPartner || 'The Courier Guy / Pargo'}. 
-              Protected by Showmi 14-day South African maker guarantee.
+              Protected by Showmi 14-day Delivery & Item Match guarantee.
             </p>
           </div>
 

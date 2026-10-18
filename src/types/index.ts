@@ -110,6 +110,8 @@ export interface OrderItem {
   dispatchedAt?: string;
   deliveredAt?: string;
   confirmedAt?: string;
+  paymentReleased?: boolean;
+  paymentReleasedAt?: string;
 }
 
 export interface Order {
@@ -133,9 +135,18 @@ export interface Order {
   deliveryMethod: string;
   paymentMethod: string;
   confirmedAt?: string;
+  paymentReleased?: boolean;
+  paymentReleasedAt?: string;
 }
 
-export type IssueType = 'item_not_received' | 'item_damaged' | 'incorrect_item' | 'missing_items' | 'other';
+export type IssueType = 
+  | 'item_not_received' 
+  | 'item_damaged' 
+  | 'incorrect_item' 
+  | 'missing_items' 
+  | 'other'
+  | 'return_request';
+
 export type IssueStatus = 'submitted' | 'seller_responded' | 'resolved';
 
 export interface SellerResponse {
@@ -157,6 +168,7 @@ export interface OrderIssue {
   status: IssueStatus;
   createdAt: string;
   sellerResponse?: SellerResponse;
+  isPostReleaseReturn?: boolean;
 }
 
 export interface OrderConfirmation {

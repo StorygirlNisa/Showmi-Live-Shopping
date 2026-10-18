@@ -33,6 +33,7 @@ interface MyOrdersViewProps {
     issueTypeLabel: string;
     description: string;
     evidenceImage?: string;
+    isPostReleaseReturn?: boolean;
   }) => void;
   onBackToShopping: () => void;
   onSelectProduct?: (productId: string) => void;
@@ -40,7 +41,7 @@ interface MyOrdersViewProps {
 
 export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
   orders,
-  issues,
+  issues = [],
   onConfirmDelivery,
   onReportIssue,
   onBackToShopping,
@@ -51,6 +52,19 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
   );
   const [confirmNotification, setConfirmNotification] = useState<string | null>(null);
 
+  // Warning confirmation modal state for receipt
+  const [confirmWarningModal, setConfirmWarningModal] = useState<{
+    orderId: string;
+    productId: string;
+    productName: string;
+  } | null>(null);
+
+  // Tracking modal state
+  const [trackingModalItem, setTrackingModalItem] = useState<{
+    order: Order;
+    item: OrderItem;
+  } | null>(null);
+
   // Issue reporting modal state
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
   const [reportingItem, setReportingItem] = useState<{
@@ -58,6 +72,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
     productId: string;
     sellerId: string;
     productName: string;
+    isPostReleaseReturn?: boolean;
   } | null>(null);
   const [issueType, setIssueType] = useState<IssueType>('item_damaged');
   const [issueDescription, setIssueDescription] = useState('');
@@ -68,13 +83,14 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
 
   const handleConfirmItem = (orderId: string, productId: string, productName: string) => {
     onConfirmDelivery(orderId, productId);
-    setConfirmNotification(`Confirmed delivery of "${productName}". 14-day protection remains active!`);
-    setTimeout(() => setConfirmNotification(null), 3500);
+    setConfirmNotification(`Receipt confirmed for "${productName}". Payment simulated as released to seller.`);
+    setTimeout(() => setConfirmNotification(null), 4000);
   };
 
   const formatDate = (dateStr: string) => {
     try {
       const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return dateStr;
       return d.toLocaleDateString('en-ZA', { 
         day: 'numeric', 
         month: 'short', 
@@ -87,7 +103,8 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
 
   const isProtectionActive = (protectionExpiresAtStr: string) => {
     try {
-      return new Date(protectionExpiresAtStr).getTime() > Date.now();
+      const t = new Date(protectionExpiresAtStr).getTime();
+      return !isNaN(t) && t > Date.now();
     } catch {
       return true;
     }
@@ -96,17 +113,29 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
   const getDaysRemainingProtection = (expiresAtStr: string) => {
     try {
       const diffMs = new Date(expiresAtStr).getTime() - Date.now();
-      if (diffMs <= 0) return 'Protection expired';
+      if (isNaN(diffMs) || diffMs <= 0) return 'Protection expired';
       const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
       return `${days} days remaining`;
     } catch {
-      return '14 days';
+      return '14 days remaining';
     }
   };
 
-  const handleOpenIssueModal = (orderId: string, productId: string, sellerId: string, productName: string) => {
-    setReportingItem({ orderId, productId, sellerId, productName });
-    setIssueType('item_damaged');
+  const handleOpenIssueModal = (
+    orderId: string, 
+    productId: string, 
+    sellerId: string, 
+    productName: string,
+    isPostRelease = false
+  ) => {
+    setReportingItem({ 
+      orderId, 
+      productId, 
+      sellerId, 
+      productName, 
+      isPostReleaseReturn: isPostRelease 
+    });
+    setIssueType(isPostRelease ? 'return_request' : 'item_damaged');
     setIssueDescription('');
     setEvidenceImage('');
     setImagePreviewName('');
@@ -135,7 +164,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
     if (!reportingItem) return;
 
     if (!issueDescription.trim() || issueDescription.trim().length < 10) {
-      setIssueFormError('Please provide a detailed description of the issue (minimum 10 characters).');
+      setIssueFormError('Please provide a detailed description (minimum 10 characters).');
       return;
     }
 
@@ -149,7 +178,8 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
       item_damaged: 'Item damaged',
       incorrect_item: 'Incorrect item',
       missing_items: 'Missing items',
-      other: 'Other'
+      return_request: 'Return Request / Order Query',
+      other: 'Other issue'
     };
 
     setTimeout(() => {
@@ -160,14 +190,19 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
         issueType,
         issueTypeLabel: typeLabels[issueType] || 'Issue Reported',
         description: issueDescription.trim(),
-        evidenceImage: evidenceImage || undefined
+        evidenceImage: evidenceImage || undefined,
+        isPostReleaseReturn: reportingItem.isPostReleaseReturn
       });
 
       setIsSubmittingIssue(false);
       setIsIssueModalOpen(false);
-      setConfirmNotification('Issue report successfully submitted against order item!');
-      setTimeout(() => setConfirmNotification(null), 4000);
-    }, 800);
+      setConfirmNotification(
+        reportingItem.isPostReleaseReturn 
+          ? 'Return query submitted! Note: refunds after payment release must be arranged directly with the seller.'
+          : 'Issue report successfully submitted against order item!'
+      );
+      setTimeout(() => setConfirmNotification(null), 5000);
+    }, 600);
   };
 
   const getStatusBadge = (status: OrderItem['status']) => {
@@ -265,7 +300,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight mt-1">
-              My Orders & Buyer Protection
+              My Orders & Payment Protection
             </h1>
           </div>
         </div>
@@ -287,7 +322,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
           <div className="space-y-1.5">
             <h2 className="text-lg font-bold text-white tracking-tight">No Orders Placed Yet</h2>
             <p className="text-xs text-slate-400 leading-relaxed">
-              When you purchase small-batch handcrafted serums, leather bags, or streetwear on Showmi, your order records, tracking waybills, and 14-day buyer protection will appear here.
+              When you purchase products on Showmi, your order records, tracking waybills, and payment protection status will appear here.
             </p>
           </div>
           <button
@@ -357,7 +392,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                 {isExpanded && (
                   <div className="p-5 sm:p-6 space-y-6 bg-[#0e1117]/80">
                     
-                    {/* 14-Day Buyer Protection Highlight Banner */}
+                    {/* Payment Protection Highlight Banner */}
                     <div className={`p-4 sm:p-5 rounded-2xl border space-y-3 ${
                       protectionActive ? 'bg-[#141720] border-[#0066ff]/40' : 'bg-[#1c1518] border-amber-500/30'
                     }`}>
@@ -370,7 +405,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                           </div>
                           <div>
                             <h4 className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
-                              <span>Showmi 14-Day Buyer Protection</span>
+                              <span>Showmi Payment Protection (14-Day Window)</span>
                               {protectionActive ? (
                                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-normal">
                                   Active Coverage
@@ -388,7 +423,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                         </div>
 
                         <div className="bg-[#0c0e12] px-3 py-1.5 rounded-xl border border-[#212633] text-right shrink-0">
-                          <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Protection Fee (8%)</span>
+                          <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Payment Protection Fee (8%)</span>
                           <span className="text-xs font-mono font-bold text-[#0066ff]">
                             R {order.protectionFeeZAR.toLocaleString()} Included
                           </span>
@@ -416,14 +451,14 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                       )}
 
                       <p className="text-[11px] text-slate-400 leading-relaxed">
-                        <em>Covers transit damage, non-delivery, or authentic craft discrepancies. Demonstration Sandbox: Safe simulation of Showmi's 8% Buyer Protection policy.</em>
+                        <em>Our intended payment-protection system would use a third-party financial institution to hold payment until you confirm receipt, subject to the agreed terms. Demo only. No real funds are held or transferred.</em>
                       </p>
                     </div>
 
                     {/* Purchased Items & Delivery Tracking Status */}
                     <div className="space-y-3">
                       <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Item Status & Workshop Fulfilment & Issue Reporting
+                        Item Status, Fulfilment & Issue Reporting
                       </h4>
 
                       <div className="space-y-3">
@@ -448,7 +483,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                                   )}
                                   <div className="min-w-0">
                                     <span className="text-[10px] text-[#0066ff] font-bold uppercase tracking-wider block">
-                                      {item.sellerName || 'South African Maker'}
+                                      {item.sellerName || 'South African Storefront'}
                                     </span>
                                     <h5 
                                       onClick={() => onSelectProduct && onSelectProduct(item.productId)}
@@ -492,13 +527,20 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                                     <div className="flex items-center gap-2">
                                       <AlertCircle className="w-4 h-4 text-[#0066ff]" />
                                       <span className="text-xs font-bold text-white">
-                                        Reported Issue: <span className="text-[#60a5fa]">{existingIssue.issueTypeLabel}</span>
+                                        {existingIssue.issueType === 'return_request' ? 'Return Query / Dispute:' : 'Reported Issue:'}{' '}
+                                        <span className="text-[#60a5fa]">{existingIssue.issueTypeLabel}</span>
                                       </span>
                                     </div>
                                     <div>
                                       {getIssueStatusBadge(existingIssue.status)}
                                     </div>
                                   </div>
+
+                                  {existingIssue.isPostReleaseReturn && (
+                                    <p className="text-[11px] text-amber-300 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-lg">
+                                      <strong>Post-Payment Release Note:</strong> Payment was already simulated as released to the seller upon receipt confirmation. This query is submitted directly to the seller for resolution. Showmi does not provide automated refunds after payment release.
+                                    </p>
+                                  )}
 
                                   <p className="text-xs text-slate-300 leading-relaxed bg-[#141720] p-3 rounded-lg border border-[#212633]">
                                     "{existingIssue.description}"
@@ -535,55 +577,113 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                                           Resolution: {existingIssue.sellerResponse.resolutionNote}
                                         </p>
                                       )}
+                                      <p className="text-[10px] text-slate-400 italic pt-1">
+                                        * Note: A seller response or resolution note does not constitute proof that an external bank refund or return transit has taken place.
+                                      </p>
                                     </div>
                                   ) : (
                                     <p className="text-[11px] text-amber-300 italic">
-                                      Waiting for workshop review and response from {item.sellerName || 'the artisan'}.
+                                      Waiting for seller review and response from {item.sellerName || 'the storefront'}.
                                     </p>
                                   )}
                                 </div>
                               )}
 
-                              {/* Action Button: Confirm Delivery & Report an Issue */}
+                              {/* Confirmed / Payment-Released Notice */}
+                              {item.status === 'confirmed' && (
+                                <div className="p-3 bg-emerald-950/30 rounded-xl border border-emerald-500/30 space-y-1.5 text-xs text-slate-300">
+                                  <div className="flex items-center justify-between flex-wrap gap-2">
+                                    <span className="font-bold text-emerald-300 flex items-center gap-1.5">
+                                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                      Payment Released to Seller (Simulated)
+                                    </span>
+                                    <span className="text-[10px] text-slate-400 font-mono">
+                                      Confirmed: {formatDate(item.confirmedAt || order.confirmedAt || order.createdAt)}
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-300 leading-relaxed">
+                                    Showmi's payment hold has completed and simulated payout has been released to {item.sellerName || 'the seller'}.
+                                  </p>
+                                  <p className="text-[11px] text-amber-300/90 leading-relaxed bg-amber-500/10 border border-amber-500/20 p-2 rounded-lg">
+                                    After payment is released, refunds must be arranged directly with the seller. Showmi does not hold funds or process automatic refunds at this stage.
+                                  </p>
+                                </div>
+                              )}
+
+                              {/* Action Buttons Row */}
                               <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-t border-[#1e2433]">
                                 <div className="text-[11px] text-slate-400">
                                   {item.status === 'confirmed' ? (
                                     <span className="text-emerald-400 font-medium flex items-center gap-1.5">
                                       <CheckCircle2 className="w-3.5 h-3.5" />
-                                      <span>Receipt confirmed{item.confirmedAt ? ` on ${formatDate(item.confirmedAt)}` : ''}. 14-day protection active.</span>
+                                      <span>Receipt confirmed. 14-day protection active ({getDaysRemainingProtection(order.protectionExpiresAt)}).</span>
                                     </span>
                                   ) : item.status === 'delivered' ? (
                                     <span className="text-slate-300">
-                                      Package delivered. Please confirm receipt to complete order.
+                                      Package delivered. Please check items carefully before confirming receipt.
                                     </span>
                                   ) : (
                                     <span className="text-slate-400">
-                                      Package en route. Eligible for 14-day protection claims.
+                                      Package en route. Payment remains safely held until receipt is confirmed.
                                     </span>
                                   )}
                                 </div>
 
-                                <div className="flex items-center gap-2 w-full sm:w-auto">
-                                  {/* Report Issue Button */}
-                                  {!existingIssue && (
+                                <div className="flex items-center gap-2 w-full sm:w-auto flex-wrap justify-end">
+                                  {/* Track Order Button */}
+                                  {(item.status === 'in_transit' || item.status === 'delivered' || item.status === 'confirmed') && (
                                     <button
-                                      onClick={() => handleOpenIssueModal(order.id, item.productId, item.sellerId, item.name)}
-                                      disabled={!protectionActive}
-                                      className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                                        protectionActive 
-                                          ? 'bg-[#1e2330] hover:bg-[#283244] text-[#60a5fa] border border-[#2e374d]' 
-                                          : 'bg-[#14171f] text-slate-500 border border-[#212633] opacity-60 cursor-not-allowed'
-                                      }`}
-                                      title={protectionActive ? 'Report a delivery or quality issue' : 'Protection period expired'}
+                                      onClick={() => setTrackingModalItem({ order, item })}
+                                      className="px-3 py-2 rounded-xl bg-[#1e2330] hover:bg-[#283244] text-slate-200 border border-[#2e374d] text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                                      title="View delivery milestones & courier waybill tracking"
                                     >
-                                      <AlertCircle className="w-3.5 h-3.5" />
-                                      <span>Report Issue</span>
+                                      <Truck className="w-3.5 h-3.5 text-[#0066ff]" />
+                                      <span>Track Order</span>
                                     </button>
                                   )}
 
+                                  {/* Report Issue / Query Order Button */}
+                                  {!existingIssue ? (
+                                    item.status === 'confirmed' ? (
+                                      <button
+                                        onClick={() => handleOpenIssueModal(order.id, item.productId, item.sellerId, item.name, true)}
+                                        disabled={!protectionActive}
+                                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                                          protectionActive 
+                                            ? 'bg-[#1e2330] hover:bg-[#283244] text-amber-300 border border-amber-500/30' 
+                                            : 'bg-[#14171f] text-slate-500 border border-[#212633] opacity-60 cursor-not-allowed'
+                                        }`}
+                                        title={protectionActive ? 'Submit a return inquiry or query to seller' : '14-day protection window expired'}
+                                      >
+                                        <MessageSquare className="w-3.5 h-3.5" />
+                                        <span>Query Order / Request Return</span>
+                                      </button>
+                                    ) : (
+                                      <button
+                                        onClick={() => handleOpenIssueModal(order.id, item.productId, item.sellerId, item.name, false)}
+                                        disabled={!protectionActive}
+                                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                                          protectionActive 
+                                            ? 'bg-[#1e2330] hover:bg-[#283244] text-[#60a5fa] border border-[#2e374d]' 
+                                            : 'bg-[#14171f] text-slate-500 border border-[#212633] opacity-60 cursor-not-allowed'
+                                        }`}
+                                        title={protectionActive ? 'Report a delivery or quality issue' : '14-day protection window expired'}
+                                      >
+                                        <AlertCircle className="w-3.5 h-3.5" />
+                                        <span>Report Issue</span>
+                                      </button>
+                                    )
+                                  ) : (
+                                    <span className="text-[11px] font-mono text-slate-400 bg-[#0c0e12] px-2.5 py-1.5 rounded-lg border border-[#212633] flex items-center gap-1.5">
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-blue-400" />
+                                      <span>Issue Logged (#{existingIssue.id})</span>
+                                    </span>
+                                  )}
+
+                                  {/* Confirm Receipt Button (Triggers Warning Dialog First) */}
                                   {(item.status === 'in_transit' || item.status === 'delivered') && (
                                     <button
-                                      onClick={() => handleConfirmItem(order.id, item.productId, item.name)}
+                                      onClick={() => setConfirmWarningModal({ orderId: order.id, productId: item.productId, productName: item.name })}
                                       className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 cursor-pointer active:scale-95"
                                     >
                                       <CheckCircle2 className="w-3.5 h-3.5" />
@@ -622,7 +722,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                             <span className="font-mono text-white">R {order.subtotalZAR.toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span>Buyer Protection Fee (8%)</span>
+                            <span>Payment Protection Fee (8%)</span>
                             <span className="font-mono text-white">R {order.protectionFeeZAR.toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between">
@@ -645,18 +745,186 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
         </div>
       )}
 
-      {/* Report an Issue Modal */}
+      {/* Confirm Receipt Warning Modal (Requirement 4.C) */}
+      {confirmWarningModal && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#14171f] border-2 border-emerald-500/40 rounded-3xl max-w-md w-full p-6 sm:p-7 space-y-5 shadow-2xl animate-fade-in relative">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mx-auto">
+              <AlertTriangle className="w-8 h-8" />
+            </div>
+
+            <div className="text-center space-y-2">
+              <h3 className="text-lg font-extrabold text-white">
+                Have you checked your items?
+              </h3>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Confirming receipt triggers the intended release of payment to the seller. Check your order carefully first.
+              </p>
+              <p className="text-[11px] text-slate-400 italic">
+                Item: <strong className="text-white">{confirmWarningModal.productName}</strong>
+              </p>
+              <div className="p-3 bg-[#0c0e12] border border-[#212633] rounded-xl text-left space-y-1">
+                <span className="text-[10px] text-amber-400 font-bold block uppercase tracking-wider">Please Note:</span>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  After payment is released, refunds must be arranged directly with the seller. Showmi does not hold customer funds or execute automatic refunds following receipt confirmation.
+                </p>
+                <p className="text-[10px] text-slate-500 italic">
+                  * Demo sandbox: simulates payout release to artisan. No real funds move.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setConfirmWarningModal(null)}
+                className="py-3 px-4 rounded-xl bg-[#1e2330] hover:bg-[#283244] text-slate-200 text-xs font-bold transition-colors cursor-pointer"
+              >
+                Go Back
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const target = confirmWarningModal;
+                  setConfirmWarningModal(null);
+                  handleConfirmItem(target.orderId, target.productId, target.productName);
+                }}
+                className="py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-lg shadow-emerald-600/30 cursor-pointer active:scale-95 flex items-center justify-center gap-1.5"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Confirm Receipt</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Track Order Modal (Requirement 4.B) */}
+      {trackingModalItem && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#14171f] border border-[#212633] rounded-3xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl relative animate-fade-in">
+            <div className="flex items-center justify-between pb-3 border-b border-[#212633]">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center text-blue-400">
+                  <Truck className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Courier Tracking</h3>
+                  <p className="text-[11px] text-slate-400 font-mono">Order #{trackingModalItem.order.id}</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setTrackingModalItem(null)}
+                className="w-8 h-8 rounded-full bg-[#1e2330] text-slate-300 flex items-center justify-center cursor-pointer hover:bg-[#283042]"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="p-3 bg-[#0c0e12] rounded-xl border border-[#212633] space-y-1">
+                <span className="text-[10px] text-slate-400 block uppercase font-mono">Target Item</span>
+                <p className="font-bold text-white">{trackingModalItem.item.name}</p>
+                <p className="text-slate-300 text-[11px]">
+                  Courier: <strong className="text-white">{trackingModalItem.item.courierPartner || 'The Courier Guy'}</strong>
+                </p>
+                <p className="text-slate-300 text-[11px]">
+                  Waybill Number: <strong className="font-mono text-[#0066ff]">{trackingModalItem.item.trackingNumber || 'TCG-ZA-PENDING'}</strong>
+                </p>
+              </div>
+
+              {/* Delivery Milestones */}
+              <div className="p-4 bg-[#0c0e12] rounded-xl border border-[#212633] space-y-3">
+                <span className="text-[10px] text-slate-400 block uppercase font-mono mb-2">Tracking Progress</span>
+                <div className="space-y-4 relative before:absolute before:left-3 before:top-2 before:bottom-2 before:w-0.5 before:bg-[#212633]">
+                  {/* Step 1 */}
+                  <div className="flex items-start gap-3 relative">
+                    <div className="w-6 h-6 rounded-full bg-emerald-500 flex items-center justify-center text-black shrink-0 font-bold text-[10px] z-10">
+                      ✓
+                    </div>
+                    <div>
+                      <p className="font-bold text-white">Order Registered & Payment Held</p>
+                      <p className="text-[10px] text-slate-400 font-mono">{formatDate(trackingModalItem.order.createdAt)}</p>
+                    </div>
+                  </div>
+
+                  {/* Step 2 */}
+                  <div className="flex items-start gap-3 relative">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] z-10 ${
+                      trackingModalItem.item.status !== 'awaiting_dispatch' ? 'bg-emerald-500 text-black' : 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                    }`}>
+                      {trackingModalItem.item.status !== 'awaiting_dispatch' ? '✓' : '•'}
+                    </div>
+                    <div>
+                      <p className="font-bold text-white">Artisan Workshop Dispatch</p>
+                      <p className="text-[10px] text-slate-400">
+                        {trackingModalItem.item.dispatchedAt ? `Dispatched on ${formatDate(trackingModalItem.item.dispatchedAt)}` : 'Preparing parcel at artisan workshop'}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Step 3 */}
+                  <div className="flex items-start gap-3 relative">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] z-10 ${
+                      trackingModalItem.item.status === 'in_transit' ? 'bg-blue-500 text-white animate-pulse' : (trackingModalItem.item.status === 'delivered' || trackingModalItem.item.status === 'confirmed') ? 'bg-emerald-500 text-black' : 'bg-[#1e2330] text-slate-500'
+                    }`}>
+                      {(trackingModalItem.item.status === 'delivered' || trackingModalItem.item.status === 'confirmed') ? '✓' : '•'}
+                    </div>
+                    <div>
+                      <p className="font-bold text-white">In Transit with Courier</p>
+                      <p className="text-[10px] text-slate-400">En route via regional distribution hub</p>
+                    </div>
+                  </div>
+
+                  {/* Step 4 */}
+                  <div className="flex items-start gap-3 relative">
+                    <div className={`w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] z-10 ${
+                      (trackingModalItem.item.status === 'delivered' || trackingModalItem.item.status === 'confirmed') ? 'bg-emerald-500 text-black' : 'bg-[#1e2330] text-slate-500'
+                    }`}>
+                      {(trackingModalItem.item.status === 'delivered' || trackingModalItem.item.status === 'confirmed') ? '✓' : '•'}
+                    </div>
+                    <div>
+                      <p className="font-bold text-white">Delivered to Recipient</p>
+                      <p className="text-[10px] text-slate-400">
+                        {trackingModalItem.item.deliveredAt ? `Delivered on ${formatDate(trackingModalItem.item.deliveredAt)}` : `Estimated delivery: ${formatDate(trackingModalItem.order.estimatedDeliveryDate)}`}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3 bg-[#141720] rounded-xl border border-[#212633] text-slate-300">
+                <span className="text-[10px] text-slate-400 block font-mono">Delivery Destination:</span>
+                <p className="font-bold text-white">{trackingModalItem.order.customerName}</p>
+                <p>{trackingModalItem.order.shippingAddress}, {trackingModalItem.order.city}, {trackingModalItem.order.province}</p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setTrackingModalItem(null)}
+                className="w-full py-2.5 rounded-xl bg-[#1e2330] hover:bg-[#283244] text-white font-bold transition-colors cursor-pointer"
+              >
+                Close Tracking
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report an Issue or Query Order Modal */}
       {isIssueModalOpen && reportingItem && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-[#14171f] border border-[#212633] rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 space-y-6 shadow-2xl relative animate-fade-in">
             <div className="flex items-center justify-between pb-4 border-b border-[#212633]">
               <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-500/40 flex items-center justify-center text-[#60a5fa]">
-                  <AlertCircle className="w-5 h-5" />
+                <div className={`w-9 h-9 rounded-xl border flex items-center justify-center ${
+                  reportingItem.isPostReleaseReturn ? 'bg-amber-500/20 border-amber-500/40 text-amber-400' : 'bg-blue-500/20 border-blue-500/40 text-[#60a5fa]'
+                }`}>
+                  {reportingItem.isPostReleaseReturn ? <MessageSquare className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
                 </div>
                 <div>
                   <h3 className="text-base font-bold text-white">
-                    Report an Issue
+                    {reportingItem.isPostReleaseReturn ? 'Query Order / Request Return' : 'Report an Issue'}
                   </h3>
                   <p className="text-xs text-slate-400 font-mono">Order #{reportingItem.orderId}</p>
                 </div>
@@ -671,33 +939,71 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
 
             <form onSubmit={handleWorkspaceIssueSubmit} className="space-y-4 text-xs">
               <div className="p-3 bg-[#0c0e12] rounded-xl border border-[#212633]">
-                <span className="text-[10px] text-slate-400 block uppercase tracking-wider">Target Item</span>
+                <span className="text-[10px] text-slate-400 block uppercase tracking-wider font-mono">Target Item</span>
                 <p className="text-xs font-bold text-white mt-0.5">{reportingItem.productName}</p>
               </div>
 
+              {/* Informational Guidance Notice depending on payment release state */}
+              {reportingItem.isPostReleaseReturn ? (
+                <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl space-y-1 text-slate-300">
+                  <span className="text-[10px] text-amber-400 font-bold block uppercase tracking-wider">
+                    Post-Payment Release Direct Negotiation
+                  </span>
+                  <p className="text-[11px] leading-relaxed">
+                    Payment was already simulated as released to the seller upon delivery confirmation. Showmi does not provide automated refunds after payment release. Submitting this request initiates a return query directly with the seller.
+                  </p>
+                  <p className="text-[10px] text-slate-400 italic">
+                    * This is a request and not a guaranteed refund. Showmi does not guarantee seller payouts or third-party refunds.
+                  </p>
+                </div>
+              ) : (
+                <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl space-y-1 text-slate-300">
+                  <span className="text-[10px] text-[#60a5fa] font-bold block uppercase tracking-wider">
+                    Payment Hold Protection Active
+                  </span>
+                  <p className="text-[11px] leading-relaxed">
+                    A third-party financial institution would hold payment until you confirm receipt. Submitting an issue logs a formal claim within your 14-day protection window.
+                  </p>
+                </div>
+              )}
+
               <div className="space-y-1">
-                <label className="font-semibold text-slate-300 block">Select Issue Type *</label>
+                <label className="font-semibold text-slate-300 block">Select Issue or Query Type *</label>
                 <select
                   value={issueType}
                   onChange={(e) => setIssueType(e.target.value as IssueType)}
                   className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-white focus:outline-none focus:border-[#0066ff]"
                 >
-                  <option value="item_damaged">Item damaged in transit</option>
-                  <option value="item_not_received">Item not received / delayed</option>
-                  <option value="incorrect_item">Incorrect item received</option>
-                  <option value="missing_items">Missing items in parcel</option>
-                  <option value="other">Other issue</option>
+                  {reportingItem.isPostReleaseReturn ? (
+                    <>
+                      <option value="return_request">Return request / order query</option>
+                      <option value="item_damaged">Damaged item discovered upon unboxing</option>
+                      <option value="incorrect_item">Incorrect item received</option>
+                      <option value="missing_items">Missing items or accessories</option>
+                      <option value="other">Other issue</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="item_not_received">Item not received / courier delay</option>
+                      <option value="item_damaged">Damaged item in transit</option>
+                      <option value="incorrect_item">Incorrect item received</option>
+                      <option value="missing_items">Missing items in parcel</option>
+                      <option value="other">Other issue</option>
+                    </>
+                  )}
                 </select>
               </div>
 
               <div className="space-y-1">
-                <label className="font-semibold text-slate-300 block">Describe the Issue in Detail * (Min 10 chars)</label>
+                <label className="font-semibold text-slate-300 block">
+                  Describe the Issue or Query in Detail * (Min 10 chars)
+                </label>
                 <textarea
                   rows={4}
                   required
                   value={issueDescription}
                   onChange={(e) => setIssueDescription(e.target.value)}
-                  placeholder="Please describe what happened, parcel condition, or craft discrepancy..."
+                  placeholder="Please describe what happened, condition of the craft item, or what resolution you are requesting from the artisan..."
                   className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-white focus:outline-none focus:border-[#0066ff] leading-relaxed"
                 />
               </div>
@@ -718,7 +1024,19 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                   />
                 </div>
                 {imagePreviewName && (
-                  <p className="text-[11px] text-emerald-400 font-mono">Attached: {imagePreviewName}</p>
+                  <div className="flex items-center justify-between text-[11px] text-emerald-400 font-mono bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
+                    <span>Attached: {imagePreviewName}</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEvidenceImage('');
+                        setImagePreviewName('');
+                      }}
+                      className="text-red-400 hover:text-red-300 font-bold ml-2 cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -744,7 +1062,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                   ) : (
                     <>
                       <Send className="w-3.5 h-3.5" />
-                      <span>Submit Issue Report</span>
+                      <span>{reportingItem.isPostReleaseReturn ? 'Submit Return Query' : 'Submit Issue Report'}</span>
                     </>
                   )}
                 </button>

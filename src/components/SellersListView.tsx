@@ -29,10 +29,10 @@ export const SellersListView: React.FC<SellersListViewProps> = ({
       {/* Header */}
       <div className="flex flex-col w-full max-w-2xl mx-auto px-4 sm:px-6 pt-6 pb-4 space-y-2">
         <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-          SA Makers You Follow
+          Showrooms You Follow
         </h1>
         <p className="text-xs sm:text-sm text-slate-400">
-          Your vertical feed of followed South African ateliers, fynbos botanicals, and Karoo craftsmen.
+          Your curated feed of followed South African showrooms, brand storefronts, and independent businesses.
         </p>
       </div>
 
@@ -42,9 +42,9 @@ export const SellersListView: React.FC<SellersListViewProps> = ({
           <div className="w-16 h-16 rounded-2xl bg-[#0066ff]/20 text-[#0066ff] flex items-center justify-center mx-auto">
             <Store className="w-8 h-8" />
           </div>
-          <h3 className="text-lg font-bold text-white">No Followed Makers Yet</h3>
+          <h3 className="text-lg font-bold text-white">No Followed Showrooms Yet</h3>
           <p className="text-xs text-slate-400 leading-relaxed">
-            You are not following any SA Makers yet. Explore and follow makers to see them stacked here!
+            You are not following any showrooms yet. Explore and follow showrooms to see them stacked here!
           </p>
           <button
             onClick={() => {
@@ -54,7 +54,7 @@ export const SellersListView: React.FC<SellersListViewProps> = ({
             }}
             className="px-6 py-3 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs font-bold transition-colors cursor-pointer shadow-lg shadow-[#0066ff]/30"
           >
-            Follow Featured Maker ({sellers[0]?.name || 'Creator'})
+            Follow Featured Showroom ({sellers[0]?.name || 'Business'})
           </button>
         </div>
       ) : (

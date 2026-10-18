@@ -152,7 +152,7 @@ export const SellerStorefrontView: React.FC<SellerStorefrontViewProps> = ({
                   {seller.verifiedArtisan && (
                     <span className="inline-flex items-center gap-1 text-xs bg-[#0066ff]/20 text-[#60a5fa] border border-[#0066ff]/30 px-2 py-0.5 rounded-full font-semibold">
                       <CheckCircle className="w-3.5 h-3.5 text-[#0066ff]" />
-                      Verified Maker
+                      Verified Business
                     </span>
                   )}
                 </div>
@@ -184,7 +184,7 @@ export const SellerStorefrontView: React.FC<SellerStorefrontViewProps> = ({
                     : 'bg-[#0066ff] hover:bg-[#0052cc] text-white shadow-md shadow-[#0066ff]/20'
                 }`}
               >
-                {isFollowing ? 'Following' : '+ Follow Maker'}
+                {isFollowing ? 'Following' : '+ Follow Showroom'}
               </button>
 
               <button
@@ -223,7 +223,7 @@ export const SellerStorefrontView: React.FC<SellerStorefrontViewProps> = ({
           {/* Bio text */}
           <div className="pt-4 max-w-3xl space-y-1">
             <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-              About the Atelier & Workshop
+              About the Showroom & Business
             </h3>
             <p className="text-sm text-slate-300 leading-relaxed">
               {seller.bio}
@@ -642,7 +642,7 @@ export const SellerStorefrontView: React.FC<SellerStorefrontViewProps> = ({
                 <CheckCircle className="w-10 h-10 mx-auto" />
                 <h4 className="font-bold text-white">Message Sent!</h4>
                 <p className="text-xs text-slate-400">
-                  {seller.name} responds within 2 business hours during weekday workshop times.
+                  {seller.name} responds within 2 business hours during standard operating times.
                 </p>
               </div>
             ) : (
@@ -663,7 +663,7 @@ export const SellerStorefrontView: React.FC<SellerStorefrontViewProps> = ({
                   type="submit"
                   className="w-full py-2.5 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs font-bold transition-colors cursor-pointer"
                 >
-                  Send Inquiry to Maker
+                  Send Inquiry to Business
                 </button>
               </form>
             )}

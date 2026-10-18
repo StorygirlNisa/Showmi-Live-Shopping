@@ -261,7 +261,7 @@ export const PRODUCTS: Product[] = [
       'Heavy-duty solid antique brass zips and hardware',
       'Detachable ergonomic leather shoulder strap with pad',
       'Internal zippered passport and keys security pocket',
-      'Lifetime craftsmanship stitching guarantee'
+      'Lifetime stitching craftsmanship standard'
     ],
     rating: 5.0,
     reviewCount: 42,

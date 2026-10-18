@@ -147,7 +147,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
                     <p className="font-semibold text-white text-sm">{seller.name}</p>
                     {seller.verifiedArtisan && (
                       <span className="text-[10px] bg-[#0066ff]/20 text-[#60a5fa] px-1.5 py-0.2 rounded font-medium">
-                        Verified Maker
+                        Verified Business
                       </span>
                     )}
                   </div>
@@ -352,7 +352,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
             {/* Trust badge */}
             <div className="pt-2 flex items-center justify-center gap-2 text-[11px] text-slate-400">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Simulated Payment · Free 14-day SA returns guarantee</span>
+              <span>Delivery & Item Match · Simulated 14-day South African protection</span>
             </div>
 
           </div>

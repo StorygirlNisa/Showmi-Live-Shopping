@@ -10,7 +10,9 @@ import {
   ShoppingBag, 
   Check, 
   Info,
-  Sparkles
+  Sparkles,
+  Volume2,
+  VolumeX
 } from 'lucide-react';
 import { LiveSession, Product, Seller } from '../types';
 import { ProductDetailDrawer } from './ProductDetailDrawer';
@@ -43,6 +45,7 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [addedProductId, setAddedProductId] = useState<string | null>(null);
+  const [isMuted, setIsMuted] = useState(true);
 
   const handleLike = (sessionId: string, initialLikes: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -120,21 +123,40 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
               {/* High-Contrast Gradient Overlay */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/35 via-50% to-black/30 pointer-events-none" />
 
-              {/* Top Bar: LIVE Status, Viewers, & Category */}
+              {/* Top Bar: Viewers/Category on Left, Red LIVE Indicator on Right */}
               <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between z-10 pointer-events-none">
                 <div className="flex items-center gap-2">
-                  <span className="bg-red-600 text-white text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md shadow-lg flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                    LIVE
-                  </span>
                   <span className="bg-black/60 backdrop-blur-md text-white text-[11px] px-2.5 py-1 rounded-md font-mono border border-white/10 flex items-center gap-1.5">
                     <Users className="w-3.5 h-3.5 text-blue-400" />
                     {session.viewerCount.toLocaleString()} watching
                   </span>
+                  <div className="bg-black/60 backdrop-blur-md text-slate-200 text-[10px] uppercase font-mono tracking-wider px-2.5 py-1 rounded-md border border-white/10">
+                    {session.streamCategory}
+                  </div>
                 </div>
 
-                <div className="bg-black/60 backdrop-blur-md text-slate-200 text-[10px] uppercase font-mono tracking-wider px-2.5 py-1 rounded-md border border-white/10">
-                  {session.streamCategory}
+                {/* Mute toggle button and Red LIVE indicator on the right-hand side */}
+                <div className="flex items-center gap-2 pointer-events-auto">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsMuted(!isMuted);
+                    }}
+                    className="w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center backdrop-blur-md border border-white/10 transition-colors cursor-pointer"
+                    title={isMuted ? 'Unmute stream preview audio' : 'Mute stream preview audio'}
+                    aria-label={isMuted ? 'Unmute stream preview audio' : 'Mute stream preview audio'}
+                  >
+                    {isMuted ? (
+                      <VolumeX className="w-4 h-4 text-slate-400" />
+                    ) : (
+                      <Volume2 className="w-4 h-4 text-[#0066ff]" />
+                    )}
+                  </button>
+
+                  <span className="bg-red-600 text-white text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-xl flex items-center gap-1.5 border border-red-400/40 backdrop-blur-sm">
+                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                    LIVE
+                  </span>
                 </div>
               </div>
 
@@ -292,6 +314,21 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                             <ShoppingBag className="w-3.5 h-3.5 text-[#0066ff]" />
                           )}
                           <span className="hidden xs:inline">{isAdded ? 'Added' : 'Basket'}</span>
+                        </button>
+                      )}
+
+                      {onBuyNow && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isSoldOut) onBuyNow(featured, 1);
+                          }}
+                          disabled={isSoldOut}
+                          className="min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-bold bg-[#0066ff] hover:bg-[#0052cc] text-white transition-all cursor-pointer shadow flex items-center gap-1 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Buy now directly from feed"
+                          aria-label="Buy now directly from feed"
+                        >
+                          <span>Buy Now</span>
                         </button>
                       )}
                     </div>

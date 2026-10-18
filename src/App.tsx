@@ -22,6 +22,7 @@ import { PRODUCTS, SELLERS, LIVE_SESSIONS, INITIAL_PROMOTIONS, INITIAL_ORDERS, I
 import { Product, CartItem, StreamSnippet, LivePromotion, Order, OrderItem, OrderIssue, IssueType } from './types';
 import { MyOrdersView } from './components/MyOrdersView';
 import { OrderPlacementPayload } from './components/BasketCheckoutView';
+import { ProfileModal } from './components/ProfileModal';
 
 const STORAGE_KEYS = {
   PRODUCTS: 'showmi_products_v1',
@@ -71,6 +72,7 @@ export default function App() {
   // Modals
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
   const [isSellerSignInModalOpen, setIsSellerSignInModalOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
 
   // Dynamic products list persisted to localStorage
@@ -133,6 +135,17 @@ export default function App() {
     return INITIAL_PROMOTIONS;
   });
 
+  // Dynamic order issues list, persisted to localStorage
+  const [orderIssues, setOrderIssues] = useState<OrderIssue[]>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEYS.ORDER_ISSUES);
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.error('Error loading order issues from localStorage', e);
+    }
+    return INITIAL_ISSUES;
+  });
+
   // Host Mode toggle: controls private host mode during live stream
   const [isSellerHostMode, setIsSellerHostMode] = useState<boolean>(false);
 
@@ -193,6 +206,15 @@ export default function App() {
       console.error('Failed to save promotions to localStorage', e);
     }
   }, [promotionsList]);
+
+  // Sync order issues to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.ORDER_ISSUES, JSON.stringify(orderIssues));
+    } catch (e) {
+      console.error('Failed to save order issues to localStorage', e);
+    }
+  }, [orderIssues]);
 
   const showNotification = (msg: string) => {
     setNotification(msg);
@@ -360,7 +382,7 @@ export default function App() {
     showNotification(`Status updated: ${newStatus.replace('_', ' ')}`);
   };
 
-  // Buyer receipt confirmation
+  // Buyer receipt confirmation (Simulated payment release)
   const handleConfirmItemReceipt = (orderId: string, productId: string) => {
     setOrdersList(prev =>
       prev.map(order => {
@@ -371,7 +393,9 @@ export default function App() {
             return {
               ...item,
               status: 'confirmed' as const,
-              confirmedAt: now
+              confirmedAt: now,
+              paymentReleased: true,
+              paymentReleasedAt: now
             };
           }
           return item;
@@ -381,11 +405,73 @@ export default function App() {
         return {
           ...order,
           items: updatedItems,
-          confirmedAt: allConfirmed ? now : order.confirmedAt
+          confirmedAt: allConfirmed ? now : order.confirmedAt,
+          paymentReleased: allConfirmed ? true : order.paymentReleased,
+          paymentReleasedAt: allConfirmed ? now : order.paymentReleasedAt
         };
       })
     );
-    showNotification('Delivery confirmed! 14-day buyer protection active');
+    showNotification('Delivery confirmed! Simulated payment released to seller.');
+  };
+
+  // Buyer issue reporting handler (persisted to localStorage)
+  const handleReportIssue = (payload: {
+    orderId: string;
+    productId: string;
+    sellerId: string;
+    issueType: IssueType;
+    issueTypeLabel: string;
+    description: string;
+    evidenceImage?: string;
+    isPostReleaseReturn?: boolean;
+  }) => {
+    setOrderIssues(prev => {
+      // Prevent duplicate issues for the same order item
+      const exists = prev.some(i => i.orderId === payload.orderId && i.productId === payload.productId);
+      if (exists) {
+        showNotification('An issue report or query is already open for this item.');
+        return prev;
+      }
+
+      const newIssue: OrderIssue = {
+        id: `ISS-${Math.floor(1000 + Math.random() * 9000)}`,
+        orderId: payload.orderId,
+        productId: payload.productId,
+        buyerId: 'buyer-demo-01',
+        sellerId: payload.sellerId,
+        issueType: payload.issueType,
+        issueTypeLabel: payload.issueTypeLabel,
+        description: payload.description,
+        evidenceImage: payload.evidenceImage,
+        status: 'submitted',
+        createdAt: new Date().toISOString(),
+        isPostReleaseReturn: payload.isPostReleaseReturn
+      };
+
+      return [newIssue, ...prev];
+    });
+  };
+
+  // Seller issue response & resolution note handler (persisted to localStorage)
+  const handleSellerRespondIssue = (
+    issueId: string,
+    response: { message: string; resolutionNote?: string; status?: 'seller_responded' | 'resolved' }
+  ) => {
+    setOrderIssues(prev =>
+      prev.map(issue => {
+        if (issue.id !== issueId) return issue;
+        return {
+          ...issue,
+          status: response.status || 'seller_responded',
+          sellerResponse: {
+            message: response.message,
+            resolutionNote: response.resolutionNote,
+            respondedAt: new Date().toISOString()
+          }
+        };
+      })
+    );
+    showNotification('Response and resolution note saved!');
   };
 
   // Snippet lifecycle handlers
@@ -458,6 +544,7 @@ export default function App() {
     localStorage.removeItem(STORAGE_KEYS.SNIPPETS);
     localStorage.removeItem(STORAGE_KEYS.PROMOTIONS);
     localStorage.removeItem(STORAGE_KEYS.ORDERS);
+    localStorage.removeItem(STORAGE_KEYS.ORDER_ISSUES);
     localStorage.removeItem(STORAGE_KEYS.USER_ROLE);
     localStorage.removeItem(STORAGE_KEYS.SELLER_ID);
     localStorage.removeItem(STORAGE_KEYS.FOLLOWED_SELLERS);
@@ -466,6 +553,7 @@ export default function App() {
     setSnippetsList(SELLERS.flatMap(s => s.snippets));
     setPromotionsList(INITIAL_PROMOTIONS);
     setOrdersList(INITIAL_ORDERS);
+    setOrderIssues(INITIAL_ISSUES);
     setUserRole('buyer');
     setCurrentSellerId(SELLERS[0].id);
     setFollowedSellerIds(SELLERS.map(s => s.id));
@@ -539,8 +627,8 @@ export default function App() {
 
   const handleTabChange = (tab: AppTab) => {
     if (tab === 'Seller Studio' && userRole !== 'seller') {
-      setIsSellerSignInModalOpen(true);
-      return;
+      setUserRole('seller');
+      setCurrentSellerId(currentSellerId || SELLERS[0].id);
     }
     setSearchQuery('');
     setSelectedProductId(null);
@@ -572,6 +660,8 @@ export default function App() {
   const activeLiveSession = activeLiveSessionId 
     ? LIVE_SESSIONS.find(s => s.id === activeLiveSessionId) 
     : null;
+
+  const currentSeller = SELLERS.find(s => s.id === currentSellerId);
 
   const getViewportWidthStyle = () => {
     switch (viewportMode) {
@@ -717,6 +807,7 @@ export default function App() {
             snippets={snippetsList}
             promotions={promotionsList}
             orders={ordersList}
+            issues={orderIssues}
             currentSellerId={currentSellerId}
             onSelectSeller={(id) => setCurrentSellerId(id)}
             onBackToShopping={() => setActiveTab('LIVE')}
@@ -730,12 +821,15 @@ export default function App() {
             onUpdateProduct={handleUpdateProduct}
             onDeleteProduct={handleDeleteProduct}
             onUpdateOrderItemStatus={handleUpdateOrderItemStatus}
+            onRespondToIssue={handleSellerRespondIssue}
           />
         ) : activeTab === 'My Orders' ? (
           /* View: Buyer Orders & 14-day Protection Tracker */
           <MyOrdersView
             orders={ordersList}
+            issues={orderIssues}
             onConfirmDelivery={handleConfirmItemReceipt}
+            onReportIssue={handleReportIssue}
             onBackToShopping={() => setActiveTab('LIVE')}
             onSelectProduct={handleSelectProduct}
           />
@@ -753,8 +847,8 @@ export default function App() {
             onPlaceOrder={handlePlaceOrder}
             onViewOrders={() => setActiveTab('My Orders')}
           />
-        ) : activeTab === 'SA Makers' ? (
-          /* View: Sellers / Makers Directory */
+        ) : activeTab === 'Showrooms' ? (
+          /* View: Showrooms Directory */
           <SellersListView
             sellers={SELLERS}
             products={productsList}
@@ -791,6 +885,47 @@ export default function App() {
         onClose={() => setIsSellerSignInModalOpen(false)}
         sellers={SELLERS}
         onSignInAsSeller={handleSignInAsSeller}
+      />
+
+      {/* Fixed Bottom-Right Profile Footer */}
+      <div className="fixed bottom-4 right-4 z-40">
+        <button
+          onClick={() => setIsProfileModalOpen(true)}
+          className="flex items-center gap-2 bg-[#14171f] hover:bg-[#1c2230] text-white border border-[#212633] hover:border-[#0066ff] px-3.5 py-2 rounded-2xl shadow-2xl backdrop-blur-md cursor-pointer transition-all active:scale-95 group"
+          aria-label="Open profile and account settings"
+          title="Profile & Account Settings"
+        >
+          <div className="relative">
+            <img
+              src={userRole === 'seller' && currentSeller ? currentSeller.avatar : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
+              alt="Profile"
+              className="w-7 h-7 rounded-full object-cover border border-[#0066ff]/50 group-hover:scale-105 transition-transform"
+            />
+            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#14171f]" />
+          </div>
+          <div className="text-left hidden sm:block">
+            <div className="text-xs font-bold leading-tight truncate max-w-[100px]">
+              {userRole === 'seller' && currentSeller ? currentSeller.name : 'My Profile'}
+            </div>
+            <div className="text-[10px] text-slate-400 capitalize">
+              {userRole} Account
+            </div>
+          </div>
+        </button>
+      </div>
+
+      {/* Profile & Account Settings Modal */}
+      <ProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        userRole={userRole}
+        setUserRole={setUserRole}
+        currentSeller={currentSeller}
+        sellers={SELLERS}
+        onSelectSeller={(sellerId) => {
+          setCurrentSellerId(sellerId);
+          localStorage.setItem(STORAGE_KEYS.SELLER_ID, sellerId);
+        }}
       />
 
       {/* Development-only Responsive Preview Option Toolbar */}

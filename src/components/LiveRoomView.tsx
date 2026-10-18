@@ -208,11 +208,6 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <div className="bg-red-600 text-white text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-md flex items-center gap-1.5 shadow-md">
-            <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
-            LIVE
-          </div>
-
           <div className="bg-[#14171f] text-white text-xs px-2.5 py-1 rounded-md border border-[#212633] flex items-center gap-1.5 font-mono">
             <Users className="w-3.5 h-3.5 text-blue-400" />
             <span>{viewerCount.toLocaleString()}</span>
@@ -258,9 +253,29 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30 pointer-events-none" />
 
-          {/* Floating Buy Now Button directly over video near bottom-right */}
+          {/* Red LIVE Indicator on the right-hand side of the live video feed */}
+          <div className="absolute top-4 right-4 z-20 bg-red-600/95 backdrop-blur-md text-white text-[11px] sm:text-xs font-bold uppercase tracking-wider px-3 py-1.5 rounded-full flex items-center gap-2 shadow-xl shadow-red-600/40 border border-white/20 select-none">
+            <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
+            <span>LIVE</span>
+          </div>
+
+          {/* Floating Buy Now and Add to Cart Controls */}
           {featuredProduct && (
-            <div className="absolute bottom-4 right-4 z-20 flex items-center gap-2">
+            <div className="absolute bottom-20 right-4 z-20 flex items-center gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onAddToCart(featuredProduct);
+                  setAddedProductId(featuredProduct.id);
+                  setTimeout(() => setAddedProductId(null), 1500);
+                }}
+                disabled={featuredProduct.stock <= 0}
+                className="w-12 h-12 rounded-full bg-[#14171f]/80 backdrop-blur-md border border-white/10 text-white flex items-center justify-center hover:bg-[#1e2330] cursor-pointer active:scale-95 transition-transform"
+                aria-label="Add to Basket"
+              >
+                {addedProductId === featuredProduct.id ? <Check className="w-5 h-5 text-emerald-400" /> : <ShoppingBag className="w-5 h-5" />}
+              </button>
+
               <button
                 onClick={(e) => {
                   if (featuredProduct.stock > 0) {
@@ -268,10 +283,9 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                   }
                 }}
                 disabled={featuredProduct.stock <= 0}
-                className="bg-[#0066ff] hover:bg-[#0052cc] text-white font-bold text-xs sm:text-sm px-5 py-3 rounded-2xl shadow-2xl shadow-[#0066ff]/50 flex items-center gap-2 cursor-pointer active:scale-95 transition-transform backdrop-blur-md border border-white/20"
+                className="bg-[#0066ff] hover:bg-[#0052cc] text-white font-bold text-sm px-6 py-3 rounded-2xl shadow-2xl shadow-[#0066ff]/50 flex items-center gap-2 cursor-pointer active:scale-95 transition-transform border border-white/10"
                 aria-label="Buy Now featured product"
               >
-                <ShoppingBag className="w-4 h-4" />
                 <span>Buy Now · R {featuredProduct.priceZAR.toLocaleString()}</span>
               </button>
             </div>

@@ -24,9 +24,12 @@ import {
   CheckCircle2,
   ShieldCheck,
   MapPin,
-  Calendar
+  Calendar,
+  AlertTriangle,
+  MessageSquare,
+  Send
 } from 'lucide-react';
-import { Seller, Product, StreamSnippet, LivePromotion, Category, Order, OrderItem } from '../types';
+import { Seller, Product, StreamSnippet, LivePromotion, Category, Order, OrderItem, OrderIssue } from '../types';
 import { MobileSellerStudio } from './MobileSellerStudio';
 
 
@@ -36,6 +39,7 @@ interface SellerDashboardViewProps {
   snippets: StreamSnippet[];
   promotions?: LivePromotion[];
   orders?: Order[];
+  issues?: OrderIssue[];
   currentSellerId: string;
   onSelectSeller: (sellerId: string) => void;
   onBackToShopping: () => void;
@@ -55,6 +59,10 @@ interface SellerDashboardViewProps {
     newStatus: OrderItem['status'], 
     tracking?: { courierPartner?: string; trackingNumber?: string }
   ) => void;
+  onRespondToIssue?: (
+    issueId: string, 
+    response: { message: string; resolutionNote?: string; status?: 'seller_responded' | 'resolved' }
+  ) => void;
 }
 
 export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
@@ -63,6 +71,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
   snippets,
   promotions,
   orders = [],
+  issues = [],
   currentSellerId,
   onSelectSeller,
   onBackToShopping,
@@ -75,7 +84,8 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
   onAddProduct,
   onUpdateProduct,
   onDeleteProduct,
-  onUpdateOrderItemStatus
+  onUpdateOrderItemStatus,
+  onRespondToIssue
 }) => {
   const currentSeller = sellers.find(s => s.id === currentSellerId) || sellers[0];
   const sellerProducts = products.filter(p => p.sellerId === currentSeller.id);
@@ -83,20 +93,57 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
   const activeSellerSnippets = sellerSnippets.filter(s => !s.isArchived && new Date(s.expiresAt).getTime() > Date.now());
   const archivedSellerSnippets = sellerSnippets.filter(s => s.isArchived || new Date(s.expiresAt).getTime() <= Date.now());
 
-  // Filter orders containing items for this seller
+  // Filter orders containing items for this seller (enforcing seller ownership)
   const sellerOrders = orders.filter(o => 
     o.items.some(item => item.sellerId === currentSeller.id)
   );
+
+  // Filter issues for this seller only (enforcing seller ownership)
+  const sellerIssues = issues.filter(issue => issue.sellerId === currentSeller.id);
+  const openIssuesCount = sellerIssues.filter(i => i.status !== 'resolved').length;
 
   const awaitingDispatchCount = sellerOrders.reduce((sum, o) => 
     sum + o.items.filter(i => i.sellerId === currentSeller.id && i.status === 'awaiting_dispatch').length, 0
   );
 
-  // Active Tool Tab: 'prep' | 'copy' | 'snippet' | 'inventory' | 'orders'
-  const [activeTab, setActiveTab] = useState<'prep' | 'copy' | 'snippet' | 'inventory' | 'orders'>('prep');
+  const [activeTab, setActiveTab] = useState<'ai' | 'stock' | 'orders'>('ai');
 
   // Tracking details form state per item
   const [dispatchTracking, setDispatchTracking] = useState<Record<string, { courierPartner: string; trackingNumber: string }>>({});
+
+  // Issue response form state per issue
+  const [issueResponses, setIssueResponses] = useState<Record<string, { message: string; resolutionNote: string }>>({});
+  const [activeReplyIssueId, setActiveReplyIssueId] = useState<string | null>(null);
+
+  const handleUpdateIssueResponseInput = (issueId: string, field: 'message' | 'resolutionNote', value: string) => {
+    setIssueResponses(prev => ({
+      ...prev,
+      [issueId]: {
+        message: field === 'message' ? value : (prev[issueId]?.message ?? ''),
+        resolutionNote: field === 'resolutionNote' ? value : (prev[issueId]?.resolutionNote ?? '')
+      }
+    }));
+  };
+
+  const handleSendIssueResponse = (issue: OrderIssue, markResolved = false) => {
+    const input = issueResponses[issue.id];
+    const defaultMsg = markResolved 
+      ? 'Issue reviewed and marked as resolved by artisan.' 
+      : 'Thank you for reaching out. We have reviewed your report and are attending to your request.';
+    const message = input?.message?.trim() || issue.sellerResponse?.message || defaultMsg;
+    const resolutionNote = input?.resolutionNote?.trim() || issue.sellerResponse?.resolutionNote;
+
+    if (onRespondToIssue) {
+      onRespondToIssue(issue.id, {
+        message,
+        resolutionNote: resolutionNote || undefined,
+        status: markResolved ? 'resolved' : 'seller_responded'
+      });
+      setAppliedNotification(`Response saved for issue #${issue.id}!`);
+      setActiveReplyIssueId(null);
+      setTimeout(() => setAppliedNotification(null), 3000);
+    }
+  };
 
   const handleUpdateTrackingInput = (itemKey: string, field: 'courierPartner' | 'trackingNumber', val: string) => {
     setDispatchTracking(prev => ({
@@ -720,59 +767,35 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
           </div>
         </div>
 
-        {/* Main 5 Functional Tabs */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 pb-2 -mx-2 sm:mx-0 px-2 sm:px-0 w-full min-w-0">
+        {/* Main 3 Functional Tabs: AI, Stock, Orders */}
+        <div className="grid grid-cols-3 gap-2 pb-2 w-full min-w-0">
           <button
-            onClick={() => setActiveTab('prep')}
-            className={`min-h-[44px] px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
-              activeTab === 'prep'
+            onClick={() => setActiveTab('ai')}
+            className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
+              activeTab === 'ai'
                 ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
                 : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
             }`}
           >
-            <Radio className="w-3.5 h-3.5" />
-            <span>Prep</span>
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>AI Sales Assistant</span>
           </button>
 
           <button
-            onClick={() => setActiveTab('copy')}
-            className={`min-h-[44px] px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
-              activeTab === 'copy'
-                ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
-                : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>Copy</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('snippet')}
-            className={`min-h-[44px] px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
-              activeTab === 'snippet'
-                ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
-                : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
-            }`}
-          >
-            <Film className="w-3.5 h-3.5" />
-            <span>Snippets</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('inventory')}
-            className={`min-h-[44px] px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
-              activeTab === 'inventory'
+            onClick={() => setActiveTab('stock')}
+            className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
+              activeTab === 'stock'
                 ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
                 : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
             }`}
           >
             <Package className="w-3.5 h-3.5" />
-            <span>Inventory ({sellerProducts.length})</span>
+            <span>Stock ({sellerProducts.length})</span>
           </button>
 
           <button
             onClick={() => setActiveTab('orders')}
-            className={`min-h-[44px] px-3 py-2 rounded-xl text-[11px] sm:text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 col-span-2 sm:col-span-1 ${
+            className={`min-h-[44px] px-3 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-all cursor-pointer flex items-center justify-center gap-1.5 active:scale-95 ${
               activeTab === 'orders'
                 ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/20'
                 : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
@@ -780,19 +803,22 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
           >
             <Truck className="w-3.5 h-3.5" />
             <span>Orders ({sellerOrders.length})</span>
-            {awaitingDispatchCount > 0 && (
-              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
-            )}
+            {openIssuesCount > 0 ? (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-red-500 text-white font-mono font-bold animate-pulse">
+                {openIssuesCount}
+              </span>
+            ) : null}
           </button>
         </div>
 
-        {/* TAB A: BEFORE GOING LIVE */}
-        {activeTab === 'prep' && (
-          <div className="flex flex-col w-full min-w-0 gap-6">
+        {/* AI Sales Assistant Tab (Includes Livestream Prep & Copy Generation) */}
+        {activeTab === 'ai' && (
+          <div className="flex flex-col w-full min-w-0 gap-8">
+            {/* 1. Livestream Prep Section */}
             <div className="p-5 sm:p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5 w-full min-w-0">
               <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">
                 <Radio className="w-4 h-4 text-red-500" />
-                Select Product for Live Broadcast
+                Select Product for Live Broadcast & AI Prep
               </h2>
 
               <div className="space-y-1.5 w-full min-w-0">
@@ -846,117 +872,49 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                   </div>
                 </div>
               ) : (
-                <div className="p-12 rounded-2xl bg-[#14171f] border border-[#212633] text-center space-y-4 w-full min-w-0">
-                  <Radio className="w-8 h-8 text-[#0066ff] mx-auto" />
-                  <h3 className="text-base font-bold text-white">Live Broadcast Prep Assistant</h3>
+                <div className="p-8 rounded-2xl bg-[#14171f] border border-[#212633] text-center space-y-3 w-full min-w-0">
+                  <Radio className="w-6 h-6 text-[#0066ff] mx-auto" />
+                  <h3 className="text-sm font-bold text-white">Live Broadcast Prep Assistant</h3>
+                  <p className="text-xs text-slate-400">Select a product above and generate your AI script.</p>
                 </div>
               )}
             </div>
-          </div>
-        )}
 
-        {/* TAB B: DESCRIPTIONS & CAPTIONS */}
-        {activeTab === 'copy' && (
-          <div className="flex flex-col w-full min-w-0 gap-6">
-            <div className="p-5 sm:p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5 w-full min-w-0">
-              <h2 className="text-sm font-bold text-white">Select Product to Enhance Copy</h2>
-              <div className="max-h-48 overflow-y-auto space-y-2 pr-1 scrollbar-none w-full">
-                {sellerProducts.map((p) => {
-                  const isSelected = selectedProductId === p.id;
-                  return (
-                    <div
-                      key={p.id}
-                      onClick={() => setSelectedProductId(p.id)}
-                      className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all w-full min-w-0 ${
-                        isSelected
-                          ? 'bg-[#0066ff]/15 border-[#0066ff] text-white'
-                          : 'bg-[#0c0e12] border-[#212633] text-slate-300 hover:border-slate-600'
-                      }`}
-                    >
-                      <img
-                        src={p.images[0]}
-                        alt={p.name}
-                        className="w-10 h-10 rounded-lg object-cover border border-[#212633] shrink-0 bg-black"
-                      />
-                      <span className="text-xs font-bold truncate flex-1">{p.name}</span>
-                    </div>
-                  );
-                })}
-              </div>
+            {/* 2. Product Description & Copy Generation Section (Integrated into AI Tab) */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5 w-full min-w-0 mt-4">
+              <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                <FileText className="w-4 h-4 text-[#0066ff]" />
+                AI Product Description & Copywriting Assistant
+              </h2>
               <button
                 onClick={handleGenerateCopy}
                 disabled={isGenerating || !selectedProduct}
-                className="w-full py-3.5 px-4 rounded-xl text-xs font-bold bg-[#0066ff] hover:bg-[#0052cc] text-white flex items-center justify-center gap-2 cursor-pointer"
+                className="w-full py-3.5 px-4 rounded-xl text-xs font-bold bg-[#1e2330] hover:bg-[#283244] text-white border border-[#2e374d] flex items-center justify-center gap-2 cursor-pointer"
               >
                 {isGenerating ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                <span>Generate Description & Captions</span>
+                <span>Generate Enhanced Description & Captions</span>
               </button>
-            </div>
 
-            <div className="w-full min-w-0 space-y-6">
-              {copyResults.improvedDescription ? (
-                <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-3 w-full min-w-0">
+              {copyResults.improvedDescription && (
+                <div className="space-y-3 pt-3 border-t border-[#212633]">
                   <div className="flex justify-between items-center">
                     <span className="text-xs font-bold text-[#0066ff]">Enhanced Description</span>
-                    <button onClick={handleApplyDescription} className="px-2.5 py-1 bg-emerald-700 text-white text-[11px] rounded-lg cursor-pointer">Apply to Store</button>
+                    <button onClick={handleApplyDescription} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg cursor-pointer">Apply to Store</button>
                   </div>
                   <textarea
-                    rows={6}
+                    rows={5}
                     value={copyResults.improvedDescription}
                     onChange={(e) => setCopyResults({ ...copyResults, improvedDescription: e.target.value })}
                     className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white"
                   />
                 </div>
-              ) : (
-                <div className="p-12 rounded-2xl bg-[#14171f] border border-[#212633] text-center w-full min-w-0">
-                  <p className="text-xs text-slate-400">Generate copy to get started.</p>
-                </div>
               )}
             </div>
           </div>
         )}
 
-        {/* TAB C: SNIPPETS & ARCHIVE */}
-        {activeTab === 'snippet' && (
-          <div className="space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-sm font-bold text-white">Manage Snippets</h2>
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => setSnippetViewMode('active')}
-                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold ${snippetViewMode === 'active' ? 'bg-[#1e2330] text-white' : 'text-slate-400'}`}
-                >Active</button>
-                <button 
-                  onClick={() => setSnippetViewMode('archive')}
-                  className={`px-3 py-1.5 rounded-lg text-[11px] font-bold ${snippetViewMode === 'archive' ? 'bg-[#1e2330] text-white' : 'text-slate-400'}`}
-                >Archive</button>
-              </div>
-            </div>
-            <div className="space-y-3">
-              {(snippetViewMode === 'active' ? activeSellerSnippets : archivedSellerSnippets).map(snippet => (
-                <div key={snippet.id} className="p-4 bg-[#14171f] rounded-2xl border border-[#212633] flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <img src={snippet.thumbnail} alt={snippet.title} className="w-12 h-12 rounded-lg object-cover" />
-                    <div>
-                      <h4 className="text-xs font-bold text-white">{snippet.title}</h4>
-                      <p className="text-[10px] text-slate-400">{getTimeRemaining(snippet.expiresAt)}</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    {!snippet.isArchived && onArchiveSnippet && (
-                      <button onClick={() => onArchiveSnippet(snippet.id)} className="p-2 bg-[#1e2330] rounded-lg text-slate-300">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* TAB D: STORE INVENTORY & PRODUCTS MANAGEMENT */}
-        {activeTab === 'inventory' && (
+        {/* STORE STOCK & PRODUCTS MANAGEMENT */}
+        {activeTab === 'stock' && (
           <div className="space-y-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-5 bg-[#14171f] rounded-2xl border border-[#212633]">
               <div>
@@ -1101,9 +1059,9 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
             <div className="p-3.5 bg-blue-950/30 border border-blue-500/30 rounded-2xl flex items-start gap-3 text-xs text-blue-200">
               <ShieldCheck className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
               <div>
-                <strong className="text-white">Artisan Privacy & Integrity Guaranteed:</strong>
+                <strong className="text-white">Business Privacy & Integrity Guaranteed:</strong>
                 <p className="text-slate-400 text-[11px] mt-0.5">
-                  You only see items produced by your workshop ({currentSeller.name}). Customer shipping destinations are restricted to your parcels, and other artisans' items in combined marketplace orders are kept private.
+                  You only see items sold by your storefront ({currentSeller.name}). Customer shipping destinations are restricted to your parcels, and other businesses' items in combined marketplace orders are kept private.
                 </p>
               </div>
             </div>
@@ -1113,7 +1071,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                 <Package className="w-12 h-12 text-slate-600 mx-auto" />
                 <h3 className="text-sm font-bold text-white">No Orders Received for {currentSeller.name} Yet</h3>
                 <p className="text-xs text-slate-400 max-w-sm mx-auto">
-                  When shoppers place orders for your handcrafted creations during live broadcasts or from your storefront, they will be listed here for parcel packaging.
+                  When shoppers place orders for your products during live broadcasts or from your storefront, they will be listed here for parcel packaging.
                 </p>
               </div>
             ) : (
@@ -1121,6 +1079,8 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                 {sellerOrders.map((order) => {
                   const myItems = order.items.filter(item => item.sellerId === currentSeller.id);
                   if (myItems.length === 0) return null;
+
+                  const orderIssuesForSeller = sellerIssues.filter(i => i.orderId === order.id);
 
                   return (
                     <div 
@@ -1130,11 +1090,17 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                       {/* Order Header */}
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pb-3 border-b border-[#212633]">
                         <div className="space-y-0.5">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-mono font-bold text-sm text-[#0066ff]">{order.id}</span>
                             <span className="text-[11px] text-slate-400 font-mono">
                               Placed: {new Date(order.createdAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}
                             </span>
+                            {orderIssuesForSeller.length > 0 && (
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3 text-amber-400" />
+                                <span>{orderIssuesForSeller.length} {orderIssuesForSeller.length === 1 ? 'Issue Reported' : 'Issues Reported'}</span>
+                              </span>
+                            )}
                           </div>
                           <p className="text-xs text-slate-300">
                             Deliver to: <strong className="text-white">{order.customerName}</strong> ({order.city}, {order.province})
@@ -1158,6 +1124,8 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                             trackingNumber: item.trackingNumber || `TCG-ZA-${Math.floor(10000000 + Math.random() * 90000000)}`
                           };
 
+                          const itemIssue = sellerIssues.find(i => i.orderId === order.id && i.productId === item.productId);
+
                           return (
                             <div 
                               key={item.productId}
@@ -1180,7 +1148,14 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                                   </div>
                                 </div>
 
-                                <div>
+                                <div className="flex items-center gap-2">
+                                  {itemIssue && (
+                                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1">
+                                      <AlertTriangle className="w-3 h-3 text-amber-400" />
+                                      <span>Issue #{itemIssue.id}</span>
+                                    </span>
+                                  )}
+
                                   <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 ${
                                     item.status === 'confirmed' 
                                       ? 'bg-emerald-950 text-emerald-300 border border-emerald-400/40' 
@@ -1282,7 +1257,121 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                               {item.status === 'confirmed' && (
                                 <div className="p-2.5 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 flex items-center gap-2">
                                   <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                                  <span>Customer verified delivery receipt! Showmi 14-day buyer protection period remains active.</span>
+                                  <span>Customer verified delivery receipt! Payment has been simulated as released to your business.</span>
+                                </div>
+                              )}
+
+                              {/* Seller Issue Management Section */}
+                              {itemIssue && (
+                                <div className="p-4 bg-[#141720] rounded-xl border border-amber-500/30 space-y-3 mt-2">
+                                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 pb-2 border-b border-[#212633]">
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <AlertTriangle className="w-4 h-4 text-amber-400" />
+                                      <span className="text-xs font-bold text-white">
+                                        Buyer Reported: <span className="text-amber-300">{itemIssue.issueTypeLabel}</span>
+                                      </span>
+                                      <span className="text-[10px] text-slate-400 font-mono">#{itemIssue.id}</span>
+                                    </div>
+                                    <div>
+                                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                                        itemIssue.status === 'resolved' 
+                                          ? 'bg-emerald-950 text-emerald-300 border border-emerald-400/40' 
+                                          : itemIssue.status === 'seller_responded' 
+                                          ? 'bg-blue-950 text-blue-300 border border-blue-500/30' 
+                                          : 'bg-amber-950 text-amber-300 border border-amber-500/30 animate-pulse'
+                                      }`}>
+                                        {itemIssue.status === 'resolved' ? '✓ Resolved' : itemIssue.status === 'seller_responded' ? 'Response Sent' : 'Awaiting Your Response'}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {itemIssue.isPostReleaseReturn && (
+                                    <div className="p-2.5 bg-amber-500/10 border border-amber-500/20 rounded-lg text-[11px] text-amber-200 leading-relaxed">
+                                      <strong>Post-Release Return Query:</strong> The buyer submitted this request after confirming delivery receipt. Showmi's payment hold is complete and does not execute automatic refunds. Any return, exchange, or refund must be coordinated directly between your business and the buyer.
+                                    </div>
+                                  )}
+
+                                  <div className="space-y-1">
+                                    <span className="text-[10px] text-slate-400 font-mono uppercase block">Customer Description:</span>
+                                    <p className="text-xs text-slate-200 bg-[#0c0e12] p-3 rounded-lg border border-[#212633] leading-relaxed">
+                                      "{itemIssue.description}"
+                                    </p>
+                                  </div>
+
+                                  {itemIssue.evidenceImage && (
+                                    <div className="flex items-center gap-2">
+                                      <img
+                                        src={itemIssue.evidenceImage}
+                                        alt="Customer Evidence"
+                                        className="w-16 h-16 rounded-lg object-cover border border-[#212633] bg-black"
+                                      />
+                                      <span className="text-[10px] text-slate-400 font-mono">Customer Evidence Image Attached</span>
+                                    </div>
+                                  )}
+
+                                  {/* Current Seller Response (if any) */}
+                                  {itemIssue.sellerResponse && (
+                                    <div className="p-3 bg-[#0c0e12] rounded-xl border border-blue-500/30 space-y-1.5">
+                                      <div className="flex items-center justify-between text-[11px]">
+                                        <span className="font-bold text-blue-300 flex items-center gap-1.5">
+                                          <MessageSquare className="w-3.5 h-3.5" />
+                                          <span>Your Current Response to Buyer:</span>
+                                        </span>
+                                        <span className="text-[10px] text-slate-400 font-mono">
+                                          {new Date(itemIssue.sellerResponse.respondedAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })}
+                                        </span>
+                                      </div>
+                                      <p className="text-xs text-slate-200 leading-relaxed">{itemIssue.sellerResponse.message}</p>
+                                      {itemIssue.sellerResponse.resolutionNote && (
+                                        <p className="text-[11px] text-emerald-300 font-mono pt-1 border-t border-[#1e2330]">
+                                          Resolution: {itemIssue.sellerResponse.resolutionNote}
+                                        </p>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Seller Response Form */}
+                                  <div className="pt-2 border-t border-[#212633] space-y-2.5">
+                                    <span className="text-[11px] font-bold text-slate-300 block">
+                                      {itemIssue.sellerResponse ? 'Update Response or Add Resolution Note:' : 'Respond to Customer Issue:'}
+                                    </span>
+                                    
+                                    <textarea
+                                      rows={2}
+                                      value={issueResponses[itemIssue.id]?.message ?? itemIssue.sellerResponse?.message ?? ''}
+                                      onChange={(e) => handleUpdateIssueResponseInput(itemIssue.id, 'message', e.target.value)}
+                                      placeholder="Type message to buyer (e.g. apologies for transit damage, replacement dispatch details, or return instructions)..."
+                                      className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-2.5 text-xs text-white focus:outline-none focus:border-[#0066ff]"
+                                    />
+
+                                    <input
+                                      type="text"
+                                      value={issueResponses[itemIssue.id]?.resolutionNote ?? itemIssue.sellerResponse?.resolutionNote ?? ''}
+                                      onChange={(e) => handleUpdateIssueResponseInput(itemIssue.id, 'resolutionNote', e.target.value)}
+                                      placeholder="Internal resolution note (e.g. Dispatched replacement waybill #TCG-ZA-..., Arranged return)..."
+                                      className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-[#0066ff]"
+                                    />
+
+                                    <div className="flex items-center gap-2 pt-1 flex-wrap">
+                                      <button
+                                        onClick={() => handleSendIssueResponse(itemIssue, false)}
+                                        className="px-3.5 py-2 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-md active:scale-95"
+                                      >
+                                        <Send className="w-3.5 h-3.5" />
+                                        <span>Save Response</span>
+                                      </button>
+
+                                      {itemIssue.status !== 'resolved' && (
+                                        <button
+                                          onClick={() => handleSendIssueResponse(itemIssue, true)}
+                                          className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-md active:scale-95"
+                                        >
+                                          <CheckCircle2 className="w-3.5 h-3.5" />
+                                          <span>Mark as Resolved</span>
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -1516,10 +1605,12 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
           products={sellerProducts}
           snippets={sellerSnippets}
           orders={orders}
+          issues={issues}
           onOpenLiveHostMode={onOpenLiveHostMode!}
           onUpdateProduct={onUpdateProduct!}
           onArchiveSnippet={onArchiveSnippet!}
           onUpdateOrderItemStatus={onUpdateOrderItemStatus}
+          onRespondToIssue={onRespondToIssue}
         />
       </div>
 

@@ -1,9 +1,9 @@
 import React from 'react';
-import { ShoppingBag, Store, Sparkles, ShieldCheck, Search, X, Package } from 'lucide-react';
+import { ShoppingBag, Store, Sparkles, Search, X, Package, Radio } from 'lucide-react';
 import { CartItem, Seller } from '../types';
 
-export type MainTab = 'LIVE' | 'SA Makers' | 'My Orders' | 'Seller Studio';
-export type AppTab = MainTab | 'Basket';
+export type MainTab = 'LIVE' | 'Showrooms' | 'Seller Studio';
+export type AppTab = MainTab | 'My Orders' | 'Basket';
 
 interface NavigationProps {
   activeTab: AppTab;
@@ -35,29 +35,18 @@ export const Navigation: React.FC<NavigationProps> = ({
   const totalItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const cartSubtotal = cartItems.reduce((sum, item) => sum + item.product.priceZAR * item.quantity, 0);
 
-  // Tabs displayed in order: LIVE, SA Makers, My Orders, Seller Studio
-  const tabs: { id: MainTab; label: string; icon: React.ReactNode; isLive?: boolean; badgeCount?: number }[] = [
+  // Tabs displayed in bottom horizontal bar: LIVE, Showrooms, Seller Studio
+  const tabs: { id: MainTab; label: string; icon: React.ReactNode; isLive?: boolean }[] = [
     {
       id: 'LIVE',
       label: 'LIVE',
-      icon: (
-        <span className="relative flex h-2 w-2 shrink-0">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-        </span>
-      ),
+      icon: <Radio className="w-4 h-4 shrink-0" />,
       isLive: true
     },
     {
-      id: 'SA Makers',
-      label: 'SA Makers',
+      id: 'Showrooms',
+      label: 'Showrooms',
       icon: <Store className="w-4 h-4 shrink-0" />
-    },
-    {
-      id: 'My Orders',
-      label: 'My Orders',
-      icon: <Package className="w-4 h-4 shrink-0" />,
-      badgeCount: ordersCount
     },
     {
       id: 'Seller Studio',
@@ -93,7 +82,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             <input
               type="text"
-              placeholder="Search streams, makers, or products..."
+              placeholder="Search streams, showrooms, or products..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               className="w-full min-h-[40px] bg-[#14171f] hover:bg-[#181d28] focus:bg-[#14171f] border border-[#212633] focus:border-[#0066ff] rounded-xl pl-10 pr-9 text-xs text-white focus:text-white placeholder-slate-400 focus:outline-none transition-colors"
@@ -111,23 +100,33 @@ export const Navigation: React.FC<NavigationProps> = ({
           </div>
         </div>
 
-        {/* Right Actions: Seller Auth Badge (if seller), Basket */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-          {userRole === 'seller' && currentSeller && (
-            <div className="flex items-center gap-2 bg-[#14171f] border border-[#212633] px-2.5 py-1 rounded-xl">
-              <img
-                src={currentSeller.avatar}
-                alt={currentSeller.name}
-                referrerPolicy="no-referrer"
-                className="w-6 h-6 rounded-md object-cover bg-black"
-              />
-              <span className="text-xs font-bold text-white hidden lg:inline truncate max-w-[100px]">
-                {currentSeller.name}
-              </span>
-            </div>
-          )}
+        {/* Right Actions: My Orders, Basket */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
 
-          {/* Setup & Architecture Info modal trigger removed */}
+          {/* My Orders Trigger - Immediately left of Basket */}
+          <button
+            onClick={() => {
+              onClearSearch();
+              setActiveTab('My Orders');
+            }}
+            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all cursor-pointer min-h-[40px] select-none ${
+              activeTab === 'My Orders'
+                ? 'bg-[#0066ff] text-white ring-2 ring-[#0066ff]/40 shadow-md shadow-[#0066ff]/25'
+                : 'bg-[#14171f] text-slate-200 hover:bg-[#1c2230] border border-[#212633]'
+            }`}
+            aria-label={`My Orders${ordersCount > 0 ? ` (${ordersCount})` : ''}`}
+            title="My Orders"
+          >
+            <Package className="w-4 h-4 shrink-0 text-slate-300" />
+            <span className="whitespace-nowrap">Orders</span>
+            {ordersCount > 0 && (
+              <span className={`px-1.5 py-0.2 rounded-full text-[11px] font-bold tabular-nums ${
+                activeTab === 'My Orders' ? 'bg-white text-[#0066ff]' : 'bg-[#1e2433] text-slate-300 border border-[#2e374d]'
+              }`}>
+                {ordersCount}
+              </span>
+            )}
+          </button>
 
           {/* Basket Trigger */}
           <button
@@ -135,7 +134,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               onClearSearch();
               setActiveTab('Basket');
             }}
-            className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all cursor-pointer min-h-[40px] ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all cursor-pointer min-h-[40px] select-none ${
               activeTab === 'Basket'
                 ? 'bg-[#0066ff] text-white ring-2 ring-[#0066ff]/40 shadow-md shadow-[#0066ff]/25'
                 : totalItemCount > 0
@@ -166,7 +165,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
           <input
             type="text"
-            placeholder="Search streams, makers, or products..."
+            placeholder="Search streams, showrooms, or products..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="w-full min-h-[42px] bg-[#14171f] border border-[#212633] focus:border-[#0066ff] rounded-xl pl-10 pr-9 text-xs text-white focus:text-white placeholder-slate-400 focus:outline-none transition-colors"
@@ -201,11 +200,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                   aria-selected={isActive}
                   onClick={() => {
                     onClearSearch();
-                    if (tab.id === 'Seller Studio' && userRole !== 'seller') {
-                      onOpenSellerSignIn();
-                    } else {
-                      setActiveTab(tab.id);
-                    }
+                    setActiveTab(tab.id);
                   }}
                   className={`min-h-[42px] px-3.5 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer shrink-0 flex items-center gap-2 select-none ${
                     isActive
@@ -215,13 +210,6 @@ export const Navigation: React.FC<NavigationProps> = ({
                 >
                   {tab.icon}
                   <span className="tracking-tight">{tab.label}</span>
-                  {tab.badgeCount !== undefined && tab.badgeCount > 0 && (
-                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold font-mono tabular-nums ${
-                      isActive ? 'bg-white text-[#0066ff]' : 'bg-[#1e2433] text-slate-300 border border-[#2e374d]'
-                    }`}>
-                      {tab.badgeCount}
-                    </span>
-                  )}
                 </button>
               );
             })}

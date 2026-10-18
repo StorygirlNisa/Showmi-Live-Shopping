@@ -99,7 +99,7 @@ export const SearchResultsView: React.FC<SearchResultsViewProps> = ({
             </h1>
           </div>
           <p className="text-xs text-slate-400">
-            Found {totalMatches} {totalMatches === 1 ? 'match' : 'matches'} across products, makers, and live streams
+            Found {totalMatches} {totalMatches === 1 ? 'match' : 'matches'} across products, showrooms, and live streams
           </p>
         </div>
 
@@ -148,7 +148,7 @@ export const SearchResultsView: React.FC<SearchResultsViewProps> = ({
                   : 'bg-[#14171f] text-slate-400 hover:text-white border border-[#212633]'
               }`}
             >
-              Makers ({matchingSellers.length})
+              Showrooms ({matchingSellers.length})
             </button>
           )}
 
@@ -329,7 +329,7 @@ export const SearchResultsView: React.FC<SearchResultsViewProps> = ({
           <div className="flex items-center gap-2 border-b border-[#212633] pb-2">
             <Store className="w-4 h-4 text-[#0066ff]" />
             <h2 className="text-base sm:text-lg font-bold text-white tracking-tight">
-              South African Makers ({matchingSellers.length})
+              South African Showrooms ({matchingSellers.length})
             </h2>
           </div>
 
