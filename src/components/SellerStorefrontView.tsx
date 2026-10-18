@@ -246,7 +246,7 @@ export const SellerStorefrontView: React.FC<SellerStorefrontViewProps> = ({
           </div>
           <div className="flex items-center gap-2">
             <span className="text-xs bg-[#10131a] border border-[#212633] px-2.5 py-1 rounded-lg text-slate-300 font-mono">
-              {publicSnippets.length} active on storefront
+              {publicSnippets.length} active on showroom
             </span>
           </div>
         </div>

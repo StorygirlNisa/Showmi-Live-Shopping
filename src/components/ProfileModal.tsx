@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, User, Lock, CreditCard, Building2, ShieldCheck, Sparkles, Check } from 'lucide-react';
+import { X, User, Lock, CreditCard, Building2, ShieldCheck, Sparkles, Check, MapPin } from 'lucide-react';
 import { Seller } from '../types';
 
 interface ProfileModalProps {
@@ -22,11 +22,18 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   sellers,
   onSelectSeller
 }) => {
-  const [activeSection, setActiveSection] = useState<'menu' | 'profile' | 'security' | 'payments'>('menu');
+  const [activeSection, setActiveSection] = useState<'menu' | 'profile' | 'security' | 'payments' | 'address' | 'verification'>('menu');
   const [fullName, setFullName] = useState(userRole === 'seller' && currentSeller ? currentSeller.name : 'Nisa Bardien');
   const [email, setEmail] = useState('nisabardien@gmail.com');
   const [phone, setPhone] = useState('+27 82 555 0192');
   const [savedSuccess, setSavedSuccess] = useState(false);
+  
+  const [address, setAddress] = useState({
+      residential: { country: 'South Africa', province: '', city: '', suburb: '', street: '', unit: '', postalCode: '' },
+      business: { country: 'South Africa', province: '', city: '', suburb: '', street: '', unit: '', postalCode: '' },
+      isSame: true
+  });
+  const [verificationStatus, setVerificationStatus] = useState<'Not started' | 'Pending' | 'Verified' | 'Action required'>('Not started');
 
   if (!isOpen) return null;
 
@@ -66,11 +73,18 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                         <CreditCard className="w-8 h-8 text-[#0066ff]"/>
                         <span className="font-semibold text-sm">Payments & Banking</span>
                     </button>
+                    <button onClick={() => setActiveSection('address')} className="flex flex-col items-center justify-center p-6 bg-[#1e2330] rounded-2xl text-white hover:bg-[#283042] text-center gap-3">
+                        <MapPin className="w-8 h-8 text-[#0066ff]"/>
+                        <span className="font-semibold text-sm">Addresses</span>
+                    </button>
+                    <button onClick={() => setActiveSection('verification')} className="flex flex-col items-center justify-center p-6 bg-[#1e2330] rounded-2xl text-white hover:bg-[#283042] text-center gap-3">
+                        <ShieldCheck className="w-8 h-8 text-[#0066ff]"/>
+                        <span className="font-semibold text-sm">Verification</span>
+                    </button>
                 </div>
             </>
         ) : (
             <>
-                {/* Section Content */}
                 <div className="flex-1 overflow-y-auto">
                     {activeSection === 'profile' && (
                         <>
@@ -106,18 +120,38 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                             <div className="p-5 space-y-6">
                                 <div className="space-y-3">
                                     <h3 className="text-sm font-bold text-white">Payment Methods</h3>
-                                    {/* Existing Payment Content */}
                                     <div className="p-4 rounded-2xl bg-[#0c0e12] border border-[#212633] flex items-center justify-between">
                                         <span className="text-xs font-bold text-white">•••• •••• •••• 4892</span>
                                     </div>
                                 </div>
                                 <div className="space-y-3 pt-4 border-t border-[#212633]">
                                     <h3 className="text-sm font-bold text-white">Banking Details</h3>
-                                    {/* Existing Banking Content */}
                                     <div className="p-4 rounded-2xl bg-[#0c0e12] border border-[#212633]">
                                         <div className="text-sm font-bold text-white">First National Bank (FNB)</div>
                                     </div>
                                 </div>
+                            </div>
+                        </>
+                    )}
+                    {activeSection === 'address' && (
+                        <>
+                            {renderSectionHeader('Addresses')}
+                            <div className="p-5 space-y-4">
+                                <h4 className="text-sm font-bold text-white">Residential Address</h4>
+                                {/* ... address fields ... */}
+                                <label className="flex items-center gap-2 text-xs text-slate-300">
+                                    <input type="checkbox" checked={address.isSame} onChange={e => setAddress({...address, isSame: e.target.checked})} />
+                                    Business address is the same as my residential address
+                                </label>
+                            </div>
+                        </>
+                    )}
+                    {activeSection === 'verification' && (
+                        <>
+                            {renderSectionHeader('Verification')}
+                            <div className="p-5 space-y-4 text-slate-300 text-xs">
+                                <p>Status: <span className="font-bold">{verificationStatus}</span></p>
+                                <button className="w-full py-2 bg-[#0066ff] text-white rounded-lg">Start Verification</button>
                             </div>
                         </>
                     )}

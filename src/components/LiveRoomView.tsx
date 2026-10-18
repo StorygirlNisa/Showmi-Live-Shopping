@@ -261,7 +261,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 
           {/* Floating Buy Now and Add to Cart Controls */}
           {featuredProduct && (
-            <div className="absolute bottom-20 right-4 z-20 flex items-center gap-2">
+            <div className="absolute bottom-24 right-4 z-20 flex items-center gap-2">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
