@@ -121,9 +121,23 @@ export const MobileSellerStudio: React.FC<MobileSellerStudioProps> = ({
 
       {/* Tab Content */}
       {activeTab === 'ai' && (
-        <div className="p-4 bg-[#14171f] rounded-2xl border border-[#212633] space-y-4">
-          <h3 className="text-sm font-bold text-white">AI Selling Assistant</h3>
-          <p className="text-xs text-slate-400">Launch live host mode or manage catalog descriptions with Gemini AI.</p>
+        <div className="space-y-4">
+          <div className="p-4 bg-[#14171f] rounded-2xl border border-[#212633] space-y-3">
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-[#0066ff]" />
+              AI Sales Assistant
+            </h3>
+            <p className="text-xs text-slate-400">Manage your livestream prep and product copy right from your phone.</p>
+            <button className="w-full py-3 bg-[#1e2330] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2">
+              <Radio className="w-4 h-4" />
+              Launch Live Host Mode
+            </button>
+          </div>
+          <div className="p-4 bg-[#14171f] rounded-2xl border border-[#212633] space-y-3">
+              <h4 className="text-xs font-bold text-slate-300">Quick Actions</h4>
+              <button className="w-full py-2.5 bg-[#0066ff] text-white text-xs font-bold rounded-lg">Generate Livestream Script</button>
+              <button className="w-full py-2.5 bg-[#1e2330] text-slate-200 text-xs font-bold rounded-lg">Improve Product Copy</button>
+          </div>
         </div>
       )}
 
