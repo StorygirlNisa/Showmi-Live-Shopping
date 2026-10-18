@@ -238,7 +238,7 @@ export const ProductDetailDrawer: React.FC<ProductDetailDrawerProps> = ({
             </div>
             <p className="text-[11px] text-slate-400 leading-relaxed">
               Dispatches {product.dispatchTime || 'within 24–48 hours'} via {product.courierPartner || 'The Courier Guy / Pargo'}. 
-              Protected by Showmi 14-day Delivery & Item Match guarantee.
+              Payment is held through our payment partner until receipt is confirmed, subject to applicable terms.
             </p>
           </div>
 

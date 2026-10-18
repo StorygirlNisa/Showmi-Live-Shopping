@@ -138,7 +138,14 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                             {renderSectionHeader('Addresses')}
                             <div className="p-5 space-y-4">
                                 <h4 className="text-sm font-bold text-white">Residential Address</h4>
-                                {/* ... address fields ... */}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <input type="text" placeholder="Street" className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl px-3.5 py-2.5 text-xs text-white" />
+                                    <input type="text" placeholder="Unit/Apartment" className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl px-3.5 py-2.5 text-xs text-white" />
+                                    <input type="text" placeholder="Suburb" className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl px-3.5 py-2.5 text-xs text-white" />
+                                    <input type="text" placeholder="City" className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl px-3.5 py-2.5 text-xs text-white" />
+                                    <input type="text" placeholder="Province" className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl px-3.5 py-2.5 text-xs text-white" />
+                                    <input type="text" placeholder="Postal Code" className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl px-3.5 py-2.5 text-xs text-white" />
+                                </div>
                                 <label className="flex items-center gap-2 text-xs text-slate-300">
                                     <input type="checkbox" checked={address.isSame} onChange={e => setAddress({...address, isSame: e.target.checked})} />
                                     Business address is the same as my residential address

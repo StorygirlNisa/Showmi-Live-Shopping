@@ -952,9 +952,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                   <p className="text-[11px] leading-relaxed">
                     Payment was already simulated as released to the seller upon delivery confirmation. Showmi does not provide automated refunds after payment release. Submitting this request initiates a return query directly with the seller.
                   </p>
-                  <p className="text-[10px] text-slate-400 italic">
-                    * This is a request and not a guaranteed refund. Showmi does not guarantee seller payouts or third-party refunds.
-                  </p>
+                    * This is a request. Refunds are subject to the seller's terms and the payment status. Showmi does not process automatic refunds or promise seller payouts.
                 </div>
               ) : (
                 <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl space-y-1 text-slate-300">

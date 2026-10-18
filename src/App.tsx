@@ -4,9 +4,10 @@
  */
 
 import React, { useState, useEffect } from 'react';
+import { User, Store, Sparkles } from 'lucide-react';
 import { Navigation, AppTab } from './components/Navigation';
 import { ProductDetailView } from './components/ProductDetailView';
-import { SellerStorefrontView } from './components/SellerStorefrontView';
+import { SellerShowroomView } from './components/SellerShowroomView';
 import { LiveRoomView } from './components/LiveRoomView';
 import { BasketCheckoutView } from './components/BasketCheckoutView';
 import { SellersListView } from './components/SellersListView';
@@ -887,8 +888,26 @@ export default function App() {
         onSignInAsSeller={handleSignInAsSeller}
       />
 
-      {/* Fixed Bottom-Right Profile Footer */}
-      <div className="fixed bottom-4 right-4 z-40">
+      {/* Fixed Mobile Bottom Navigation */}
+      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black border-t border-[#212633] pb-safe-area-bottom">
+        <div className="flex items-center justify-around h-16">
+          <button onClick={() => setIsProfileModalOpen(true)} className="flex flex-col items-center gap-1 text-slate-400 hover:text-white">
+            <User className="w-6 h-6" />
+            <span className="text-[10px] font-bold">Profile</span>
+          </button>
+          <button onClick={() => handleTabChange('Showrooms')} className="flex flex-col items-center gap-1 text-slate-400 hover:text-white">
+            <Store className="w-6 h-6" />
+            <span className="text-[10px] font-bold">Showroom</span>
+          </button>
+          <button onClick={() => handleTabChange('Seller Studio')} className="flex flex-col items-center gap-1 text-slate-400 hover:text-white">
+            <Sparkles className="w-6 h-6" />
+            <span className="text-[10px] font-bold">Studio</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Fixed Bottom-Right Profile Footer (Keep for Desktop) */}
+      <div className="hidden md:block fixed bottom-4 right-4 z-40">
         <button
           onClick={() => setIsProfileModalOpen(true)}
           className="flex items-center gap-2 bg-[#14171f] hover:bg-[#1c2230] text-white border border-[#212633] hover:border-[#0066ff] px-3.5 py-2 rounded-2xl shadow-2xl backdrop-blur-md cursor-pointer transition-all active:scale-95 group"
