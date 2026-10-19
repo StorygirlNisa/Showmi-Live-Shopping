@@ -4,8 +4,9 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { User, Store, Sparkles } from 'lucide-react';
+import { User, Store, Sparkles, Radio, ShoppingBag, Package } from 'lucide-react';
 import { Navigation, AppTab } from './components/Navigation';
+import { AdminRoleSwitcher } from './components/AdminRoleSwitcher';
 import { ProductDetailView } from './components/ProductDetailView';
 import { SellerShowroomView, SellerStorefrontView } from './components/SellerShowroomView';
 import { LiveRoomView } from './components/LiveRoomView';
@@ -40,10 +41,10 @@ const STORAGE_KEYS = {
 
 export default function App() {
   // Role & Authentication State
-  const [userRole, setUserRole] = useState<'buyer' | 'seller'>(() => {
+  const [userRole, setUserRole] = useState<'admin' | 'buyer' | 'seller'>(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEYS.USER_ROLE);
-      if (saved === 'seller') return 'seller';
+      if (saved === 'seller' || saved === 'admin') return saved;
     } catch (e) {}
     return 'buyer';
   });
@@ -70,6 +71,7 @@ export default function App() {
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
   const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
   const [activeLiveSessionId, setActiveLiveSessionId] = useState<string | null>(null);
+  const [basketInitialStep, setBasketInitialStep] = useState<'basket' | 'checkout'>('basket');
   
   // Modals
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
@@ -234,6 +236,7 @@ export default function App() {
       return;
     }
 
+    console.log('Adding to cart:', currentProduct.name, 'qty:', quantity);
     setCartItems(prev => {
       const existing = prev.find(item => item.product.id === currentProduct.id);
       if (existing) {
@@ -246,6 +249,7 @@ export default function App() {
       }
       return [...prev, { product: currentProduct, quantity: Math.min(availableStock, quantity) }];
     });
+    console.log('Cart state updated');
     showNotification(`Added ${currentProduct.name} to basket`);
   };
 
@@ -276,6 +280,7 @@ export default function App() {
     setSelectedProductId(null);
     setActiveLiveSessionId(null);
     setSelectedSellerId(null);
+    setBasketInitialStep('checkout');
     setActiveTab('Basket');
   };
 
@@ -649,7 +654,12 @@ export default function App() {
   };
 
   const handleTabChange = (tab: AppTab) => {
-    if (tab === 'Seller Studio' && userRole !== 'seller') {
+    // Role based navigation restriction
+    if (tab === 'Seller Studio' && userRole === 'buyer') {
+       showNotification('Access denied: Buyers cannot access management tools. Switch to Admin or Seller role.');
+       return;
+    }
+    if (tab === 'Seller Studio' && userRole !== 'seller' && userRole !== 'admin') {
       setUserRole('seller');
       setCurrentSellerId(currentSellerId || SELLERS[0].id);
     }
@@ -658,6 +668,8 @@ export default function App() {
     setSelectedSellerId(null);
     setActiveLiveSessionId(null);
     setIsSellerHostMode(false);
+    setBasketInitialStep('basket');
+
     setActiveTab(tab);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -704,8 +716,17 @@ export default function App() {
   };
 
   const appContent = (
-    <div className={`min-h-screen bg-[#0D1018] text-white flex flex-col selection:bg-[#19BFFF] selection:text-[#0D1018] ${viewportMode !== 'responsive' ? 'relative overflow-hidden' : ''}`}>
+    <div className={`min-h-screen pt-12 bg-[#0D1018] text-white flex flex-col selection:bg-[#19BFFF] selection:text-[#0D1018] ${viewportMode !== 'responsive' ? 'relative overflow-hidden' : ''}`}>
       
+      {/* Admin Role Switcher (Hackathon Demo Only) */}
+      <AdminRoleSwitcher
+        userRole={userRole}
+        setUserRole={setUserRole}
+        currentSellerId={currentSellerId}
+        onSelectSeller={setCurrentSellerId}
+        sellers={SELLERS.map(s => ({ id: s.id, name: s.name }))}
+      />
+
       {/* Toast Notification */}
       {notification && (
         <div className="fixed top-20 right-4 z-50 bg-[#19BFFF] text-[#0D1018] text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl shadow-[#19BFFF]/30 animate-fade-in flex items-center gap-2">
@@ -732,7 +753,7 @@ export default function App() {
       </div>
 
       {/* Main Content Area */}
-      <main className="flex-1">
+      <main className="flex-1 pb-24 md:pb-16">
         {/* Dedicated Search Results View */}
         {searchQuery.trim() !== '' ? (
           <SearchResultsView
@@ -824,7 +845,7 @@ export default function App() {
                 : undefined
             }
           />
-        ) : activeTab === 'Seller Studio' && userRole === 'seller' ? (
+        ) : activeTab === 'Seller Studio' && (userRole === 'seller' || userRole === 'admin') ? (
           /* View: Seller Dashboard & AI Selling Assistant */
           <SellerDashboardView
             sellers={SELLERS}
@@ -835,6 +856,7 @@ export default function App() {
             issues={orderIssues}
             currentSellerId={currentSellerId}
             onSelectSeller={(id) => setCurrentSellerId(id)}
+            userRole={userRole}
             onBackToShopping={() => setActiveTab('LIVE')}
             onUpdateProductDescription={handleUpdateProductDescription}
             onPublishSnippet={handlePublishSnippet}
@@ -871,6 +893,7 @@ export default function App() {
             onSelectProduct={handleSelectProduct}
             onPlaceOrder={handlePlaceOrder}
             onViewOrders={() => setActiveTab('My Orders')}
+            initialStep={basketInitialStep}
           />
         ) : activeTab === 'Showrooms' ? (
           /* View: Showrooms Directory */
@@ -914,20 +937,59 @@ export default function App() {
 
       {/* Fixed Mobile Bottom Navigation (hidden during active livestream) */}
       {!activeLiveSession && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#171A21] border-t border-[#242936] pb-safe-area-bottom">
-          <div className="flex items-center justify-around h-16">
-            <button onClick={() => setIsProfileModalOpen(true)} className="flex flex-col items-center gap-1 text-slate-400 hover:text-white">
-              <User className="w-6 h-6" />
-              <span className="text-[10px] font-bold">Profile</span>
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#171A21] border-t border-[#242936] pb-safe-area-bottom shadow-2xl">
+          <div className="flex items-center justify-around h-16 px-1">
+            <button 
+              onClick={() => handleTabChange('LIVE')} 
+              className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${activeTab === 'LIVE' ? 'text-[#19BFFF]' : 'text-slate-400 hover:text-white'}`}
+            >
+              <Radio className="w-5 h-5" />
+              <span className="text-[10px] font-bold">LIVE</span>
             </button>
-            <button onClick={() => handleTabChange('Showrooms')} className="flex flex-col items-center gap-1 text-slate-400 hover:text-white">
-              <Store className="w-6 h-6" />
-              <span className="text-[10px] font-bold">Showroom</span>
+            <button 
+              onClick={() => handleTabChange('Showrooms')} 
+              className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${activeTab === 'Showrooms' ? 'text-[#19BFFF]' : 'text-slate-400 hover:text-white'}`}
+            >
+              <Store className="w-5 h-5" />
+              <span className="text-[10px] font-bold">Showrooms</span>
             </button>
-            <button onClick={() => handleTabChange('Seller Studio')} className="flex flex-col items-center gap-1 text-slate-400 hover:text-white">
-              <Sparkles className="w-6 h-6" />
-              <span className="text-[10px] font-bold">Studio</span>
+            <button 
+              onClick={() => handleTabChange('Basket')} 
+              className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors relative ${activeTab === 'Basket' ? 'text-[#19BFFF]' : 'text-slate-400 hover:text-white'}`}
+            >
+              <div className="relative">
+                <ShoppingBag className="w-5 h-5" />
+                {cartItems.reduce((sum, i) => sum + i.quantity, 0) > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-[#19BFFF] text-[#0D1018] rounded-full text-[10px] font-extrabold w-4 h-4 flex items-center justify-center">
+                    {cartItems.reduce((sum, i) => sum + i.quantity, 0)}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] font-bold">Basket</span>
             </button>
+            <button 
+              onClick={() => handleTabChange('My Orders')} 
+              className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors relative ${activeTab === 'My Orders' ? 'text-[#19BFFF]' : 'text-slate-400 hover:text-white'}`}
+            >
+              <div className="relative">
+                <Package className="w-5 h-5" />
+                {ordersList.length > 0 && (
+                  <span className="absolute -top-1.5 -right-2 bg-[#19BFFF] text-[#0D1018] rounded-full text-[10px] font-extrabold w-4 h-4 flex items-center justify-center">
+                    {ordersList.length}
+                  </span>
+                )}
+              </div>
+              <span className="text-[10px] font-bold">Orders</span>
+            </button>
+            {(userRole === 'seller' || userRole === 'admin') && (
+              <button 
+                onClick={() => handleTabChange('Seller Studio')} 
+                className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${activeTab === 'Seller Studio' ? 'text-[#19BFFF]' : 'text-slate-400 hover:text-white'}`}
+              >
+                <Sparkles className="w-5 h-5" />
+                <span className="text-[10px] font-bold">Studio</span>
+              </button>
+            )}
           </div>
         </div>
       )}

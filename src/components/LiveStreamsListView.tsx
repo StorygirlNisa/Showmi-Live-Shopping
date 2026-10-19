@@ -153,7 +153,7 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
 
       {/* Main Vertically Scrolling Snap Feed */}
       <div 
-        className="w-full h-[calc(100vh-154px)] sm:h-[calc(100dvh-154px)] md:h-[calc(100dvh-114px)] overflow-y-auto snap-y snap-mandatory scroll-smooth scrollbar-none flex flex-col items-center"
+        className="w-full h-[calc(100vh-154px)] sm:h-[calc(100dvh-154px)] md:h-[calc(100dvh-114px)] overflow-y-auto scroll-smooth scrollbar-none flex flex-col items-center"
         role="feed"
         aria-label="LIVE Shopping Stream Feed"
       >
@@ -176,12 +176,23 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
               aria-label={`Open live stream: ${session.title}`}
             >
               {/* Full-Bleed Stream Cover Media */}
-              <img
-                src={session.coverImage}
-                alt={session.title}
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-              />
+              {session.videoUrl ? (
+                <video
+                  src={session.videoUrl}
+                  autoPlay
+                  muted={isMuted}
+                  loop
+                  playsInline
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                />
+              ) : (
+                <img
+                  src={session.coverImage}
+                  alt={session.title}
+                  referrerPolicy="no-referrer"
+                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                />
+              )}
 
               {/* High-Contrast Gradient Overlay */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/35 via-50% to-black/30 pointer-events-none" />
@@ -221,6 +232,11 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                     LIVE
                   </span>
                 </div>
+              </div>
+
+              {/* DEMO Label */}
+              <div className="absolute top-16 left-4 z-30 bg-black/40 backdrop-blur-md border border-white/10 px-2 py-1 rounded text-[9px] font-bold text-white tracking-wide uppercase">
+                DEMO VIDEO
               </div>
 
               {/* Center Play Overlay Icon on Hover */}

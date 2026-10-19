@@ -51,6 +51,7 @@ interface BasketCheckoutViewProps {
   onPlaceOrder?: (payload: OrderPlacementPayload) => void;
   onSimulateStockChange?: (productId: string, newStock: number) => void;
   onViewOrders?: () => void;
+  initialStep?: 'basket' | 'checkout' | 'confirmation';
 }
 
 export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
@@ -64,10 +65,11 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
   onSelectProduct,
   onPlaceOrder,
   onSimulateStockChange,
-  onViewOrders
+  onViewOrders,
+  initialStep
 }) => {
   // Checkout Form State
-  const [step, setStep] = useState<'basket' | 'checkout' | 'confirmation'>('basket');
+  const [step, setStep] = useState<'basket' | 'checkout' | 'confirmation'>(initialStep || 'basket');
   const [deliveryMethod, setDeliveryMethod] = useState<'courier' | 'pargo' | 'express'>('courier');
   const [paymentMethod, setPaymentMethod] = useState<'ozow' | 'capitec' | 'card'>('ozow');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);

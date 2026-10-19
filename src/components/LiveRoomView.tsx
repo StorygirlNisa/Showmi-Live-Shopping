@@ -52,6 +52,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 }) => {
   const [isMuted, setIsMuted] = useState(true);
   const [isPlaying] = useState(true);
+  const [videoError, setVideoError] = useState(false);
   const [viewerCount, setViewerCount] = useState(session.viewerCount);
   const [comments, setComments] = useState<LiveComment[]>(session.initialComments);
   const [commentInput, setCommentInput] = useState('');
@@ -200,15 +201,32 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   return (
     <div className="w-full min-h-[100dvh] bg-[#0D1018] flex items-center justify-center md:py-6 md:px-4">
       {/* Desktop portrait container / Mobile & Tablet full-viewport container */}
-      <div className="relative w-full h-[100dvh] lg:h-[86vh] lg:max-h-[820px] lg:max-w-[420px] lg:rounded-3xl overflow-x-hidden overflow-y-visible bg-black lg:border lg:border-[#242936] lg:shadow-2xl flex flex-col justify-between selection:bg-[#19BFFF] selection:text-[#0D1018]">
+      <div className="relative w-full h-[100dvh] md:h-[86vh] md:max-h-[820px] md:max-w-[420px] md:rounded-3xl overflow-x-hidden overflow-y-visible bg-black md:border md:border-[#242936] md:shadow-2xl flex flex-col justify-between selection:bg-[#19BFFF] selection:text-[#0D1018]">
         
         {/* Livestream Video / Cover */}
-        <img
-          src={session.coverImage}
-          alt={session.title}
-          referrerPolicy="no-referrer"
-          className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${isPlaying ? 'opacity-100' : 'opacity-60'}`}
-        />
+        {session.videoUrl && !videoError ? (
+          <video
+            src={session.videoUrl}
+            autoPlay
+            muted={isMuted}
+            loop
+            playsInline
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${isPlaying ? 'opacity-100' : 'opacity-60'}`}
+            onError={() => setVideoError(true)}
+          />
+        ) : (
+          <img
+            src={session.coverImage}
+            alt={session.title}
+            referrerPolicy="no-referrer"
+            className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${isPlaying ? 'opacity-100' : 'opacity-60'}`}
+          />
+        )}
+        
+        {/* DEMO Label */}
+        <div className="absolute top-16 left-4 z-30 bg-black/40 backdrop-blur-md border border-white/10 px-2 py-1 rounded text-[9px] font-bold text-white tracking-wide uppercase">
+          DEMO VIDEO
+        </div>
 
         {/* Ambient Top and Bottom Dark Gradient Overlays */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/60 pointer-events-none" />
@@ -235,6 +253,36 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             </div>
           </div>
 
+          <div className="flex items-center gap-2">
+            {/* Previous Session */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const currentIndex = allLiveSessions.findIndex(s => s.id === session.id);
+                const prevSession = allLiveSessions[(currentIndex - 1 + allLiveSessions.length) % allLiveSessions.length];
+                onSwitchSession(prevSession.id);
+              }}
+              className="p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white border border-white/20 transition-colors cursor-pointer"
+              title="Previous stream"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            
+            {/* Next Session */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                const currentIndex = allLiveSessions.findIndex(s => s.id === session.id);
+                const nextSession = allLiveSessions[(currentIndex + 1) % allLiveSessions.length];
+                onSwitchSession(nextSession.id);
+              }}
+              className="p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white border border-white/20 transition-colors cursor-pointer"
+              title="Next stream"
+            >
+              <ArrowLeft className="w-4 h-4 rotate-180" />
+            </button>
+          </div>
+          
           <div className="flex items-center gap-2">
             <button
               className="p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white border border-white/20 transition-colors cursor-pointer pointer-events-auto"
@@ -323,10 +371,13 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 
           {/* Details / Description Trigger */}
           <button
-            onClick={() => setIsDescriptionExpanded(prev => !prev)}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectProduct(session.featuredProductId);
+            }}
             className="p-2.5 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white border border-white/15 transition-transform active:scale-95 cursor-pointer shadow-lg"
-            aria-label="Showroom info"
-            title="Stream & Maker details"
+            aria-label="Inspect featured product"
+            title="Inspect featured product"
           >
             <Info className="w-5 h-5" />
           </button>

@@ -43,6 +43,7 @@ interface SellerDashboardViewProps {
   currentSellerId: string;
   onSelectSeller: (sellerId: string) => void;
   onBackToShopping: () => void;
+  userRole?: 'admin' | 'seller' | 'buyer';
   onUpdateProductDescription?: (productId: string, newDesc: string) => void;
   onPublishSnippet?: (snippet: StreamSnippet) => void;
   onArchiveSnippet?: (snippetId: string) => void;
@@ -75,6 +76,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
   currentSellerId,
   onSelectSeller,
   onBackToShopping,
+  userRole,
   onUpdateProductDescription,
   onPublishSnippet,
   onArchiveSnippet,
@@ -725,7 +727,19 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
           <div className="flex items-center gap-2 bg-[#14171f] p-2.5 rounded-xl border border-[#212633] w-full sm:w-fit min-w-0">
             <Store className="w-4 h-4 text-[#0066ff] ml-1 shrink-0" />
             <span className="text-xs text-slate-400 shrink-0">Managing:</span>
-            <span className="text-xs text-white font-bold">{currentSeller.name}</span>
+            {userRole === 'admin' ? (
+              <select
+                value={currentSellerId}
+                onChange={(e) => onSelectSeller(e.target.value)}
+                className="bg-[#0D1018] text-white px-2.5 py-1 rounded-lg border border-[#212633] text-xs font-bold outline-none cursor-pointer"
+              >
+                {sellers.map(s => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.city}, {s.province})</option>
+                ))}
+              </select>
+            ) : (
+              <span className="text-xs text-white font-bold">{currentSeller.name}</span>
+            )}
           </div>
         </div>
 

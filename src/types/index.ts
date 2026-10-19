@@ -88,6 +88,7 @@ export interface LiveSession {
   additionalProductIds: string[];
   streamCategory: string;
   initialComments: LiveComment[];
+  videoUrl?: string;
 }
 
 export interface CartItem {

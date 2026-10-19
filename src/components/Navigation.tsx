@@ -14,7 +14,7 @@ interface NavigationProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onClearSearch: () => void;
-  userRole: 'buyer' | 'seller';
+  userRole: 'buyer' | 'seller' | 'admin';
   currentSeller?: Seller;
   onOpenSellerSignIn: () => void;
   ordersCount?: number;
@@ -57,7 +57,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   ];
 
   return (
-    <header className="sticky top-0 z-40 bg-[#171A21]/95 backdrop-blur-md border-b border-[#242936] transition-colors safe-area-top w-full max-w-full overflow-hidden">
+    <header className="sticky top-12 z-40 bg-[#171A21]/95 backdrop-blur-md border-b border-[#242936] transition-colors safe-area-top w-full max-w-full overflow-hidden">
       {/* Top Header Row: Brand, Search, and Utility Actions */}
       <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3 sm:gap-4">
         {/* Brand / Logo (Directly clickable route to LIVE feed) */}

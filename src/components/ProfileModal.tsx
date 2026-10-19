@@ -5,8 +5,8 @@ import { Seller } from '../types';
 interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
-  userRole: 'buyer' | 'seller';
-  setUserRole: (role: 'buyer' | 'seller') => void;
+  userRole: 'buyer' | 'seller' | 'admin';
+  setUserRole: (role: 'admin' | 'seller' | 'buyer') => void;
   currentSeller?: Seller;
   sellers: Seller[];
   onSelectSeller: (sellerId: string) => void;
