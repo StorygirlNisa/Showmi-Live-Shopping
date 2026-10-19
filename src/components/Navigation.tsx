@@ -1,6 +1,7 @@
 import React from 'react';
 import { ShoppingBag, Store, Sparkles, Search, X, Package, Radio } from 'lucide-react';
 import { CartItem, Seller } from '../types';
+import { ShowmiLogo } from './ShowmiLogo';
 
 export type MainTab = 'LIVE' | 'Showrooms' | 'Seller Studio';
 export type AppTab = MainTab | 'My Orders' | 'Basket';
@@ -35,7 +36,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   const totalItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const cartSubtotal = cartItems.reduce((sum, item) => sum + item.product.priceZAR * item.quantity, 0);
 
-  // Tabs displayed in bottom horizontal bar: LIVE, Showrooms, Seller Studio
+  // Tabs displayed in horizontal bar: LIVE, Showrooms, Seller Studio
   const tabs: { id: MainTab; label: string; icon: React.ReactNode; isLive?: boolean }[] = [
     {
       id: 'LIVE',
@@ -56,25 +57,18 @@ export const Navigation: React.FC<NavigationProps> = ({
   ];
 
   return (
-    <header className="sticky top-0 z-40 bg-[#0c0e12]/95 backdrop-blur-md border-b border-[#212633] transition-colors safe-area-top w-full max-w-full overflow-hidden">
+    <header className="sticky top-0 z-40 bg-[#171A21]/95 backdrop-blur-md border-b border-[#242936] transition-colors safe-area-top w-full max-w-full overflow-hidden">
       {/* Top Header Row: Brand, Search, and Utility Actions */}
       <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3 sm:gap-4">
-        {/* Brand / Logo */}
-        <button
+        {/* Brand / Logo (Directly clickable route to LIVE feed) */}
+        <ShowmiLogo
+          variant="gradient"
+          size="md"
           onClick={() => {
             onClearSearch();
             setActiveTab('LIVE');
           }}
-          className="flex items-center gap-2.5 group text-left cursor-pointer focus:outline-none min-h-[44px] shrink-0"
-          aria-label="Showmi Home"
-        >
-          <div className="w-8 h-8 rounded-lg bg-[#0066ff] flex items-center justify-center font-bold text-white shadow-lg shadow-[#0066ff]/20 shrink-0 group-hover:scale-105 transition-transform">
-            S
-          </div>
-          <span className="text-xl font-bold tracking-tight text-white whitespace-nowrap shrink-0">
-            Showmi
-          </span>
-        </button>
+        />
 
         {/* Desktop Integrated Search Bar */}
         <div className="hidden md:flex flex-1 max-w-md mx-2">
@@ -85,7 +79,7 @@ export const Navigation: React.FC<NavigationProps> = ({
               placeholder="Search streams, showrooms, or products..."
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
-              className="w-full min-h-[40px] bg-[#14171f] hover:bg-[#181d28] focus:bg-[#14171f] border border-[#212633] focus:border-[#0066ff] rounded-xl pl-10 pr-9 text-xs text-white focus:text-white placeholder-slate-400 focus:outline-none transition-colors"
+              className="w-full min-h-[40px] bg-[#0D1018] hover:bg-[#121622] focus:bg-[#0D1018] border border-[#242936] focus:border-[#19BFFF] rounded-xl pl-10 pr-9 text-xs text-white focus:text-white placeholder-slate-400 focus:outline-none transition-colors"
             />
             {searchQuery && (
               <button
@@ -102,27 +96,30 @@ export const Navigation: React.FC<NavigationProps> = ({
 
         {/* Right Actions: My Orders, Basket */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-
-          {/* My Orders Trigger - Immediately left of Basket */}
+          {/* My Orders Trigger */}
           <button
             onClick={() => {
               onClearSearch();
               setActiveTab('My Orders');
             }}
-            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all cursor-pointer min-h-[40px] select-none ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold tracking-wide transition-all cursor-pointer min-h-[40px] select-none ${
               activeTab === 'My Orders'
-                ? 'bg-[#0066ff] text-white ring-2 ring-[#0066ff]/40 shadow-md shadow-[#0066ff]/25'
-                : 'bg-[#14171f] text-slate-200 hover:bg-[#1c2230] border border-[#212633]'
+                ? 'bg-[#19BFFF] text-[#0D1018] font-bold shadow-md shadow-[#19BFFF]/20'
+                : 'bg-[#171A21] text-slate-200 hover:bg-[#20242E] border border-[#242936]'
             }`}
             aria-label={`My Orders${ordersCount > 0 ? ` (${ordersCount})` : ''}`}
             title="My Orders"
           >
-            <Package className="w-4 h-4 shrink-0 text-slate-300" />
+            <Package className="w-4 h-4 shrink-0 opacity-80" />
             <span className="whitespace-nowrap">Orders</span>
             {ordersCount > 0 && (
-              <span className={`px-1.5 py-0.2 rounded-full text-[11px] font-bold tabular-nums ${
-                activeTab === 'My Orders' ? 'bg-white text-[#0066ff]' : 'bg-[#1e2433] text-slate-300 border border-[#2e374d]'
-              }`}>
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[11px] font-bold tabular-nums ${
+                  activeTab === 'My Orders'
+                    ? 'bg-[#0D1018] text-[#19BFFF]'
+                    : 'bg-[#20242E] text-slate-300 border border-[#2A3142]'
+                }`}
+              >
                 {ordersCount}
               </span>
             )}
@@ -134,24 +131,24 @@ export const Navigation: React.FC<NavigationProps> = ({
               onClearSearch();
               setActiveTab('Basket');
             }}
-            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs font-semibold tracking-wide transition-all cursor-pointer min-h-[40px] select-none ${
+            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3.5 py-1.5 rounded-xl text-xs font-semibold tracking-wide transition-all cursor-pointer min-h-[40px] select-none ${
               activeTab === 'Basket'
-                ? 'bg-[#0066ff] text-white ring-2 ring-[#0066ff]/40 shadow-md shadow-[#0066ff]/25'
+                ? 'bg-[#19BFFF] text-[#0D1018] font-bold shadow-md shadow-[#19BFFF]/20 ring-2 ring-[#19BFFF]/30'
                 : totalItemCount > 0
-                  ? 'bg-[#0066ff] text-white hover:bg-[#0052cc] shadow-md shadow-[#0066ff]/25'
-                  : 'bg-[#14171f] text-slate-200 hover:bg-[#1c2230] border border-[#212633]'
+                ? 'bg-[#19BFFF] text-[#0D1018] font-bold hover:bg-[#00AEEF] shadow-md shadow-[#19BFFF]/20'
+                : 'bg-[#171A21] text-slate-200 hover:bg-[#20242E] border border-[#242936]'
             }`}
             aria-label={`Basket with ${totalItemCount} items`}
           >
             <ShoppingBag className="w-4 h-4 shrink-0" />
             <span className="whitespace-nowrap">Basket</span>
             {totalItemCount > 0 && (
-              <span className="bg-white text-[#0066ff] px-1.5 py-0.2 rounded-full text-[11px] font-bold tabular-nums">
+              <span className="bg-[#0D1018] text-[#19BFFF] px-1.5 py-0.2 rounded-full text-[11px] font-bold tabular-nums">
                 {totalItemCount}
               </span>
             )}
             {cartSubtotal > 0 && (
-              <span className="hidden sm:inline font-mono tabular-nums text-slate-100 border-l border-white/20 pl-2">
+              <span className="hidden sm:inline font-mono tabular-nums text-slate-900 border-l border-slate-900/30 pl-2">
                 R {cartSubtotal.toLocaleString()}
               </span>
             )}
@@ -168,7 +165,7 @@ export const Navigation: React.FC<NavigationProps> = ({
             placeholder="Search streams, showrooms, or products..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            className="w-full min-h-[42px] bg-[#14171f] border border-[#212633] focus:border-[#0066ff] rounded-xl pl-10 pr-9 text-xs text-white focus:text-white placeholder-slate-400 focus:outline-none transition-colors"
+            className="w-full min-h-[42px] bg-[#0D1018] border border-[#242936] focus:border-[#19BFFF] rounded-xl pl-10 pr-9 text-xs text-white focus:text-white placeholder-slate-400 focus:outline-none transition-colors"
           />
           {searchQuery && (
             <button
@@ -183,39 +180,6 @@ export const Navigation: React.FC<NavigationProps> = ({
         </div>
       </div>
 
-      {/* Sticky Horizontal Navigation Bar: LIVE | SA Makers | Seller Studio */}
-      <div className="border-t border-[#1a1f2c]/80 bg-[#0c0e12]">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6">
-          <nav
-            className="flex flex-row items-center gap-2 overflow-x-auto whitespace-nowrap scrollbar-none py-1.5 touch-pan-x"
-            role="tablist"
-            aria-label="Main Feed Tabs"
-          >
-            {tabs.map((tab) => {
-              const isActive = activeTab === tab.id && !searchQuery;
-              return (
-                <button
-                  key={tab.id}
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() => {
-                    onClearSearch();
-                    setActiveTab(tab.id);
-                  }}
-                  className={`min-h-[42px] px-3.5 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer shrink-0 flex items-center gap-2 select-none ${
-                    isActive
-                      ? 'bg-[#0066ff] text-white shadow-md shadow-[#0066ff]/30 ring-1 ring-[#0066ff]'
-                      : 'text-slate-400 hover:text-slate-100 hover:bg-[#14171f] active:scale-95'
-                  }`}
-                >
-                  {tab.icon}
-                  <span className="tracking-tight">{tab.label}</span>
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-      </div>
     </header>
   );
 };

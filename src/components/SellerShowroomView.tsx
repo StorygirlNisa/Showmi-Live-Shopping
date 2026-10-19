@@ -674,3 +674,6 @@ export const SellerStorefrontView: React.FC<SellerStorefrontViewProps> = ({
     </div>
   );
 };
+
+export const SellerShowroomView = SellerStorefrontView;
+

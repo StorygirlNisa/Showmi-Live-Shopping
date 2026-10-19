@@ -218,12 +218,6 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
       return;
     }
 
-    // Artisan integrity check
-    if (hasOwnArtisanProduct) {
-      setCheckoutStockError("Artisan integrity rule: Sellers cannot purchase their own products. Please remove them from your basket.");
-      return;
-    }
-
     // Validate stock again at submission against current productsList
     const failingItems = resolvedCartItems.filter(
       item => item.product.stock <= 0 || item.quantity > item.product.stock
@@ -987,18 +981,12 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
               <div className="space-y-2">
                 <button
                   onClick={() => setStep('checkout')}
-                  disabled={cartItems.some(i => i.product.stock <= 0) || hasOwnArtisanProduct}
-                  className="w-full py-3.5 px-4 rounded-xl text-sm font-bold bg-[#0066ff] hover:bg-[#0052cc] disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white flex items-center justify-center gap-2 shadow-lg shadow-[#0066ff]/25 cursor-pointer transition-all active:scale-[0.99]"
+                  disabled={cartItems.some(i => i.product.stock <= 0)}
+                  className="w-full py-3.5 px-4 rounded-xl text-sm font-bold bg-[#19BFFF] hover:bg-[#00AEEF] disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-[#0D1018] flex items-center justify-center gap-2 shadow-lg shadow-[#19BFFF]/25 cursor-pointer transition-all active:scale-[0.99]"
                 >
                   Proceed to Checkout
                   <ArrowRight className="w-4 h-4" />
                 </button>
-                {hasOwnArtisanProduct && (
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl text-xs text-amber-300 flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-                    <span>Platform integrity rule: Sellers cannot purchase their own products. Please remove items from your storefront to proceed.</span>
-                  </div>
-                )}
                 {cartItems.some(i => i.product.stock <= 0) && (
                   <p className="text-[11px] text-red-400 text-center font-medium">
                     An item in your basket is currently out of stock. Please remove it to proceed.

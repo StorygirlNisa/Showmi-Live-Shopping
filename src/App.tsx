@@ -7,7 +7,7 @@ import React, { useState, useEffect } from 'react';
 import { User, Store, Sparkles } from 'lucide-react';
 import { Navigation, AppTab } from './components/Navigation';
 import { ProductDetailView } from './components/ProductDetailView';
-import { SellerShowroomView } from './components/SellerShowroomView';
+import { SellerShowroomView, SellerStorefrontView } from './components/SellerShowroomView';
 import { LiveRoomView } from './components/LiveRoomView';
 import { BasketCheckoutView } from './components/BasketCheckoutView';
 import { SellersListView } from './components/SellersListView';
@@ -24,6 +24,7 @@ import { Product, CartItem, StreamSnippet, LivePromotion, Order, OrderItem, Orde
 import { MyOrdersView } from './components/MyOrdersView';
 import { OrderPlacementPayload } from './components/BasketCheckoutView';
 import { ProfileModal } from './components/ProfileModal';
+import { HostDisclaimerModal } from './components/HostDisclaimerModal';
 
 const STORAGE_KEYS = {
   PRODUCTS: 'showmi_products_v1',
@@ -74,6 +75,8 @@ export default function App() {
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
   const [isSellerSignInModalOpen, setIsSellerSignInModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [isHostDisclaimerOpen, setIsHostDisclaimerOpen] = useState(false);
+  const [pendingHostSessionId, setPendingHostSessionId] = useState<string | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
 
   // Dynamic products list persisted to localStorage
@@ -224,18 +227,37 @@ export default function App() {
 
   const handleAddToCart = (product: Product, quantity = 1) => {
     const currentProduct = productsList.find(p => p.id === product.id) || product;
-    
-    // Ownership check
-    if (userRole === 'seller' && currentSellerId === currentProduct.sellerId) {
-      showNotification('Sellers cannot purchase their own products');
+    const availableStock = typeof currentProduct.stock === 'number' ? currentProduct.stock : 99;
+
+    if (availableStock <= 0) {
+      showNotification(`${currentProduct.name} is currently out of stock`);
       return;
     }
+
+    setCartItems(prev => {
+      const existing = prev.find(item => item.product.id === currentProduct.id);
+      if (existing) {
+        const newQty = Math.min(availableStock, existing.quantity + quantity);
+        return prev.map(item =>
+          item.product.id === currentProduct.id
+            ? { ...item, product: currentProduct, quantity: newQty }
+            : item
+        );
+      }
+      return [...prev, { product: currentProduct, quantity: Math.min(availableStock, quantity) }];
+    });
+    showNotification(`Added ${currentProduct.name} to basket`);
+  };
+
+  const handleBuyNow = (product: Product, quantity = 1) => {
+    const currentProduct = productsList.find(p => p.id === product.id) || product;
 
     if (currentProduct.stock <= 0) {
       showNotification(`${currentProduct.name} is currently out of stock`);
       return;
     }
 
+    // Add selected product to basket
     setCartItems(prev => {
       const existing = prev.find(item => item.product.id === currentProduct.id);
       if (existing) {
@@ -249,22 +271,8 @@ export default function App() {
       return [...prev, { product: currentProduct, quantity: Math.min(currentProduct.stock, quantity) }];
     });
     showNotification(`Added ${currentProduct.name} to basket`);
-  };
 
-  const handleBuyNow = (product: Product, quantity = 1) => {
-    const currentProduct = productsList.find(p => p.id === product.id) || product;
-
-    // Ownership check
-    if (userRole === 'seller' && currentSellerId === currentProduct.sellerId) {
-      showNotification('Sellers cannot purchase their own products');
-      return;
-    }
-
-    if (currentProduct.stock <= 0) {
-      showNotification(`${currentProduct.name} is currently out of stock`);
-      return;
-    }
-    handleAddToCart(currentProduct, quantity);
+    // Navigate to Basket & Checkout flow
     setSelectedProductId(null);
     setActiveLiveSessionId(null);
     setSelectedSellerId(null);
@@ -598,9 +606,23 @@ export default function App() {
   };
 
   const handleOpenHostMode = (sessionId: string) => {
-    setActiveLiveSessionId(sessionId);
-    setIsSellerHostMode(true);
-    setSelectedProductId(null);
+    setPendingHostSessionId(sessionId);
+    setIsHostDisclaimerOpen(true);
+  };
+
+  const handleConfirmHostDisclaimer = () => {
+    if (pendingHostSessionId) {
+      setActiveLiveSessionId(pendingHostSessionId);
+      setIsSellerHostMode(true);
+      setSelectedProductId(null);
+    }
+    setIsHostDisclaimerOpen(false);
+    setPendingHostSessionId(null);
+  };
+
+  const handleCancelHostDisclaimer = () => {
+    setIsHostDisclaimerOpen(false);
+    setPendingHostSessionId(null);
   };
 
   const handleSimulateOrderStockDecrement = (productId: string) => {
@@ -682,30 +704,32 @@ export default function App() {
   };
 
   const appContent = (
-    <div className={`min-h-screen bg-[#0c0e12] text-slate-100 flex flex-col selection:bg-[#0066ff] selection:text-white ${viewportMode !== 'responsive' ? 'relative overflow-hidden' : ''}`}>
+    <div className={`min-h-screen bg-[#0D1018] text-white flex flex-col selection:bg-[#19BFFF] selection:text-[#0D1018] ${viewportMode !== 'responsive' ? 'relative overflow-hidden' : ''}`}>
       
       {/* Toast Notification */}
       {notification && (
-        <div className="fixed top-20 right-4 z-50 bg-[#0066ff] text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl shadow-[#0066ff]/40 animate-fade-in flex items-center gap-2">
+        <div className="fixed top-20 right-4 z-50 bg-[#19BFFF] text-[#0D1018] text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl shadow-[#19BFFF]/30 animate-fade-in flex items-center gap-2">
           <span>✓</span>
           <span>{notification}</span>
         </div>
       )}
 
-      {/* Main Navigation */}
-      <Navigation
-        activeTab={activeTab}
-        setActiveTab={handleTabChange}
-        cartItems={cartItems}
-        ordersCount={ordersList.length}
-        onOpenInfoModal={() => setIsSetupModalOpen(true)}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onClearSearch={() => setSearchQuery('')}
-        userRole={userRole}
-        currentSeller={SELLERS.find(s => s.id === currentSellerId)}
-        onOpenSellerSignIn={() => setIsSellerSignInModalOpen(true)}
-      />
+      {/* Main Navigation (hidden on mobile during active livestream) */}
+      <div className={activeLiveSession ? 'hidden md:block' : ''}>
+        <Navigation
+          activeTab={activeTab}
+          setActiveTab={handleTabChange}
+          cartItems={cartItems}
+          ordersCount={ordersList.length}
+          onOpenInfoModal={() => setIsSetupModalOpen(true)}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onClearSearch={() => setSearchQuery('')}
+          userRole={userRole}
+          currentSeller={SELLERS.find(s => s.id === currentSellerId)}
+          onOpenSellerSignIn={() => setIsSellerSignInModalOpen(true)}
+        />
+      </div>
 
       {/* Main Content Area */}
       <main className="flex-1">
@@ -792,7 +816,7 @@ export default function App() {
             onBuyNow={handleBuyNow}
             onOpenStudio={
               (userRole === 'seller' && currentSellerId === selectedSeller.id) 
-                ? (sellerId) => {
+                ? (sellerId: string) => {
                     setCurrentSellerId(sellerId);
                     setSelectedSellerId(null);
                     setActiveTab('Seller Studio');
@@ -888,29 +912,31 @@ export default function App() {
         onSignInAsSeller={handleSignInAsSeller}
       />
 
-      {/* Fixed Mobile Bottom Navigation */}
-      <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-black border-t border-[#212633] pb-safe-area-bottom">
-        <div className="flex items-center justify-around h-16">
-          <button onClick={() => setIsProfileModalOpen(true)} className="flex flex-col items-center gap-1 text-slate-400 hover:text-white">
-            <User className="w-6 h-6" />
-            <span className="text-[10px] font-bold">Profile</span>
-          </button>
-          <button onClick={() => handleTabChange('Showrooms')} className="flex flex-col items-center gap-1 text-slate-400 hover:text-white">
-            <Store className="w-6 h-6" />
-            <span className="text-[10px] font-bold">Showroom</span>
-          </button>
-          <button onClick={() => handleTabChange('Seller Studio')} className="flex flex-col items-center gap-1 text-slate-400 hover:text-white">
-            <Sparkles className="w-6 h-6" />
-            <span className="text-[10px] font-bold">Studio</span>
-          </button>
+      {/* Fixed Mobile Bottom Navigation (hidden during active livestream) */}
+      {!activeLiveSession && (
+        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#171A21] border-t border-[#242936] pb-safe-area-bottom">
+          <div className="flex items-center justify-around h-16">
+            <button onClick={() => setIsProfileModalOpen(true)} className="flex flex-col items-center gap-1 text-slate-400 hover:text-white">
+              <User className="w-6 h-6" />
+              <span className="text-[10px] font-bold">Profile</span>
+            </button>
+            <button onClick={() => handleTabChange('Showrooms')} className="flex flex-col items-center gap-1 text-slate-400 hover:text-white">
+              <Store className="w-6 h-6" />
+              <span className="text-[10px] font-bold">Showroom</span>
+            </button>
+            <button onClick={() => handleTabChange('Seller Studio')} className="flex flex-col items-center gap-1 text-slate-400 hover:text-white">
+              <Sparkles className="w-6 h-6" />
+              <span className="text-[10px] font-bold">Studio</span>
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Fixed Bottom-Right Profile Footer (Keep for Desktop) */}
       <div className="hidden md:block fixed bottom-4 right-4 z-40">
         <button
           onClick={() => setIsProfileModalOpen(true)}
-          className="flex items-center gap-2 bg-[#14171f] hover:bg-[#1c2230] text-white border border-[#212633] hover:border-[#0066ff] px-3.5 py-2 rounded-2xl shadow-2xl backdrop-blur-md cursor-pointer transition-all active:scale-95 group"
+          className="flex items-center gap-2 bg-[#171A21] hover:bg-[#20242E] text-white border border-[#242936] hover:border-[#19BFFF] px-3.5 py-2 rounded-2xl shadow-2xl backdrop-blur-md cursor-pointer transition-all active:scale-95 group"
           aria-label="Open profile and account settings"
           title="Profile & Account Settings"
         >
@@ -918,9 +944,9 @@ export default function App() {
             <img
               src={userRole === 'seller' && currentSeller ? currentSeller.avatar : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
               alt="Profile"
-              className="w-7 h-7 rounded-full object-cover border border-[#0066ff]/50 group-hover:scale-105 transition-transform"
+              className="w-7 h-7 rounded-full object-cover border border-[#19BFFF]/50 group-hover:scale-105 transition-transform"
             />
-            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#14171f]" />
+            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#171A21]" />
           </div>
           <div className="text-left hidden sm:block">
             <div className="text-xs font-bold leading-tight truncate max-w-[100px]">
@@ -947,6 +973,13 @@ export default function App() {
         }}
       />
 
+      {/* Mandatory Host Mode AI Disclaimer Confirmation Modal */}
+      <HostDisclaimerModal
+        isOpen={isHostDisclaimerOpen}
+        onConfirm={handleConfirmHostDisclaimer}
+        onCancel={handleCancelHostDisclaimer}
+      />
+
       {/* Development-only Responsive Preview Option Toolbar */}
       <ResponsivePreviewToolbar
         currentMode={viewportMode}
@@ -961,20 +994,20 @@ export default function App() {
   if (viewportMode !== 'responsive') {
     return (
       <div className="min-h-screen bg-[#07090d] py-6 px-3 flex flex-col items-center justify-start overflow-x-auto">
-        <div className="mb-4 px-4 py-2 rounded-full bg-[#14171f] border border-[#212633] text-xs font-mono text-slate-300 flex items-center gap-3 shadow-xl">
+        <div className="mb-4 px-4 py-2 rounded-full bg-[#171A21] border border-[#242936] text-xs font-mono text-slate-300 flex items-center gap-3 shadow-xl">
           <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
           <span>
             Simulating Viewport: <strong className="text-white">{viewportMode}</strong> ({isLandscape ? 'Landscape' : 'Portrait'})
           </span>
           <button
             onClick={() => setViewportMode('responsive')}
-            className="text-[#0066ff] hover:text-[#3385ff] underline font-bold cursor-pointer ml-1"
+            className="text-[#19BFFF] hover:text-[#00AEEF] underline font-bold cursor-pointer ml-1"
           >
             ✕ Full Screen Fluid
           </button>
         </div>
 
-        <div className={`${getViewportWidthStyle()} transition-all duration-300 rounded-[2.5rem] border-8 border-[#212633] shadow-2xl overflow-y-auto bg-[#0c0e12] max-h-[92vh] min-h-[640px] relative`}>
+        <div className={`${getViewportWidthStyle()} transition-all duration-300 rounded-[2.5rem] border-8 border-[#242936] shadow-2xl overflow-y-auto bg-[#0D1018] max-h-[92vh] min-h-[640px] relative`}>
           {appContent}
         </div>
       </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { 
   Users, 
   Play, 
@@ -27,6 +27,14 @@ interface LiveStreamsListViewProps {
   onSelectSeller?: (sellerId: string) => void;
 }
 
+interface FloatingHeart {
+  id: string;
+  x: number;
+  size: number;
+  color: string;
+  isGradient?: boolean;
+}
+
 export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
   liveSessions,
   products,
@@ -40,21 +48,76 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
   const [selectedDrawerProduct, setSelectedDrawerProduct] = useState<Product | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
-  // Likes state
+  // Likes state & Floating Hearts
   const [likedSessions, setLikedSessions] = useState<Record<string, boolean>>({});
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [sessionHearts, setSessionHearts] = useState<Record<string, FloatingHeart[]>>({});
+  const nextHeartId = useRef(0);
+  const holdIntervalRef = useRef<number | null>(null);
+
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [addedProductId, setAddedProductId] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(true);
 
-  const handleLike = (sessionId: string, initialLikes: number, e: React.MouseEvent) => {
+  const spawnHeartsForSession = (sessionId: string, count = 2) => {
+    const heartChoices = [
+      { color: '#19BFFF', isGradient: false },
+      { color: '#7A3CFF', isGradient: false },
+      { color: 'gradient', isGradient: true }
+    ];
+    const spawned: FloatingHeart[] = [];
+
+    for (let i = 0; i < count; i++) {
+      nextHeartId.current += 1;
+      const heartId = `heart-${Date.now()}-${nextHeartId.current}-${i}`;
+      const x = Math.floor(Math.random() * 32) - 16;
+      const choice = heartChoices[Math.floor(Math.random() * heartChoices.length)];
+      const size = Math.floor(Math.random() * 8) + 22;
+
+      spawned.push({
+        id: heartId,
+        x,
+        size,
+        color: choice.color,
+        isGradient: choice.isGradient
+      });
+
+      setTimeout(() => {
+        setSessionHearts(prev => ({
+          ...prev,
+          [sessionId]: (prev[sessionId] || []).filter(item => item.id !== heartId)
+        }));
+      }, 1600);
+    }
+
+    setSessionHearts(prev => ({
+      ...prev,
+      [sessionId]: [...(prev[sessionId] || []), ...spawned]
+    }));
+  };
+
+  const handleLikeStart = (sessionId: string, initialLikes: number, e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
     const isLiked = likedSessions[sessionId];
-    setLikedSessions(prev => ({ ...prev, [sessionId]: !isLiked }));
+    setLikedSessions(prev => ({ ...prev, [sessionId]: true }));
     setLikeCounts(prev => ({
       ...prev,
-      [sessionId]: (prev[sessionId] || initialLikes) + (isLiked ? -1 : 1)
+      [sessionId]: (prev[sessionId] || initialLikes) + 1
     }));
+
+    spawnHeartsForSession(sessionId, 2);
+
+    if (holdIntervalRef.current) clearInterval(holdIntervalRef.current);
+    holdIntervalRef.current = window.setInterval(() => {
+      spawnHeartsForSession(sessionId, 1);
+    }, 180);
+  };
+
+  const handleLikeEnd = () => {
+    if (holdIntervalRef.current) {
+      clearInterval(holdIntervalRef.current);
+      holdIntervalRef.current = null;
+    }
   };
 
   const handleShare = (sessionId: string, e: React.MouseEvent) => {
@@ -195,10 +258,16 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                   </span>
                 </button>
 
-                {/* Like Button */}
+                {/* Like Button with Press-and-Hold Floating Hearts */}
                 <button
-                  onClick={(e) => handleLike(session.id, initialLikes, e)}
-                  className="flex flex-col items-center gap-0.5 cursor-pointer active:scale-90 transition-transform"
+                  onMouseDown={(e) => handleLikeStart(session.id, initialLikes, e)}
+                  onMouseUp={handleLikeEnd}
+                  onMouseLeave={handleLikeEnd}
+                  onTouchStart={(e) => handleLikeStart(session.id, initialLikes, e)}
+                  onTouchEnd={handleLikeEnd}
+                  onTouchCancel={handleLikeEnd}
+                  onClick={(e) => e.stopPropagation()}
+                  className="flex flex-col items-center gap-0.5 cursor-pointer active:scale-90 transition-transform select-none"
                   aria-label={`Like live room. Current likes: ${currentLikes}`}
                 >
                   <div className={`w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-md transition-colors ${
@@ -210,6 +279,39 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                     {currentLikes}
                   </span>
                 </button>
+
+                {/* Floating Animated Hearts Layer for Feed Card */}
+                <div className="absolute right-4 bottom-32 w-24 h-64 pointer-events-none overflow-visible z-30 flex items-end justify-center">
+                  <svg className="absolute w-0 h-0 overflow-hidden" aria-hidden="true">
+                    <defs>
+                      <linearGradient id={`heart-grad-feed-${session.id}`} x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#19BFFF" />
+                        <stop offset="100%" stopColor="#7A3CFF" />
+                      </linearGradient>
+                    </defs>
+                  </svg>
+                  {(sessionHearts[session.id] || []).map((h) => (
+                    <div
+                      key={h.id}
+                      className="absolute animate-float-heart"
+                      style={{
+                        right: '8px',
+                        transform: `translateX(${h.x}px)`,
+                        bottom: '0px',
+                        color: h.isGradient ? `url(#heart-grad-feed-${session.id})` : h.color
+                      }}
+                    >
+                      <Heart
+                        style={{
+                          width: h.size,
+                          height: h.size,
+                          fill: h.isGradient ? `url(#heart-grad-feed-${session.id})` : h.color
+                        }}
+                        className="drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)]"
+                      />
+                    </div>
+                  ))}
+                </div>
 
                 {/* Details Button for Featured Item */}
                 {featured && (

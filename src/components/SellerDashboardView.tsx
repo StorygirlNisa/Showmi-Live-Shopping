@@ -1385,6 +1385,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
             )}
           </div>
         )}
+      </div>
 
       {/* Add / Edit Product Modal with Image Upload & AI Suggest Description */}
       {isProductModalOpen && (
@@ -1596,7 +1597,6 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
           </div>
         </div>
       )}
-      </div>
 
       {/* Mobile Seller Studio View */}
       <div className="md:hidden w-full min-w-0 space-y-4">
@@ -1611,6 +1611,17 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
           onArchiveSnippet={onArchiveSnippet!}
           onUpdateOrderItemStatus={onUpdateOrderItemStatus}
           onRespondToIssue={onRespondToIssue}
+          onGeneratePrep={handleGeneratePrep}
+          onGenerateCopy={handleGenerateCopy}
+          isGenerating={isGenerating}
+          prepResults={prepResults}
+          setPrepResults={setPrepResults}
+          copyResults={copyResults}
+          setCopyResults={setCopyResults}
+          selectedProductId={selectedProductId}
+          onSelectProduct={setSelectedProductId}
+          onApplyDescription={handleApplyDescription}
+          onOpenAddProductModal={handleOpenAddProductModal}
         />
       </div>
 
