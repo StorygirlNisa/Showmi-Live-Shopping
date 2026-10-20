@@ -198,7 +198,7 @@ export const ProductDetailDrawer: React.FC<ProductDetailDrawerProps> = ({
               </div>
 
               <span className="text-xs font-bold text-[#0066ff] flex items-center gap-1 shrink-0 pl-2">
-                Visit Storefront <ArrowRight className="w-3.5 h-3.5" />
+                Visit Showroom <ArrowRight className="w-3.5 h-3.5" />
               </span>
             </div>
           )}

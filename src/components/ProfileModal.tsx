@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { X, User, Lock, CreditCard, Building2, ShieldCheck, Sparkles, Check, MapPin } from 'lucide-react';
+import { X, User, Lock, CreditCard, Building2, ShieldCheck, Sparkles, Check, MapPin, Package } from 'lucide-react';
 import { Seller } from '../types';
+import { AppTab } from './Navigation';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -11,6 +12,7 @@ interface ProfileModalProps {
   sellers: Seller[];
   onSelectSeller: (sellerId: string) => void;
   onOpenSellerSignIn?: () => void;
+  onOpenTab?: (tab: AppTab) => void;
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({
@@ -20,7 +22,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   setUserRole,
   currentSeller,
   sellers,
-  onSelectSeller
+  onSelectSeller,
+  onOpenTab
 }) => {
   const [activeSection, setActiveSection] = useState<'menu' | 'profile' | 'security' | 'payments' | 'address' | 'verification'>('menu');
   const [fullName, setFullName] = useState(userRole === 'seller' && currentSeller ? currentSeller.name : 'Nisa Bardien');
@@ -80,6 +83,10 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     <button onClick={() => setActiveSection('verification')} className="flex flex-col items-center justify-center p-6 bg-[#1e2330] rounded-2xl text-white hover:bg-[#283042] text-center gap-3">
                         <ShieldCheck className="w-8 h-8 text-[#0066ff]"/>
                         <span className="font-semibold text-sm">Verification</span>
+                    </button>
+                    <button onClick={() => { if (onOpenTab) { onOpenTab('My Orders'); onClose(); } }} className="flex flex-col items-center justify-center p-6 bg-[#1e2330] rounded-2xl text-white hover:bg-[#283042] text-center gap-3">
+                        <Package className="w-8 h-8 text-[#0066ff]"/>
+                        <span className="font-semibold text-sm">My Orders & Tracking</span>
                     </button>
                 </div>
             </>

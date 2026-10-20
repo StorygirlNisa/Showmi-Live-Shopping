@@ -159,7 +159,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
               </div>
 
               <div className="flex items-center gap-2 text-xs text-[#0066ff] font-semibold">
-                <span>View Storefront</span>
+                <span>View Showroom</span>
                 <ChevronRight className="w-4 h-4" />
               </div>
             </div>

@@ -17,7 +17,7 @@ export const AdminRoleSwitcher: React.FC<AdminRoleSwitcherProps> = ({
   sellers
 }) => {
   return (
-    <div className="fixed top-0 left-0 right-0 z-[100] bg-[#14171f] border-b border-[#212633] px-3 sm:px-4 flex items-center justify-between gap-2 overflow-x-auto text-xs h-12">
+    <div className="relative w-full z-30 bg-[#14171f] border-b border-[#212633] px-3 sm:px-4 py-1.5 flex items-center justify-between gap-2 overflow-x-auto text-xs">
       <div className="flex items-center gap-2 shrink-0">
         <Shield className="w-3.5 h-3.5 text-[#19BFFF]" />
         <span className="font-bold text-white uppercase tracking-wider text-[11px]">

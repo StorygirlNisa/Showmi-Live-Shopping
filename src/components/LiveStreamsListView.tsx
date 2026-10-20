@@ -12,9 +12,10 @@ import {
   Info,
   Sparkles,
   Volume2,
-  VolumeX
+  VolumeX,
+  Package
 } from 'lucide-react';
-import { LiveSession, Product, Seller } from '../types';
+import { LiveSession, Product, Seller, CartItem } from '../types';
 import { ProductDetailDrawer } from './ProductDetailDrawer';
 
 interface LiveStreamsListViewProps {
@@ -25,6 +26,9 @@ interface LiveStreamsListViewProps {
   onAddToCart?: (product: Product, quantity?: number) => void;
   onBuyNow?: (product: Product, quantity?: number) => void;
   onSelectSeller?: (sellerId: string) => void;
+  onOpenTab?: (tab: 'LIVE' | 'Showrooms' | 'Seller Studio' | 'My Orders' | 'Basket') => void;
+  cartItems?: CartItem[];
+  ordersCount?: number;
 }
 
 interface FloatingHeart {
@@ -42,7 +46,10 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
   onOpenLiveRoom,
   onAddToCart,
   onBuyNow,
-  onSelectSeller
+  onSelectSeller,
+  onOpenTab,
+  cartItems = [],
+  ordersCount = 0
 }) => {
   // On-demand product detail drawer state
   const [selectedDrawerProduct, setSelectedDrawerProduct] = useState<Product | null>(null);
@@ -58,6 +65,8 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [addedProductId, setAddedProductId] = useState<string | null>(null);
   const [isMuted, setIsMuted] = useState(true);
+
+  const totalCartCount = cartItems.reduce((sum, i) => sum + i.quantity, 0);
 
   const spawnHeartsForSession = (sessionId: string, count = 2) => {
     const heartChoices = [
@@ -141,7 +150,7 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
   };
 
   return (
-    <div className="w-full min-w-0 max-w-full bg-[#0c0e12] overflow-hidden">
+    <div className="w-full min-w-0 max-w-full bg-[#0c0e12] overflow-hidden relative">
       
       {/* Toast Notification */}
       {copiedId && (
@@ -151,9 +160,11 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
         </div>
       )}
 
+
+
       {/* Main Vertically Scrolling Snap Feed */}
       <div 
-        className="w-full h-[calc(100vh-154px)] sm:h-[calc(100dvh-154px)] md:h-[calc(100dvh-114px)] overflow-y-auto scroll-smooth scrollbar-none flex flex-col items-center"
+        className="w-full h-[calc(100vh-56px)] sm:h-[calc(100dvh-56px)] overflow-y-auto scroll-smooth snap-y snap-mandatory scrollbar-none flex flex-col items-center"
         role="feed"
         aria-label="LIVE Shopping Stream Feed"
       >
@@ -170,7 +181,7 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
             <article
               key={session.id}
               onClick={() => onOpenLiveRoom(session.id)}
-              className="w-full h-[calc(100vh-154px)] sm:h-[calc(100dvh-154px)] md:h-[calc(100dvh-114px)] snap-start snap-always shrink-0 relative overflow-hidden bg-black select-none max-w-md mx-auto lg:max-w-lg md:rounded-2xl md:my-1.5 md:border md:border-[#212633] shadow-2xl cursor-pointer group"
+              className="w-full h-[calc(100vh-56px)] sm:h-[calc(100dvh-56px)] snap-start snap-always shrink-0 relative overflow-hidden bg-black select-none max-w-md md:max-w-2xl lg:max-w-3xl mx-auto md:rounded-2xl md:my-2 md:border md:border-[#212633] shadow-2xl cursor-pointer group"
               role="button"
               tabIndex={0}
               aria-label={`Open live stream: ${session.title}`}
@@ -197,20 +208,31 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
               {/* High-Contrast Gradient Overlay */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/35 via-50% to-black/30 pointer-events-none" />
 
-              {/* Top Bar: Viewers/Category on Left, Red LIVE Indicator on Right */}
+              {/* Top Bar: Category on Left, Basket & Mute & LIVE on Right */}
               <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between z-10 pointer-events-none">
                 <div className="flex items-center gap-2">
-                  <span className="bg-black/60 backdrop-blur-md text-white text-[11px] px-2.5 py-1 rounded-md font-mono border border-white/10 flex items-center gap-1.5">
-                    <Users className="w-3.5 h-3.5 text-blue-400" />
-                    {session.viewerCount.toLocaleString()} watching
-                  </span>
-                  <div className="bg-black/60 backdrop-blur-md text-slate-200 text-[10px] uppercase font-mono tracking-wider px-2.5 py-1 rounded-md border border-white/10">
+                  <div className="bg-black/60 backdrop-blur-md text-slate-200 text-[10px] uppercase font-mono tracking-wider px-2.5 py-1 rounded-md border border-white/10 pointer-events-auto">
                     {session.streamCategory}
                   </div>
                 </div>
 
-                {/* Mute toggle button and Red LIVE indicator on the right-hand side */}
+                {/* Basket, Mute toggle button and Red LIVE indicator on the right-hand side */}
                 <div className="flex items-center gap-2 pointer-events-auto">
+                  {onOpenTab && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onOpenTab('Basket');
+                      }}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-black/60 hover:bg-black/80 backdrop-blur-md text-white border border-white/15 text-xs font-semibold transition-all cursor-pointer shadow-lg"
+                      title="Basket"
+                      aria-label="Basket"
+                    >
+                      <ShoppingBag className="w-3.5 h-3.5 text-[#19BFFF]" />
+                      <span className="text-[11px] font-bold">{totalCartCount > 0 ? totalCartCount : 'Basket'}</span>
+                    </button>
+                  )}
+
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
@@ -249,7 +271,7 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
               {/* Right-Side Floating Actions */}
               <aside className="absolute right-3 bottom-24 sm:bottom-28 z-20 flex flex-col items-center gap-3.5" onClick={(e) => e.stopPropagation()}>
                 
-                {/* Host Avatar */}
+                {/* Profile Button */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -259,18 +281,20 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                       onOpenLiveRoom(session.id);
                     }
                   }}
-                  className="relative p-0.5 rounded-full bg-red-600 cursor-pointer shadow-lg active:scale-95 transition-transform"
-                  title={`View host ${session.sellerName}`}
-                  aria-label={`View host ${session.sellerName}`}
+                  className="flex flex-col items-center gap-0.5 cursor-pointer active:scale-90 transition-transform"
+                  title={`View ${session.sellerName} profile`}
+                  aria-label={`View ${session.sellerName} profile`}
                 >
-                  <img
-                    src={session.sellerAvatar}
-                    alt={session.sellerName}
-                    referrerPolicy="no-referrer"
-                    className="w-10 h-10 rounded-full object-cover border-2 border-black"
-                  />
-                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[9px] font-bold px-1 rounded-full uppercase tracking-tighter">
-                    Host
+                  <div className="relative p-0.5 rounded-full bg-red-600 shadow-lg">
+                    <img
+                      src={session.sellerAvatar}
+                      alt={session.sellerName}
+                      referrerPolicy="no-referrer"
+                      className="w-10 h-10 rounded-full object-cover border-2 border-black"
+                    />
+                  </div>
+                  <span className="text-[10px] font-semibold text-slate-200 drop-shadow">
+                    Profile
                   </span>
                 </button>
 
@@ -329,19 +353,19 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                   ))}
                 </div>
 
-                {/* Details Button for Featured Item */}
+                {/* Product Information Details Button for Featured Item */}
                 {featured && (
                   <button
                     onClick={(e) => openDrawer(featured, e)}
                     className="flex flex-col items-center gap-0.5 cursor-pointer active:scale-90 transition-transform"
-                    title="View featured item details"
-                    aria-label="View featured item details"
+                    title="Product Information"
+                    aria-label="Product Information"
                   >
                     <div className="w-10 h-10 rounded-full bg-black/50 hover:bg-[#0066ff] text-white flex items-center justify-center backdrop-blur-md transition-colors">
                       <Info className="w-5 h-5 text-[#60a5fa] hover:text-white" />
                     </div>
                     <span className="text-[10px] font-semibold text-slate-200 drop-shadow">
-                      Specs
+                      Product
                     </span>
                   </button>
                 )}
@@ -364,7 +388,7 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
               </aside>
 
               {/* Bottom Essential Overlay: Host, Title & Pinned Product Pill */}
-              <div className="absolute left-3.5 right-16 sm:right-20 bottom-3.5 z-20 space-y-2.5">
+              <div className="absolute left-3.5 right-16 sm:right-20 bottom-20 sm:bottom-20 z-20 space-y-2">
                 
                 {/* Host Info */}
                 <div className="space-y-0.5">
@@ -384,6 +408,21 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                 <h2 className="text-xs sm:text-sm font-semibold text-white line-clamp-2 leading-snug drop-shadow pr-2">
                   {session.title}
                 </h2>
+
+                {/* Live Comments / Chat Feed Preview */}
+                <div className="h-16 overflow-y-auto space-y-1 scrollbar-none pr-2 text-left pointer-events-auto">
+                  {(session.initialComments || []).slice(-3).map((c) => (
+                    <div
+                      key={c.id}
+                      className="inline-block max-w-full px-2 py-0.5 rounded-lg bg-black/50 backdrop-blur-sm text-[11px] text-white border border-white/10"
+                    >
+                      <span className={`font-bold mr-1 ${c.isHost ? 'text-[#19BFFF]' : 'text-slate-300'}`}>
+                        {c.userName}:
+                      </span>
+                      <span className="text-slate-100">{c.text}</span>
+                    </div>
+                  ))}
+                </div>
 
                 {/* Pinned Product in Show Pill */}
                 {featured && (

@@ -608,6 +608,10 @@ export default function App() {
     setActiveLiveSessionId(sessionId);
     setIsSellerHostMode(false);
     setSelectedProductId(null);
+    setSelectedSellerId(null);
+    setSearchQuery('');
+    setActiveTab('LIVE');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleOpenHostMode = (sessionId: string) => {
@@ -716,7 +720,7 @@ export default function App() {
   };
 
   const appContent = (
-    <div className={`min-h-screen pt-12 bg-[#0D1018] text-white flex flex-col selection:bg-[#19BFFF] selection:text-[#0D1018] ${viewportMode !== 'responsive' ? 'relative overflow-hidden' : ''}`}>
+    <div className={`min-h-screen bg-[#0D1018] text-white flex flex-col selection:bg-[#19BFFF] selection:text-[#0D1018] ${viewportMode !== 'responsive' ? 'relative overflow-hidden' : ''}`}>
       
       {/* Admin Role Switcher (Hackathon Demo Only) */}
       <AdminRoleSwitcher
@@ -735,25 +739,23 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Navigation (hidden on mobile during active livestream) */}
-      <div className={activeLiveSession ? 'hidden md:block' : ''}>
-        <Navigation
-          activeTab={activeTab}
-          setActiveTab={handleTabChange}
-          cartItems={cartItems}
-          ordersCount={ordersList.length}
-          onOpenInfoModal={() => setIsSetupModalOpen(true)}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          onClearSearch={() => setSearchQuery('')}
-          userRole={userRole}
-          currentSeller={SELLERS.find(s => s.id === currentSellerId)}
-          onOpenSellerSignIn={() => setIsSellerSignInModalOpen(true)}
-        />
-      </div>
+      {/* Main Navigation */}
+      <Navigation
+        activeTab={activeTab}
+        setActiveTab={handleTabChange}
+        cartItems={cartItems}
+        ordersCount={ordersList.length}
+        onOpenInfoModal={() => setIsSetupModalOpen(true)}
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onClearSearch={() => setSearchQuery('')}
+        userRole={userRole}
+        currentSeller={SELLERS.find(s => s.id === currentSellerId)}
+        onOpenSellerSignIn={() => setIsSellerSignInModalOpen(true)}
+      />
 
       {/* Main Content Area */}
-      <main className="flex-1 pb-24 md:pb-16">
+      <main className="flex-1 pb-24 md:pb-20">
         {/* Dedicated Search Results View */}
         {searchQuery.trim() !== '' ? (
           <SearchResultsView
@@ -777,37 +779,35 @@ export default function App() {
             }}
             onAddToCart={handleAddToCart}
           />
-        ) : activeLiveSession ? (
-          isSellerHostMode ? (
-            <SellerHostModeView
-              session={activeLiveSession}
-              seller={SELLERS.find(s => s.id === activeLiveSession.sellerId) || SELLERS[0]}
-              products={productsList}
-              promotions={promotionsList}
-              onExitHostMode={() => {
-                setIsSellerHostMode(false);
-                setActiveLiveSessionId(null);
-              }}
-              onViewShopperLiveRoom={() => setIsSellerHostMode(false)}
-              onSimulateOrderStockDecrement={handleSimulateOrderStockDecrement}
-              onExpirePromotionNow={handleExpirePromotionNow}
-              onSwitchSession={(sessionId) => setActiveLiveSessionId(sessionId)}
-            />
-          ) : (
-            <LiveRoomView
-              session={activeLiveSession}
-              products={productsList}
-              seller={SELLERS.find(s => s.id === activeLiveSession.sellerId)}
-              onBack={() => setActiveLiveSessionId(null)}
-              onSelectProduct={handleSelectProduct}
-              onViewSeller={handleSelectSeller}
-              onAddToCart={handleAddToCart}
-              onBuyNow={handleBuyNow}
-              onSwitchSession={(sessionId) => setActiveLiveSessionId(sessionId)}
-              allLiveSessions={LIVE_SESSIONS}
-              onOpenHostMode={handleOpenHostMode}
-            />
-          )
+        ) : isSellerHostMode && activeLiveSession ? (
+          <SellerHostModeView
+            session={activeLiveSession}
+            seller={SELLERS.find(s => s.id === activeLiveSession.sellerId) || SELLERS[0]}
+            products={productsList}
+            promotions={promotionsList}
+            onExitHostMode={() => {
+              setIsSellerHostMode(false);
+              setActiveLiveSessionId(null);
+            }}
+            onViewShopperLiveRoom={() => setIsSellerHostMode(false)}
+            onSimulateOrderStockDecrement={handleSimulateOrderStockDecrement}
+            onExpirePromotionNow={handleExpirePromotionNow}
+            onSwitchSession={(sessionId) => setActiveLiveSessionId(sessionId)}
+          />
+        ) : activeLiveSession && !isSellerHostMode ? (
+          /* View: Active Livestream Room */
+          <LiveRoomView
+            session={activeLiveSession}
+            products={productsList}
+            seller={SELLERS.find(s => s.id === activeLiveSession.sellerId)}
+            allLiveSessions={LIVE_SESSIONS}
+            onBack={() => setActiveLiveSessionId(null)}
+            onSelectProduct={handleSelectProduct}
+            onViewSeller={handleSelectSeller}
+            onAddToCart={handleAddToCart}
+            onBuyNow={handleBuyNow}
+            onSwitchSession={(sessionId) => setActiveLiveSessionId(sessionId)}
+          />
         ) : selectedProduct ? (
           /* View: Product Detail Page */
           <ProductDetailView
@@ -825,7 +825,7 @@ export default function App() {
             onOpenLiveRoom={handleOpenLiveRoom}
           />
         ) : selectedSellerId && selectedSeller ? (
-          /* View: Seller Storefront */
+          /* View: Seller Showroom */
           <SellerStorefrontView
             seller={selectedSeller}
             products={productsList}
@@ -907,7 +907,7 @@ export default function App() {
             onToggleFollow={handleToggleFollow}
           />
         ) : (
-          /* Default View: LIVE Streams Immersive Shopping Feed */
+          /* Default View: LIVE Streams Immersive Shopping Feed with Vertical Scrolling */
           <LiveStreamsListView
             liveSessions={LIVE_SESSIONS}
             products={productsList}
@@ -916,6 +916,9 @@ export default function App() {
             onAddToCart={handleAddToCart}
             onBuyNow={handleBuyNow}
             onSelectSeller={handleSelectSeller}
+            onOpenTab={handleTabChange}
+            cartItems={cartItems}
+            ordersCount={ordersList.length}
           />
         )}
       </main>
@@ -935,91 +938,49 @@ export default function App() {
         onSignInAsSeller={handleSignInAsSeller}
       />
 
-      {/* Fixed Mobile Bottom Navigation (hidden during active livestream) */}
-      {!activeLiveSession && (
-        <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#171A21] border-t border-[#242936] pb-safe-area-bottom shadow-2xl">
-          <div className="flex items-center justify-around h-16 px-1">
-            <button 
-              onClick={() => handleTabChange('LIVE')} 
-              className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${activeTab === 'LIVE' ? 'text-[#19BFFF]' : 'text-slate-400 hover:text-white'}`}
-            >
-              <Radio className="w-5 h-5" />
-              <span className="text-[10px] font-bold">LIVE</span>
-            </button>
-            <button 
-              onClick={() => handleTabChange('Showrooms')} 
-              className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${activeTab === 'Showrooms' ? 'text-[#19BFFF]' : 'text-slate-400 hover:text-white'}`}
-            >
-              <Store className="w-5 h-5" />
-              <span className="text-[10px] font-bold">Showrooms</span>
-            </button>
-            <button 
-              onClick={() => handleTabChange('Basket')} 
-              className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors relative ${activeTab === 'Basket' ? 'text-[#19BFFF]' : 'text-slate-400 hover:text-white'}`}
-            >
-              <div className="relative">
-                <ShoppingBag className="w-5 h-5" />
-                {cartItems.reduce((sum, i) => sum + i.quantity, 0) > 0 && (
-                  <span className="absolute -top-1.5 -right-2 bg-[#19BFFF] text-[#0D1018] rounded-full text-[10px] font-extrabold w-4 h-4 flex items-center justify-center">
-                    {cartItems.reduce((sum, i) => sum + i.quantity, 0)}
-                  </span>
-                )}
-              </div>
-              <span className="text-[10px] font-bold">Basket</span>
-            </button>
-            <button 
-              onClick={() => handleTabChange('My Orders')} 
-              className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors relative ${activeTab === 'My Orders' ? 'text-[#19BFFF]' : 'text-slate-400 hover:text-white'}`}
-            >
-              <div className="relative">
-                <Package className="w-5 h-5" />
-                {ordersList.length > 0 && (
-                  <span className="absolute -top-1.5 -right-2 bg-[#19BFFF] text-[#0D1018] rounded-full text-[10px] font-extrabold w-4 h-4 flex items-center justify-center">
-                    {ordersList.length}
-                  </span>
-                )}
-              </div>
-              <span className="text-[10px] font-bold">Orders</span>
-            </button>
-            {(userRole === 'seller' || userRole === 'admin') && (
-              <button 
-                onClick={() => handleTabChange('Seller Studio')} 
-                className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${activeTab === 'Seller Studio' ? 'text-[#19BFFF]' : 'text-slate-400 hover:text-white'}`}
-              >
-                <Sparkles className="w-5 h-5" />
-                <span className="text-[10px] font-bold">Studio</span>
-              </button>
-            )}
-          </div>
-        </div>
-      )}
+      {/* Fixed Black Footer with exactly three navigation controls: Profile, Showroom, Seller Studio */}
+      <footer className="fixed bottom-0 left-0 right-0 z-50 bg-[#0D1018] border-t border-[#242936] py-2.5 px-4 shadow-2xl safe-area-bottom">
+        <div className="max-w-md mx-auto flex items-center justify-around h-12">
+          {/* 1. Profile */}
+          <button
+            onClick={() => setIsProfileModalOpen(true)}
+            className={`flex flex-col items-center justify-center gap-1 text-xs font-semibold transition-colors cursor-pointer ${
+              isProfileModalOpen ? 'text-[#19BFFF]' : 'text-slate-400 hover:text-white'
+            }`}
+            aria-label="Profile and account settings"
+            title="Profile"
+          >
+            <User className="w-5 h-5" />
+            <span className="text-[10px] font-bold">Profile</span>
+          </button>
 
-      {/* Fixed Bottom-Right Profile Footer (Keep for Desktop) */}
-      <div className="hidden md:block fixed bottom-4 right-4 z-40">
-        <button
-          onClick={() => setIsProfileModalOpen(true)}
-          className="flex items-center gap-2 bg-[#171A21] hover:bg-[#20242E] text-white border border-[#242936] hover:border-[#19BFFF] px-3.5 py-2 rounded-2xl shadow-2xl backdrop-blur-md cursor-pointer transition-all active:scale-95 group"
-          aria-label="Open profile and account settings"
-          title="Profile & Account Settings"
-        >
-          <div className="relative">
-            <img
-              src={userRole === 'seller' && currentSeller ? currentSeller.avatar : 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80'}
-              alt="Profile"
-              className="w-7 h-7 rounded-full object-cover border border-[#19BFFF]/50 group-hover:scale-105 transition-transform"
-            />
-            <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 rounded-full border-2 border-[#171A21]" />
-          </div>
-          <div className="text-left hidden sm:block">
-            <div className="text-xs font-bold leading-tight truncate max-w-[100px]">
-              {userRole === 'seller' && currentSeller ? currentSeller.name : 'My Profile'}
-            </div>
-            <div className="text-[10px] text-slate-400 capitalize">
-              {userRole} Account
-            </div>
-          </div>
-        </button>
-      </div>
+          {/* 2. Showroom */}
+          <button
+            onClick={() => handleTabChange('Showrooms')}
+            className={`flex flex-col items-center justify-center gap-1 text-xs font-semibold transition-colors cursor-pointer ${
+              activeTab === 'Showrooms' ? 'text-[#19BFFF]' : 'text-slate-400 hover:text-white'
+            }`}
+            aria-label="Showrooms directory"
+            title="Showroom"
+          >
+            <Store className="w-5 h-5" />
+            <span className="text-[10px] font-bold">Showroom</span>
+          </button>
+
+          {/* 3. Seller Studio */}
+          <button
+            onClick={() => handleTabChange('Seller Studio')}
+            className={`flex flex-col items-center justify-center gap-1 text-xs font-semibold transition-colors cursor-pointer ${
+              activeTab === 'Seller Studio' ? 'text-[#19BFFF]' : 'text-slate-400 hover:text-white'
+            }`}
+            aria-label="Seller Studio management"
+            title="Seller Studio"
+          >
+            <Sparkles className="w-5 h-5" />
+            <span className="text-[10px] font-bold">Seller Studio</span>
+          </button>
+        </div>
+      </footer>
 
       {/* Profile & Account Settings Modal */}
       <ProfileModal
@@ -1033,6 +994,7 @@ export default function App() {
           setCurrentSellerId(sellerId);
           localStorage.setItem(STORAGE_KEYS.SELLER_ID, sellerId);
         }}
+        onOpenTab={handleTabChange}
       />
 
       {/* Mandatory Host Mode AI Disclaimer Confirmation Modal */}

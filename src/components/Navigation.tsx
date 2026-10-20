@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingBag, Store, Sparkles, Search, X, Package, Radio } from 'lucide-react';
+import { ShoppingBag, Search, X } from 'lucide-react';
 import { CartItem, Seller } from '../types';
 import { ShowmiLogo } from './ShowmiLogo';
 
@@ -36,28 +36,8 @@ export const Navigation: React.FC<NavigationProps> = ({
   const totalItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
   const cartSubtotal = cartItems.reduce((sum, item) => sum + item.product.priceZAR * item.quantity, 0);
 
-  // Tabs displayed in horizontal bar: LIVE, Showrooms, Seller Studio
-  const tabs: { id: MainTab; label: string; icon: React.ReactNode; isLive?: boolean }[] = [
-    {
-      id: 'LIVE',
-      label: 'LIVE',
-      icon: <Radio className="w-4 h-4 shrink-0" />,
-      isLive: true
-    },
-    {
-      id: 'Showrooms',
-      label: 'Showrooms',
-      icon: <Store className="w-4 h-4 shrink-0" />
-    },
-    {
-      id: 'Seller Studio',
-      label: 'Seller Studio',
-      icon: <Sparkles className="w-4 h-4 shrink-0 text-current" />
-    }
-  ];
-
   return (
-    <header className="sticky top-12 z-40 bg-[#171A21]/95 backdrop-blur-md border-b border-[#242936] transition-colors safe-area-top w-full max-w-full overflow-hidden">
+    <header className="sticky top-0 z-40 bg-[#171A21]/95 backdrop-blur-md border-b border-[#242936] transition-colors safe-area-top w-full max-w-full overflow-hidden">
       {/* Top Header Row: Brand, Search, and Utility Actions */}
       <div className="max-w-7xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-3 sm:gap-4">
         {/* Brand / Logo (Directly clickable route to LIVE feed) */}
@@ -94,37 +74,8 @@ export const Navigation: React.FC<NavigationProps> = ({
           </div>
         </div>
 
-        {/* Right Actions: My Orders, Basket */}
+        {/* Right Actions: Basket */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-          {/* My Orders Trigger */}
-          <button
-            onClick={() => {
-              onClearSearch();
-              setActiveTab('My Orders');
-            }}
-            className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-semibold tracking-wide transition-all cursor-pointer min-h-[40px] select-none ${
-              activeTab === 'My Orders'
-                ? 'bg-[#19BFFF] text-[#0D1018] font-bold shadow-md shadow-[#19BFFF]/20'
-                : 'bg-[#171A21] text-slate-200 hover:bg-[#20242E] border border-[#242936]'
-            }`}
-            aria-label={`My Orders${ordersCount > 0 ? ` (${ordersCount})` : ''}`}
-            title="My Orders"
-          >
-            <Package className="w-4 h-4 shrink-0 opacity-80" />
-            <span className="whitespace-nowrap">Orders</span>
-            {ordersCount > 0 && (
-              <span
-                className={`px-1.5 py-0.2 rounded-full text-[11px] font-bold tabular-nums ${
-                  activeTab === 'My Orders'
-                    ? 'bg-[#0D1018] text-[#19BFFF]'
-                    : 'bg-[#20242E] text-slate-300 border border-[#2A3142]'
-                }`}
-              >
-                {ordersCount}
-              </span>
-            )}
-          </button>
-
           {/* Basket Trigger */}
           <button
             onClick={() => {
@@ -139,6 +90,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                 : 'bg-[#171A21] text-slate-200 hover:bg-[#20242E] border border-[#242936]'
             }`}
             aria-label={`Basket with ${totalItemCount} items`}
+            title="Basket"
           >
             <ShoppingBag className="w-4 h-4 shrink-0" />
             <span className="whitespace-nowrap">Basket</span>

@@ -21,7 +21,7 @@ export const SellersListView: React.FC<SellersListViewProps> = ({
   followedSellerIds = [],
   onToggleFollow
 }) => {
-  const followedSellers = sellers.filter(s => followedSellerIds.includes(s.id));
+  const displaySellers = sellers;
 
   return (
     <div className="flex flex-col w-full min-h-[calc(100vh-154px)] bg-[#0c0e12] pb-28">
@@ -29,38 +29,16 @@ export const SellersListView: React.FC<SellersListViewProps> = ({
       {/* Header */}
       <div className="flex flex-col w-full max-w-2xl mx-auto px-4 sm:px-6 pt-6 pb-4 space-y-2">
         <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-          Showrooms You Follow
+          South African Showrooms
         </h1>
         <p className="text-xs sm:text-sm text-slate-400">
-          Your curated feed of followed South African showrooms, brand storefronts, and independent businesses.
+          Explore curated South African showrooms, brand storefronts, and independent businesses.
         </p>
       </div>
 
-      {followedSellers.length === 0 ? (
-        /* Empty State */
-        <div className="flex flex-col w-full max-w-md mx-auto my-16 p-8 text-center bg-[#14171f] border border-[#212633] rounded-3xl space-y-4 shadow-2xl">
-          <div className="w-16 h-16 rounded-2xl bg-[#0066ff]/20 text-[#0066ff] flex items-center justify-center mx-auto">
-            <Store className="w-8 h-8" />
-          </div>
-          <h3 className="text-lg font-bold text-white">No Followed Showrooms Yet</h3>
-          <p className="text-xs text-slate-400 leading-relaxed">
-            You are not following any showrooms yet. Explore and follow showrooms to see them stacked here!
-          </p>
-          <button
-            onClick={() => {
-              if (sellers[0] && onToggleFollow) {
-                onToggleFollow(sellers[0].id);
-              }
-            }}
-            className="px-6 py-3 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs font-bold transition-colors cursor-pointer shadow-lg shadow-[#0066ff]/30"
-          >
-            Follow Featured Showroom ({sellers[0]?.name || 'Business'})
-          </button>
-        </div>
-      ) : (
-        /* Mandatory Single-Column Vertical Feed */
-        <div className="flex flex-col w-full max-w-2xl mx-auto px-4 sm:px-6 space-y-6">
-          {followedSellers.map((seller) => {
+      {/* Mandatory Single-Column Vertical Feed */}
+      <div className="flex flex-col w-full max-w-2xl mx-auto px-4 sm:px-6 space-y-6">
+        {displaySellers.map((seller) => {
             const sellerProductCount = products.filter(p => p.sellerId === seller.id).length;
             const activeSnippetsCount = snippets.filter(s => s.sellerId === seller.id && !s.isArchived && new Date(s.expiresAt).getTime() > Date.now()).length;
 
@@ -174,7 +152,7 @@ export const SellersListView: React.FC<SellersListViewProps> = ({
                       onClick={() => onSelectSeller(seller.id)}
                       className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs font-bold flex items-center justify-center gap-2 shadow-lg shadow-[#0066ff]/30 cursor-pointer transition-colors active:scale-95 shrink-0"
                     >
-                      <span>Enter Storefront</span>
+                      <span>Enter Showroom</span>
                       <ArrowRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
@@ -183,7 +161,6 @@ export const SellersListView: React.FC<SellersListViewProps> = ({
             );
           })}
         </div>
-      )}
 
     </div>
   );
