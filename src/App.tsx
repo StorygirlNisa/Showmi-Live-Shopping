@@ -39,29 +39,68 @@ const STORAGE_KEYS = {
   FOLLOWED_SELLERS: 'showmi_followed_sellers_v1'
 };
 
+// In-memory fallback map to handle sandbox iframe storage restrictions or QuotaExceededError
+const memoryStorageFallback = new Map<string, string>();
+
+const safeStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      const val = localStorage.getItem(key);
+      if (val !== null) return val;
+    } catch {}
+    return memoryStorageFallback.get(key) ?? null;
+  },
+  setItem: (key: string, value: string) => {
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      // Storage quota exceeded or disabled in sandbox iframe
+      try {
+        // Free up space by pruning non-essential cache keys
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('showmi_') && (k.includes('snippets') || k.includes('promotions') || k.includes('issues'))) {
+            localStorage.removeItem(k);
+          }
+        }
+        localStorage.setItem(key, value);
+      } catch {
+        // Fallback to in-memory store so the app functions seamlessly without errors
+        memoryStorageFallback.set(key, value);
+      }
+    }
+  },
+  removeItem: (key: string) => {
+    memoryStorageFallback.delete(key);
+    try {
+      localStorage.removeItem(key);
+    } catch {}
+  }
+};
+
 export default function App() {
   // Role & Authentication State
   const [userRole, setUserRole] = useState<'admin' | 'buyer' | 'seller'>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.USER_ROLE);
+      const saved = safeStorage.getItem(STORAGE_KEYS.USER_ROLE);
       if (saved === 'seller' || saved === 'admin') return saved;
-    } catch (e) {}
+    } catch {}
     return 'buyer';
   });
 
   const [currentSellerId, setCurrentSellerId] = useState<string>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.SELLER_ID);
+      const saved = safeStorage.getItem(STORAGE_KEYS.SELLER_ID);
       if (saved) return saved;
-    } catch (e) {}
+    } catch {}
     return SELLERS[0].id;
   });
 
   const [followedSellerIds, setFollowedSellerIds] = useState<string[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.FOLLOWED_SELLERS);
+      const saved = safeStorage.getItem(STORAGE_KEYS.FOLLOWED_SELLERS);
       if (saved) return JSON.parse(saved);
-    } catch (e) {}
+    } catch {}
     return SELLERS.map(s => s.id);
   });
 
@@ -84,22 +123,29 @@ export default function App() {
   // Dynamic products list persisted to localStorage
   const [productsList, setProductsList] = useState<Product[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.PRODUCTS);
+      const saved = safeStorage.getItem(STORAGE_KEYS.PRODUCTS);
       if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error('Error loading products from localStorage', e);
-    }
+    } catch {}
     return PRODUCTS;
   });
 
   // Basket State with initial item for demonstration, persisted to localStorage
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.CART);
-      if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error('Error loading cart from localStorage', e);
-    }
+      const saved = safeStorage.getItem(STORAGE_KEYS.CART);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((item: any) => {
+            const foundProduct = PRODUCTS.find(p => p.id === item.productId || p.id === item.product?.id);
+            return {
+              product: foundProduct || item.product,
+              quantity: item.quantity || 1
+            };
+          }).filter(item => Boolean(item.product));
+        }
+      }
+    } catch {}
     return [
       {
         product: PRODUCTS[0],
@@ -111,44 +157,36 @@ export default function App() {
   // Dynamic snippets list with expiry and archive status, persisted to localStorage
   const [snippetsList, setSnippetsList] = useState<StreamSnippet[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.SNIPPETS);
+      const saved = safeStorage.getItem(STORAGE_KEYS.SNIPPETS);
       if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error('Error loading snippets from localStorage', e);
-    }
+    } catch {}
     return SELLERS.flatMap(s => s.snippets);
   });
 
   // Dynamic orders list, persisted to localStorage
   const [ordersList, setOrdersList] = useState<Order[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.ORDERS);
+      const saved = safeStorage.getItem(STORAGE_KEYS.ORDERS);
       if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error('Error loading orders from localStorage', e);
-    }
+    } catch {}
     return INITIAL_ORDERS;
   });
 
   // Dynamic promotions list, persisted to localStorage
   const [promotionsList, setPromotionsList] = useState<LivePromotion[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.PROMOTIONS);
+      const saved = safeStorage.getItem(STORAGE_KEYS.PROMOTIONS);
       if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error('Error loading promotions from localStorage', e);
-    }
+    } catch {}
     return INITIAL_PROMOTIONS;
   });
 
   // Dynamic order issues list, persisted to localStorage
   const [orderIssues, setOrderIssues] = useState<OrderIssue[]>(() => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEYS.ORDER_ISSUES);
+      const saved = safeStorage.getItem(STORAGE_KEYS.ORDER_ISSUES);
       if (saved) return JSON.parse(saved);
-    } catch (e) {
-      console.error('Error loading order issues from localStorage', e);
-    }
+    } catch {}
     return INITIAL_ISSUES;
   });
 
@@ -159,67 +197,56 @@ export default function App() {
   const [viewportMode, setViewportMode] = useState<ViewportMode>('responsive');
   const [isLandscape, setIsLandscape] = useState<boolean>(false);
 
-  // Sync role & state to localStorage
+  // Sync role & state to safe storage
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.USER_ROLE, userRole);
-      localStorage.setItem(STORAGE_KEYS.SELLER_ID, currentSellerId);
-      localStorage.setItem(STORAGE_KEYS.FOLLOWED_SELLERS, JSON.stringify(followedSellerIds));
-    } catch (e) {}
+    safeStorage.setItem(STORAGE_KEYS.USER_ROLE, userRole);
+    safeStorage.setItem(STORAGE_KEYS.SELLER_ID, currentSellerId);
+    safeStorage.setItem(STORAGE_KEYS.FOLLOWED_SELLERS, JSON.stringify(followedSellerIds));
   }, [userRole, currentSellerId, followedSellerIds]);
 
-  // Sync products to localStorage
+  // Sync products to safe storage
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(productsList));
-    } catch (e) {
-      console.error('Failed to save products to localStorage', e);
-    }
+    safeStorage.setItem(STORAGE_KEYS.PRODUCTS, JSON.stringify(productsList));
   }, [productsList]);
 
-  // Sync cart to localStorage
+  // Sync cart to safe storage with lightweight payload
   useEffect(() => {
     try {
-      localStorage.setItem(STORAGE_KEYS.CART, JSON.stringify(cartItems));
-    } catch (e) {
-      console.error('Failed to save cart to localStorage', e);
-    }
+      const lightweightCart = cartItems.map(item => ({
+        productId: item.product.id,
+        quantity: item.quantity,
+        product: {
+          id: item.product.id,
+          name: item.product.name,
+          priceZAR: item.product.priceZAR,
+          stock: item.product.stock,
+          images: item.product.images?.slice(0, 1),
+          sellerId: item.product.sellerId,
+          sellerName: item.product.sellerName
+        }
+      }));
+      safeStorage.setItem(STORAGE_KEYS.CART, JSON.stringify(lightweightCart));
+    } catch {}
   }, [cartItems]);
 
-  // Sync snippets to localStorage
+  // Sync snippets to safe storage
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.SNIPPETS, JSON.stringify(snippetsList));
-    } catch (e) {
-      console.error('Failed to save snippets to localStorage', e);
-    }
+    safeStorage.setItem(STORAGE_KEYS.SNIPPETS, JSON.stringify(snippetsList));
   }, [snippetsList]);
 
-  // Sync orders to localStorage
+  // Sync orders to safe storage
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(ordersList));
-    } catch (e) {
-      console.error('Failed to save orders to localStorage', e);
-    }
+    safeStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(ordersList));
   }, [ordersList]);
 
-  // Sync promotions to localStorage
+  // Sync promotions to safe storage
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.PROMOTIONS, JSON.stringify(promotionsList));
-    } catch (e) {
-      console.error('Failed to save promotions to localStorage', e);
-    }
+    safeStorage.setItem(STORAGE_KEYS.PROMOTIONS, JSON.stringify(promotionsList));
   }, [promotionsList]);
 
-  // Sync order issues to localStorage
+  // Sync order issues to safe storage
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.ORDER_ISSUES, JSON.stringify(orderIssues));
-    } catch (e) {
-      console.error('Failed to save order issues to localStorage', e);
-    }
+    safeStorage.setItem(STORAGE_KEYS.ORDER_ISSUES, JSON.stringify(orderIssues));
   }, [orderIssues]);
 
   const showNotification = (msg: string) => {
@@ -553,15 +580,15 @@ export default function App() {
   };
 
   const handleResetDemoData = () => {
-    localStorage.removeItem(STORAGE_KEYS.PRODUCTS);
-    localStorage.removeItem(STORAGE_KEYS.CART);
-    localStorage.removeItem(STORAGE_KEYS.SNIPPETS);
-    localStorage.removeItem(STORAGE_KEYS.PROMOTIONS);
-    localStorage.removeItem(STORAGE_KEYS.ORDERS);
-    localStorage.removeItem(STORAGE_KEYS.ORDER_ISSUES);
-    localStorage.removeItem(STORAGE_KEYS.USER_ROLE);
-    localStorage.removeItem(STORAGE_KEYS.SELLER_ID);
-    localStorage.removeItem(STORAGE_KEYS.FOLLOWED_SELLERS);
+    safeStorage.removeItem(STORAGE_KEYS.PRODUCTS);
+    safeStorage.removeItem(STORAGE_KEYS.CART);
+    safeStorage.removeItem(STORAGE_KEYS.SNIPPETS);
+    safeStorage.removeItem(STORAGE_KEYS.PROMOTIONS);
+    safeStorage.removeItem(STORAGE_KEYS.ORDERS);
+    safeStorage.removeItem(STORAGE_KEYS.ORDER_ISSUES);
+    safeStorage.removeItem(STORAGE_KEYS.USER_ROLE);
+    safeStorage.removeItem(STORAGE_KEYS.SELLER_ID);
+    safeStorage.removeItem(STORAGE_KEYS.FOLLOWED_SELLERS);
     setProductsList(PRODUCTS);
     setCartItems([{ product: PRODUCTS[0], quantity: 1 }]);
     setSnippetsList(SELLERS.flatMap(s => s.snippets));
@@ -719,17 +746,23 @@ export default function App() {
     }
   };
 
+  const isLiveFeed = activeTab === 'LIVE' && !selectedProductId && !selectedSellerId && searchQuery.trim() === '' && !isSellerHostMode;
+  const isActiveLiveRoom = !!activeLiveSession && !isSellerHostMode;
+  const isImmersiveLive = isLiveFeed || isActiveLiveRoom;
+
   const appContent = (
     <div className={`min-h-screen bg-[#0D1018] text-white flex flex-col selection:bg-[#19BFFF] selection:text-[#0D1018] ${viewportMode !== 'responsive' ? 'relative overflow-hidden' : ''}`}>
       
-      {/* Admin Role Switcher (Hackathon Demo Only) */}
-      <AdminRoleSwitcher
-        userRole={userRole}
-        setUserRole={setUserRole}
-        currentSellerId={currentSellerId}
-        onSelectSeller={setCurrentSellerId}
-        sellers={SELLERS.map(s => ({ id: s.id, name: s.name }))}
-      />
+      {/* Admin Role Switcher (Hackathon Demo Only - Hidden on mobile during immersive LIVE feed or active stream) */}
+      <div className={isImmersiveLive ? "hidden md:block" : "block"}>
+        <AdminRoleSwitcher
+          userRole={userRole}
+          setUserRole={setUserRole}
+          currentSellerId={currentSellerId}
+          onSelectSeller={setCurrentSellerId}
+          sellers={SELLERS.map(s => ({ id: s.id, name: s.name }))}
+        />
+      </div>
 
       {/* Toast Notification */}
       {notification && (
@@ -739,23 +772,25 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Navigation */}
-      <Navigation
-        activeTab={activeTab}
-        setActiveTab={handleTabChange}
-        cartItems={cartItems}
-        ordersCount={ordersList.length}
-        onOpenInfoModal={() => setIsSetupModalOpen(true)}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onClearSearch={() => setSearchQuery('')}
-        userRole={userRole}
-        currentSeller={SELLERS.find(s => s.id === currentSellerId)}
-        onOpenSellerSignIn={() => setIsSellerSignInModalOpen(true)}
-      />
+      {/* Main Navigation (Hidden completely on mobile when viewing LIVE feed or active stream, visible on desktop) */}
+      <div className={isImmersiveLive ? "hidden md:block" : "block"}>
+        <Navigation
+          activeTab={activeTab}
+          setActiveTab={handleTabChange}
+          cartItems={cartItems}
+          ordersCount={ordersList.length}
+          onOpenInfoModal={() => setIsSetupModalOpen(true)}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onClearSearch={() => setSearchQuery('')}
+          userRole={userRole}
+          currentSeller={SELLERS.find(s => s.id === currentSellerId)}
+          onOpenSellerSignIn={() => setIsSellerSignInModalOpen(true)}
+        />
+      </div>
 
       {/* Main Content Area */}
-      <main className="flex-1 pb-24 md:pb-20">
+      <main className={isImmersiveLive ? "flex-1 pb-0 md:pb-20 overflow-hidden" : "flex-1 pb-24 md:pb-20"}>
         {/* Dedicated Search Results View */}
         {searchQuery.trim() !== '' ? (
           <SearchResultsView
@@ -919,6 +954,9 @@ export default function App() {
             onOpenTab={handleTabChange}
             cartItems={cartItems}
             ordersCount={ordersList.length}
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onClearSearch={() => setSearchQuery('')}
           />
         )}
       </main>
@@ -992,7 +1030,7 @@ export default function App() {
         sellers={SELLERS}
         onSelectSeller={(sellerId) => {
           setCurrentSellerId(sellerId);
-          localStorage.setItem(STORAGE_KEYS.SELLER_ID, sellerId);
+          safeStorage.setItem(STORAGE_KEYS.SELLER_ID, sellerId);
         }}
         onOpenTab={handleTabChange}
       />

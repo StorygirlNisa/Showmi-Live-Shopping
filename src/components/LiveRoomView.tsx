@@ -223,13 +223,15 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           />
         )}
         
-        {/* DEMO Label */}
-        <div className="absolute top-16 left-4 z-30 bg-black/40 backdrop-blur-md border border-white/10 px-2 py-1 rounded text-[9px] font-bold text-white tracking-wide uppercase">
-          DEMO VIDEO
-        </div>
+
 
         {/* Ambient Top and Bottom Dark Gradient Overlays */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/60 pointer-events-none" />
+
+        {/* DEMO Label - Visible over gradient */}
+        <div className="absolute top-16 left-4 z-40 bg-black/40 backdrop-blur-md border border-white/10 px-2 py-1 rounded text-[9px] font-bold text-white tracking-wide uppercase pointer-events-none">
+          DEMO VIDEO
+        </div>
 
         {/* Top Floating Control Bar */}
         <div className="relative z-30 px-4 pt-3 pb-2 flex items-center justify-between safe-area-top">
@@ -253,35 +255,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Previous Session */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                const currentIndex = allLiveSessions.findIndex(s => s.id === session.id);
-                const prevSession = allLiveSessions[(currentIndex - 1 + allLiveSessions.length) % allLiveSessions.length];
-                onSwitchSession(prevSession.id);
-              }}
-              className="p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white border border-white/20 transition-colors cursor-pointer"
-              title="Previous stream"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            
-            {/* Next Session */}
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                const currentIndex = allLiveSessions.findIndex(s => s.id === session.id);
-                const nextSession = allLiveSessions[(currentIndex + 1) % allLiveSessions.length];
-                onSwitchSession(nextSession.id);
-              }}
-              className="p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white border border-white/20 transition-colors cursor-pointer"
-              title="Next stream"
-            >
-              <ArrowLeft className="w-4 h-4 rotate-180" />
-            </button>
-          </div>
+
           
           <div className="flex items-center gap-2">
             <button
@@ -294,15 +268,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
               title={isMuted ? 'Unmute' : 'Mute'}
               aria-label={isMuted ? 'Unmute' : 'Mute'}
             >
-              {isMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4 text-emerald-400" />}
-            </button>
-            <button
-              className="p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white border border-white/20 transition-colors cursor-pointer pointer-events-auto"
-              onClick={handleShare}
-              title="Share livestream"
-              aria-label="Share"
-            >
-              <Share2 className="w-4 h-4" />
+              {isMuted ? <VolumeX className="w-4 h-4 text-white/70" /> : <Volume2 className="w-4 h-4 text-[#19BFFF]" />}
             </button>
           </div>
         </div>
@@ -347,41 +313,76 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           ))}
         </div>
 
-        {/* Right-Side Engagement Floating Action Panel */}
-        <div className="absolute right-3 bottom-36 z-30 flex flex-col items-center gap-3">
-          {/* Like Button with Counter & Press-and-Hold Support */}
-          <div className="flex flex-col items-center gap-1">
+          {/* Right-Side Engagement Floating Action Panel: Profile, Like, Product, Share */}
+          <div className="absolute right-3 bottom-44 md:bottom-36 z-30 flex flex-col items-center gap-3">
+            {/* 1. Profile: Host / Seller Showroom Profile */}
             <button
-              onMouseDown={handleLikeStart}
-              onMouseUp={handleLikeEnd}
-              onMouseLeave={handleLikeEnd}
-              onTouchStart={handleLikeStart}
-              onTouchEnd={handleLikeEnd}
-              onTouchCancel={handleLikeEnd}
-              className="p-4 rounded-full bg-black/50 hover:bg-black/70 backdrop-blur-md text-white border border-white/20 transition-transform active:scale-125 cursor-pointer shadow-xl group select-none min-w-[52px] min-h-[52px] flex items-center justify-center"
-              aria-label="Like livestream"
-              title="Like"
+              onClick={() => {
+                if (onViewSeller && seller) {
+                  onViewSeller(seller.id);
+                }
+              }}
+              className="flex flex-col items-center gap-1 cursor-pointer active:scale-90 transition-transform group"
+              title={`View ${session.sellerName} showroom profile`}
+              aria-label={`View ${session.sellerName} showroom profile`}
             >
-              <Heart className="w-7 h-7 text-rose-400 group-hover:scale-110 group-active:text-rose-500 fill-rose-500/30 transition-all" />
+              <div className="relative p-0.5 rounded-full bg-gradient-to-tr from-[#19BFFF] to-[#7A3CFF] shadow-lg group-hover:scale-105 transition-transform">
+                <img
+                  src={session.sellerAvatar}
+                  alt={session.sellerName}
+                  referrerPolicy="no-referrer"
+                  className="w-10 h-10 rounded-full object-cover border-2 border-black"
+                />
+              </div>
             </button>
-            <span className="text-[11px] font-bold text-white tabular-nums drop-shadow">
-              {heartCount}
-            </span>
-          </div>
 
-          {/* Details / Description Trigger */}
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelectProduct(session.featuredProductId);
-            }}
-            className="p-2.5 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white border border-white/15 transition-transform active:scale-95 cursor-pointer shadow-lg"
-            aria-label="Inspect featured product"
-            title="Inspect featured product"
-          >
-            <Info className="w-5 h-5" />
-          </button>
-        </div>
+            {/* 2. Like Button with Counter & Press-and-Hold Support */}
+            <div className="flex flex-col items-center gap-0.5">
+              <button
+                onMouseDown={handleLikeStart}
+                onMouseUp={handleLikeEnd}
+                onMouseLeave={handleLikeEnd}
+                onTouchStart={handleLikeStart}
+                onTouchEnd={handleLikeEnd}
+                onTouchCancel={handleLikeEnd}
+                className="w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-transform active:scale-125 cursor-pointer shadow-xl group select-none"
+                aria-label={`Like livestream. Current likes: ${heartCount}`}
+                title="Like (tap or hold)"
+              >
+                <Heart className="w-5 h-5 text-rose-400 group-hover:scale-110 group-active:text-rose-500 fill-rose-500/30 transition-all" />
+              </button>
+              <span className="text-[11px] font-mono font-bold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+                {heartCount}
+              </span>
+            </div>
+
+            {/* 3. Product Information Details Trigger */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectProduct(session.featuredProductId);
+              }}
+              className="flex flex-col items-center gap-1 cursor-pointer active:scale-90 transition-transform"
+              aria-label="Inspect featured product"
+              title="Product Information"
+            >
+              <div className="w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-colors">
+                <Info className="w-5 h-5 text-[#19BFFF]" />
+              </div>
+            </button>
+
+            {/* 4. Share Button */}
+            <button
+              onClick={handleShare}
+              className="flex flex-col items-center gap-1 cursor-pointer active:scale-90 transition-transform"
+              title="Share livestream"
+              aria-label="Share livestream"
+            >
+              <div className="w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-colors">
+                <Share2 className="w-4 h-4" />
+              </div>
+            </button>
+          </div>
 
         {/* Expandable Stream & Maker Details Overlay */}
         {isDescriptionExpanded && (
@@ -407,7 +408,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         )}
 
         {/* Bottom Section: Live Chat Preview + Featured Product Card & Shopping Actions */}
-        <div className="relative z-30 px-3 pb-3 space-y-2 safe-area-bottom">
+        <div className="relative z-30 px-3 pb-20 md:pb-3 space-y-2 safe-area-bottom">
           {/* Scrollable Live Chat Feed (Semi-transparent) */}
           <div
             ref={commentsContainerRef}

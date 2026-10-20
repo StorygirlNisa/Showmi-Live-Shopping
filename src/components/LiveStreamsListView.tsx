@@ -13,7 +13,9 @@ import {
   Sparkles,
   Volume2,
   VolumeX,
-  Package
+  Package,
+  Search,
+  X
 } from 'lucide-react';
 import { LiveSession, Product, Seller, CartItem } from '../types';
 import { ProductDetailDrawer } from './ProductDetailDrawer';
@@ -29,6 +31,9 @@ interface LiveStreamsListViewProps {
   onOpenTab?: (tab: 'LIVE' | 'Showrooms' | 'Seller Studio' | 'My Orders' | 'Basket') => void;
   cartItems?: CartItem[];
   ordersCount?: number;
+  searchQuery?: string;
+  onSearchChange?: (query: string) => void;
+  onClearSearch?: () => void;
 }
 
 interface FloatingHeart {
@@ -49,7 +54,10 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
   onSelectSeller,
   onOpenTab,
   cartItems = [],
-  ordersCount = 0
+  ordersCount = 0,
+  searchQuery,
+  onSearchChange,
+  onClearSearch
 }) => {
   // On-demand product detail drawer state
   const [selectedDrawerProduct, setSelectedDrawerProduct] = useState<Product | null>(null);
@@ -164,7 +172,7 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
 
       {/* Main Vertically Scrolling Snap Feed */}
       <div 
-        className="w-full h-[calc(100vh-56px)] sm:h-[calc(100dvh-56px)] overflow-y-auto scroll-smooth snap-y snap-mandatory scrollbar-none flex flex-col items-center"
+        className="w-full h-[100dvh] md:h-[calc(100vh-64px)] overflow-y-auto scroll-smooth snap-y snap-mandatory scrollbar-none flex flex-col items-center"
         role="feed"
         aria-label="LIVE Shopping Stream Feed"
       >
@@ -181,21 +189,38 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
             <article
               key={session.id}
               onClick={() => onOpenLiveRoom(session.id)}
-              className="w-full h-[calc(100vh-56px)] sm:h-[calc(100dvh-56px)] snap-start snap-always shrink-0 relative overflow-hidden bg-black select-none max-w-md md:max-w-2xl lg:max-w-3xl mx-auto md:rounded-2xl md:my-2 md:border md:border-[#212633] shadow-2xl cursor-pointer group"
+              className="w-full h-[100dvh] md:h-[calc(100vh-64px)] snap-start snap-always shrink-0 relative overflow-hidden bg-black select-none max-w-full md:max-w-2xl lg:max-w-3xl mx-auto rounded-none md:rounded-2xl md:my-2 border-0 md:border md:border-[#212633] shadow-2xl cursor-pointer group"
               role="button"
               tabIndex={0}
               aria-label={`Open live stream: ${session.title}`}
             >
-              {/* Full-Bleed Stream Cover Media */}
+              {/* Full-Bleed Stream Cover Media (Immersive video background at all times) */}
               {session.videoUrl ? (
-                <video
-                  src={session.videoUrl}
-                  autoPlay
-                  muted={isMuted}
-                  loop
-                  playsInline
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                />
+                  <video
+                    src={session.videoUrl}
+                    autoPlay
+                    muted={isMuted}
+                    loop
+                    playsInline
+                    ref={(el) => {
+                      if (el) {
+                        const observer = new IntersectionObserver(
+                          ([entry]) => {
+                            if (entry.isIntersecting) {
+                              el.play().catch(e => console.error("Play failed", e));
+                              el.muted = isMuted;
+                            } else {
+                              el.pause();
+                              el.muted = true;
+                            }
+                          },
+                          { threshold: 0.6 }
+                        );
+                        observer.observe(el);
+                      }
+                    }}
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                  />
               ) : (
                 <img
                   src={session.coverImage}
@@ -205,68 +230,94 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                 />
               )}
 
+              {/* Red LIVE Label */}
+              <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 bg-rose-600 px-2 py-1 rounded-md text-[10px] font-bold text-white shadow-lg">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                LIVE
+              </div>
+
               {/* High-Contrast Gradient Overlay */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/35 via-50% to-black/30 pointer-events-none" />
 
-              {/* Top Bar: Category on Left, Basket & Mute & LIVE on Right */}
-              <div className="absolute top-3.5 left-3.5 right-3.5 flex items-center justify-between z-10 pointer-events-none">
-                <div className="flex items-center gap-2">
-                  <div className="bg-black/60 backdrop-blur-md text-slate-200 text-[10px] uppercase font-mono tracking-wider px-2.5 py-1 rounded-md border border-white/10 pointer-events-auto">
-                    {session.streamCategory}
-                  </div>
-                </div>
-
-                {/* Basket, Mute toggle button and Red LIVE indicator on the right-hand side */}
-                <div className="flex items-center gap-2 pointer-events-auto">
-                  {onOpenTab && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onOpenTab('Basket');
-                      }}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-black/60 hover:bg-black/80 backdrop-blur-md text-white border border-white/15 text-xs font-semibold transition-all cursor-pointer shadow-lg"
-                      title="Basket"
-                      aria-label="Basket"
-                    >
-                      <ShoppingBag className="w-3.5 h-3.5 text-[#19BFFF]" />
-                      <span className="text-[11px] font-bold">{totalCartCount > 0 ? totalCartCount : 'Basket'}</span>
-                    </button>
-                  )}
-
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsMuted(!isMuted);
-                    }}
-                    className="w-8 h-8 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center backdrop-blur-md border border-white/10 transition-colors cursor-pointer"
-                    title={isMuted ? 'Unmute stream preview audio' : 'Mute stream preview audio'}
-                    aria-label={isMuted ? 'Unmute stream preview audio' : 'Mute stream preview audio'}
-                  >
-                    {isMuted ? (
-                      <VolumeX className="w-4 h-4 text-slate-400" />
-                    ) : (
-                      <Volume2 className="w-4 h-4 text-[#0066ff]" />
-                    )}
-                  </button>
-
-                  <span className="bg-red-600 text-white text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full shadow-xl flex items-center gap-1.5 border border-red-400/40 backdrop-blur-sm">
-                    <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                    LIVE
-                  </span>
-                </div>
+              {/* Labels - Visible over gradient */}
+              {/* LIVE Label - Top Right */}
+              <div className="absolute top-16 right-4 z-40 flex items-center gap-1.5 bg-rose-600 px-2 py-1 rounded-md text-[10px] font-bold text-white shadow-lg pointer-events-none">
+                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                LIVE
               </div>
 
-              {/* DEMO Label */}
-              <div className="absolute top-16 left-4 z-30 bg-black/40 backdrop-blur-md border border-white/10 px-2 py-1 rounded text-[9px] font-bold text-white tracking-wide uppercase">
+              {/* DEMO Label - Top Right, below LIVE */}
+              <div className="absolute top-24 right-4 z-40 bg-black/40 backdrop-blur-md border border-white/10 px-2 py-1 rounded text-[9px] font-bold text-white tracking-wide uppercase pointer-events-none">
                 DEMO VIDEO
               </div>
 
-              {/* Center Play Overlay Icon on Hover */}
-              <div className="absolute inset-0 flex items-center justify-center z-10 opacity-0 group-hover:opacity-100 transition-opacity">
-                <div className="w-16 h-16 rounded-full bg-[#0066ff]/90 text-white flex items-center justify-center shadow-2xl shadow-[#0066ff]/40 transform scale-90 group-hover:scale-100 transition-transform backdrop-blur-sm">
-                  <Play className="w-7 h-7 fill-white translate-x-0.5" />
+              {/* Floating Top Bar: Translucent Search Bar & Stream Controls over video */}
+              <div 
+                className="absolute top-3 left-3 right-3 sm:top-4 sm:left-4 sm:right-4 z-30 pointer-events-none flex items-center gap-2 safe-area-top"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Floating Translucent Search Bar over video */}
+                <div className="relative flex-1 pointer-events-auto max-w-md mx-auto sm:mx-0">
+                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/70 pointer-events-none" />
+                  <input
+                    type="text"
+                    placeholder="Search streams, makers, products..."
+                    value={searchQuery || ''}
+                    onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
+                    className="w-full min-h-[40px] bg-black/40 hover:bg-black/55 focus:bg-black/80 backdrop-blur-md border border-white/20 focus:border-[#19BFFF] rounded-full pl-10 pr-9 text-xs text-white placeholder-white/70 focus:outline-none transition-all shadow-xl"
+                  />
+                  {searchQuery && onClearSearch && (
+                    <button
+                      type="button"
+                      onClick={onClearSearch}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-1 rounded-full cursor-pointer"
+                      title="Clear search"
+                      aria-label="Clear search"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
+
+                {/* Quick Basket Access Floating Button (accessible on mobile when standard header is hidden) */}
+                {onOpenTab && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onOpenTab('Basket');
+                    }}
+                    className="pointer-events-auto flex items-center justify-center min-h-[40px] px-3 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/20 text-white text-xs font-semibold transition-all cursor-pointer shadow-xl active:scale-95 gap-1.5 shrink-0"
+                    title="Basket"
+                    aria-label={`Basket with ${totalCartCount} items`}
+                  >
+                    <ShoppingBag className="w-4 h-4 text-[#19BFFF]" />
+                    {totalCartCount > 0 && (
+                      <span className="bg-[#19BFFF] text-[#0D1018] px-1.5 py-0.2 rounded-full text-[11px] font-bold tabular-nums">
+                        {totalCartCount}
+                      </span>
+                    )}
+                  </button>
+                )}
+
+                {/* Mute Toggle Button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsMuted(!isMuted);
+                  }}
+                  className="pointer-events-auto w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/20 text-white flex items-center justify-center transition-colors cursor-pointer active:scale-95 shrink-0"
+                  title={isMuted ? 'Unmute stream preview audio' : 'Mute stream preview audio'}
+                  aria-label={isMuted ? 'Unmute stream preview audio' : 'Mute stream preview audio'}
+                >
+                  {isMuted ? (
+                    <VolumeX className="w-4 h-4 text-white/70" />
+                  ) : (
+                    <Volume2 className="w-4 h-4 text-[#19BFFF]" />
+                  )}
+                </button>
               </div>
+
+
 
               {/* Right-Side Floating Actions */}
               <aside className="absolute right-3 bottom-24 sm:bottom-28 z-20 flex flex-col items-center gap-3.5" onClick={(e) => e.stopPropagation()}>
@@ -428,7 +479,7 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                 {featured && (
                   <div 
                     onClick={(e) => openDrawer(featured, e)}
-                    className="bg-[#12151d]/90 backdrop-blur-md border border-[#212633] hover:border-[#0066ff]/60 rounded-xl p-2 sm:p-2.5 flex items-center justify-between gap-2.5 transition-all cursor-pointer shadow-lg active:scale-[0.99]"
+                    className="bg-[#12151d]/90 backdrop-blur-md border border-[#212633] hover:border-[#19BFFF]/60 rounded-xl p-2 sm:p-2.5 flex items-center justify-between gap-2.5 transition-all cursor-pointer shadow-xl active:scale-[0.99] pointer-events-auto"
                   >
                     <div className="flex items-center gap-2.5 min-w-0 flex-1">
                       <img
@@ -438,7 +489,7 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                         className="w-10 h-10 sm:w-11 sm:h-11 rounded-lg object-cover border border-[#262c3a] shrink-0"
                       />
                       <div className="min-w-0 flex-1">
-                        <span className="text-[9px] uppercase tracking-wider text-slate-400 block">
+                        <span className="text-[9px] uppercase tracking-wider text-slate-400 block font-medium">
                           Pinned in Stream
                         </span>
                         <p className="text-xs font-bold text-white truncate leading-tight">
@@ -453,14 +504,15 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                     <div className="flex items-center gap-1.5 shrink-0" onClick={(e) => e.stopPropagation()}>
                       {onAddToCart && (
                         <button
+                          type="button"
                           onClick={(e) => handleQuickAdd(featured, e)}
                           disabled={isSoldOut}
-                          className={`min-h-[38px] px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1 transition-all cursor-pointer shadow ${
+                          className={`min-h-[38px] px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow active:scale-95 whitespace-nowrap ${
                             isSoldOut
                               ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
                               : isAdded
                                 ? 'bg-emerald-600 text-white'
-                                : 'bg-[#181c25] hover:bg-[#202534] text-white border border-[#2e3648] active:scale-95'
+                                : 'bg-[#181c25] hover:bg-[#202534] text-white border border-[#2e3648]'
                           }`}
                           title={isSoldOut ? 'Sold out' : 'Add to basket'}
                           aria-label="Add pinned product to basket"
@@ -468,22 +520,23 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                           {isAdded ? (
                             <Check className="w-3.5 h-3.5 text-white" />
                           ) : (
-                            <ShoppingBag className="w-3.5 h-3.5 text-[#0066ff]" />
+                            <ShoppingBag className="w-3.5 h-3.5 text-[#19BFFF]" />
                           )}
-                          <span className="hidden xs:inline">{isAdded ? 'Added' : 'Basket'}</span>
+                          <span>{isAdded ? 'Added' : 'Basket'}</span>
                         </button>
                       )}
 
                       {onBuyNow && (
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             if (!isSoldOut) onBuyNow(featured, 1);
                           }}
                           disabled={isSoldOut}
-                          className="min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-bold bg-[#0066ff] hover:bg-[#0052cc] text-white transition-all cursor-pointer shadow flex items-center gap-1 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="min-h-[38px] px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#19BFFF] hover:bg-[#00AEEF] text-[#0D1018] shadow-md shadow-[#19BFFF]/20 transition-all cursor-pointer flex items-center gap-1 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                           title="Buy now directly from feed"
-                          aria-label="Buy now directly from feed"
+                          aria-label={`Buy now ${featured.name}`}
                         >
                           <span>Buy Now</span>
                         </button>
