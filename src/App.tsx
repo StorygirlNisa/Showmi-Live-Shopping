@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { User, Store, Sparkles, Radio, ShoppingBag, Package } from 'lucide-react';
 import { Navigation, AppTab } from './components/Navigation';
 import { AdminRoleSwitcher } from './components/AdminRoleSwitcher';
@@ -254,6 +254,9 @@ export default function App() {
     setTimeout(() => setNotification(null), 2500);
   };
 
+  // Reference to prevent accidental duplicate additions caused by single button tap
+  const lastAddRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
+
   const handleAddToCart = (product: Product, quantity = 1) => {
     const currentProduct = productsList.find(p => p.id === product.id) || product;
     const availableStock = typeof currentProduct.stock === 'number' ? currentProduct.stock : 99;
@@ -262,6 +265,13 @@ export default function App() {
       showNotification(`${currentProduct.name} is currently out of stock`);
       return;
     }
+
+    // Prevent accidental duplicate additions caused by rapid single button tap
+    const now = Date.now();
+    if (lastAddRef.current.id === product.id && now - lastAddRef.current.time < 500) {
+      return;
+    }
+    lastAddRef.current = { id: product.id, time: now };
 
     console.log('Adding to cart:', currentProduct.name, 'qty:', quantity);
     setCartItems(prev => {
@@ -277,7 +287,9 @@ export default function App() {
       return [...prev, { product: currentProduct, quantity: Math.min(availableStock, quantity) }];
     });
     console.log('Cart state updated');
-    showNotification(`Added ${currentProduct.name} to basket`);
+    if (activeTab !== 'LIVE') {
+      showNotification('Added to basket. Keep browsing!');
+    }
   };
 
   const handleBuyNow = (product: Product, quantity = 1) => {
@@ -288,7 +300,14 @@ export default function App() {
       return;
     }
 
-    // Add selected product to basket
+    // Prevent accidental duplicate additions caused by rapid single button tap
+    const now = Date.now();
+    if (lastAddRef.current.id === product.id && now - lastAddRef.current.time < 500) {
+      return;
+    }
+    lastAddRef.current = { id: product.id, time: now };
+
+    // Add selected product to basket while preserving all existing items
     setCartItems(prev => {
       const existing = prev.find(item => item.product.id === currentProduct.id);
       if (existing) {
@@ -301,13 +320,12 @@ export default function App() {
       }
       return [...prev, { product: currentProduct, quantity: Math.min(currentProduct.stock, quantity) }];
     });
-    showNotification(`Added ${currentProduct.name} to basket`);
 
-    // Navigate to Basket & Checkout flow
+    // Navigate to Basket & Checkout flow at Step 1: Basket (do not skip to checkout)
     setSelectedProductId(null);
     setActiveLiveSessionId(null);
     setSelectedSellerId(null);
-    setBasketInitialStep('checkout');
+    setBasketInitialStep('basket');
     setActiveTab('Basket');
   };
 
@@ -764,9 +782,9 @@ export default function App() {
         />
       </div>
 
-      {/* Toast Notification */}
+      {/* Toast Notification (Non-blocking so it never interrupts video or controls) */}
       {notification && (
-        <div className="fixed top-20 right-4 z-50 bg-[#19BFFF] text-[#0D1018] text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl shadow-[#19BFFF]/30 animate-fade-in flex items-center gap-2">
+        <div className="fixed top-20 right-4 z-50 bg-[#19BFFF] text-[#0D1018] text-xs font-bold px-4 py-2.5 rounded-xl shadow-2xl shadow-[#19BFFF]/30 animate-fade-in flex items-center gap-2 pointer-events-none select-none">
           <span>✓</span>
           <span>{notification}</span>
         </div>
@@ -1033,6 +1051,7 @@ export default function App() {
           safeStorage.setItem(STORAGE_KEYS.SELLER_ID, sellerId);
         }}
         onOpenTab={handleTabChange}
+        ordersCount={ordersList.length}
       />
 
       {/* Mandatory Host Mode AI Disclaimer Confirmation Modal */}

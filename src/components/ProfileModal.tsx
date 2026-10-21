@@ -13,6 +13,7 @@ interface ProfileModalProps {
   onSelectSeller: (sellerId: string) => void;
   onOpenSellerSignIn?: () => void;
   onOpenTab?: (tab: AppTab) => void;
+  ordersCount?: number;
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({
@@ -23,7 +24,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   currentSeller,
   sellers,
   onSelectSeller,
-  onOpenTab
+  onOpenTab,
+  ordersCount = 0
 }) => {
   const [activeSection, setActiveSection] = useState<'menu' | 'profile' | 'security' | 'payments' | 'address' | 'verification'>('menu');
   const [fullName, setFullName] = useState(userRole === 'seller' && currentSeller ? currentSeller.name : 'Nisa Bardien');
@@ -48,7 +50,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   const renderSectionHeader = (title: string) => (
     <div className="flex items-center gap-3 p-4 border-b border-[#212633] bg-[#0c0e12]/50">
-      <button onClick={() => setActiveSection('menu')} className="text-slate-400 hover:text-white">←</button>
+      <button onClick={() => setActiveSection('menu')} className="text-slate-400 hover:text-white cursor-pointer">←</button>
       <h2 className="text-base font-bold text-white tracking-tight">{title}</h2>
     </div>
   );
@@ -59,35 +61,49 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
         
         {activeSection === 'menu' ? (
             <>
-                <div className="flex items-center justify-between p-5 border-b border-[#212633]">
-                    <h2 className="text-lg font-bold text-white">Profile Settings</h2>
-                    <button onClick={onClose} className="text-slate-400 hover:text-white"><X className="w-5 h-5"/></button>
+                <div className="flex items-center justify-between p-4 sm:p-5 border-b border-[#212633] shrink-0">
+                    <h2 className="text-base sm:text-lg font-bold text-white">Profile Settings</h2>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white p-1 cursor-pointer" aria-label="Close profile"><X className="w-5 h-5"/></button>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4">
-                    <button onClick={() => setActiveSection('profile')} className="flex flex-col items-center justify-center p-6 bg-[#1e2330] rounded-2xl text-white hover:bg-[#283042] text-center gap-3">
-                        <User className="w-8 h-8 text-[#0066ff]"/>
-                        <span className="font-semibold text-sm">Personal Details</span>
-                    </button>
-                    <button onClick={() => setActiveSection('security')} className="flex flex-col items-center justify-center p-6 bg-[#1e2330] rounded-2xl text-white hover:bg-[#283042] text-center gap-3">
-                        <Lock className="w-8 h-8 text-[#0066ff]"/>
-                        <span className="font-semibold text-sm">Security & Password</span>
-                    </button>
-                    <button onClick={() => setActiveSection('payments')} className="flex flex-col items-center justify-center p-6 bg-[#1e2330] rounded-2xl text-white hover:bg-[#283042] text-center gap-3">
-                        <CreditCard className="w-8 h-8 text-[#0066ff]"/>
-                        <span className="font-semibold text-sm">Payments & Banking</span>
-                    </button>
-                    <button onClick={() => setActiveSection('address')} className="flex flex-col items-center justify-center p-6 bg-[#1e2330] rounded-2xl text-white hover:bg-[#283042] text-center gap-3">
-                        <MapPin className="w-8 h-8 text-[#0066ff]"/>
-                        <span className="font-semibold text-sm">Addresses</span>
-                    </button>
-                    <button onClick={() => setActiveSection('verification')} className="flex flex-col items-center justify-center p-6 bg-[#1e2330] rounded-2xl text-white hover:bg-[#283042] text-center gap-3">
-                        <ShieldCheck className="w-8 h-8 text-[#0066ff]"/>
-                        <span className="font-semibold text-sm">Verification</span>
-                    </button>
-                    <button onClick={() => { if (onOpenTab) { onOpenTab('My Orders'); onClose(); } }} className="flex flex-col items-center justify-center p-6 bg-[#1e2330] rounded-2xl text-white hover:bg-[#283042] text-center gap-3">
-                        <Package className="w-8 h-8 text-[#0066ff]"/>
-                        <span className="font-semibold text-sm">My Orders & Tracking</span>
-                    </button>
+                <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+                        <button onClick={() => setActiveSection('profile')} className="flex flex-col items-center justify-center p-4 sm:p-6 bg-[#1e2330] rounded-2xl text-white hover:bg-[#283042] text-center gap-2 sm:gap-3 cursor-pointer active:scale-95 transition-all">
+                            <User className="w-7 h-7 sm:w-8 sm:h-8 text-[#0066ff]"/>
+                            <span className="font-semibold text-xs sm:text-sm">Personal Details</span>
+                        </button>
+                        <button onClick={() => setActiveSection('security')} className="flex flex-col items-center justify-center p-4 sm:p-6 bg-[#1e2330] rounded-2xl text-white hover:bg-[#283042] text-center gap-2 sm:gap-3 cursor-pointer active:scale-95 transition-all">
+                            <Lock className="w-7 h-7 sm:w-8 sm:h-8 text-[#0066ff]"/>
+                            <span className="font-semibold text-xs sm:text-sm">Security & Password</span>
+                        </button>
+                        <button onClick={() => setActiveSection('payments')} className="flex flex-col items-center justify-center p-4 sm:p-6 bg-[#1e2330] rounded-2xl text-white hover:bg-[#283042] text-center gap-2 sm:gap-3 cursor-pointer active:scale-95 transition-all">
+                            <CreditCard className="w-7 h-7 sm:w-8 sm:h-8 text-[#0066ff]"/>
+                            <span className="font-semibold text-xs sm:text-sm">Payments & Banking</span>
+                        </button>
+                        <button onClick={() => setActiveSection('address')} className="flex flex-col items-center justify-center p-4 sm:p-6 bg-[#1e2330] rounded-2xl text-white hover:bg-[#283042] text-center gap-2 sm:gap-3 cursor-pointer active:scale-95 transition-all">
+                            <MapPin className="w-7 h-7 sm:w-8 sm:h-8 text-[#0066ff]"/>
+                            <span className="font-semibold text-xs sm:text-sm">Addresses</span>
+                        </button>
+                        <button onClick={() => setActiveSection('verification')} className="flex flex-col items-center justify-center p-4 sm:p-6 bg-[#1e2330] rounded-2xl text-white hover:bg-[#283042] text-center gap-2 sm:gap-3 cursor-pointer active:scale-95 transition-all">
+                            <ShieldCheck className="w-7 h-7 sm:w-8 sm:h-8 text-[#0066ff]"/>
+                            <span className="font-semibold text-xs sm:text-sm">Verification</span>
+                        </button>
+                        <button 
+                            onClick={() => { if (onOpenTab) { onOpenTab('My Orders'); onClose(); } }} 
+                            className="flex flex-col items-center justify-center p-4 sm:p-6 bg-[#1e2330] rounded-2xl text-white hover:bg-[#283042] text-center gap-2 sm:gap-3 cursor-pointer active:scale-95 transition-all relative group"
+                            title="View your orders, tracking waybills and payment protection"
+                            aria-label="My Orders and Tracking"
+                        >
+                            <div className="relative">
+                                <Package className="w-7 h-7 sm:w-8 sm:h-8 text-[#0066ff] group-hover:scale-105 transition-transform"/>
+                                {ordersCount > 0 && (
+                                    <span className="absolute -top-1.5 -right-2.5 bg-[#19BFFF] text-[#0D1018] text-[10px] font-bold px-1.5 py-0.2 rounded-full font-mono shadow-sm">
+                                        {ordersCount}
+                                    </span>
+                                )}
+                            </div>
+                            <span className="font-semibold text-xs sm:text-sm">My Orders & Tracking</span>
+                        </button>
+                    </div>
                 </div>
             </>
         ) : (

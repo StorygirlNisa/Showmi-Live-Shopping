@@ -188,6 +188,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 
   const handleQuickAdd = (product: Product, e: React.MouseEvent) => {
     e.stopPropagation();
+    if (!onAddToCart || product.stock <= 0 || addedProductId === product.id) return;
     onAddToCart(product);
     setAddedProductId(product.id);
     setTimeout(() => setAddedProductId(null), 1500);

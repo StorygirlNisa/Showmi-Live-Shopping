@@ -1,0 +1,39 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "Product in inventory",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "priceZAR": { "type": "number" },
+        "stock": { "type": "number" }
+      },
+      "required": ["id", "name", "sellerId", "priceZAR", "stock"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Customer order",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "buyerId": { "type": "string" },
+        "totalZAR": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "buyerId", "totalZAR", "createdAt"]
+    }
+  },
+  "firestore": {
+    "products": {
+      "schema": "Product",
+      "description": "Store inventory"
+    },
+    "orders": {
+      "schema": "Order",
+      "description": "Customer orders"
+    }
+  }
+}

@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   ShoppingBag, 
   Trash2, 
@@ -70,6 +70,13 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
 }) => {
   // Checkout Form State
   const [step, setStep] = useState<'basket' | 'checkout' | 'confirmation'>(initialStep || 'basket');
+
+  // Synchronize step whenever initialStep changes (e.g. navigating via Buy Now)
+  useEffect(() => {
+    if (initialStep) {
+      setStep(initialStep);
+    }
+  }, [initialStep]);
   const [deliveryMethod, setDeliveryMethod] = useState<'courier' | 'pargo' | 'express'>('courier');
   const [paymentMethod, setPaymentMethod] = useState<'ozow' | 'capitec' | 'card'>('ozow');
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
@@ -507,9 +514,14 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
 
         {/* Step indicator */}
         <div className="flex items-center gap-2 text-xs font-mono">
-          <span className={`px-2 py-0.5 rounded ${step === 'basket' ? 'bg-[#0066ff] text-white font-bold' : 'text-slate-400'}`}>
+          <button
+            type="button"
+            onClick={() => setStep('basket')}
+            className={`px-2 py-0.5 rounded transition-colors cursor-pointer ${step === 'basket' ? 'bg-[#0066ff] text-white font-bold' : 'text-slate-400 hover:text-white'}`}
+            title="Step 1: Review basket items"
+          >
             1. Basket
-          </span>
+          </button>
           <span className="text-slate-600">→</span>
           <span className={`px-2 py-0.5 rounded ${step === 'checkout' ? 'bg-[#0066ff] text-white font-bold' : 'text-slate-400'}`}>
             2. Delivery & Pay

@@ -42,7 +42,7 @@ export const ProductDetailDrawer: React.FC<ProductDetailDrawerProps> = ({
   if (!isOpen || !product) return null;
 
   const handleAdd = () => {
-    if (product.stock <= 0) return;
+    if (product.stock <= 0 || isAddedSuccess) return;
     onAddToCart(product, quantity);
     setIsAddedSuccess(true);
     setTimeout(() => {
