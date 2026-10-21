@@ -33,7 +33,7 @@ interface LiveStreamsListViewProps {
   cartItems?: CartItem[];
   ordersCount?: number;
   searchQuery?: string;
-  onSearchChange?: (query: string) => void;
+  onSearchSubmit?: (query: string) => void;
   onClearSearch?: () => void;
 }
 
@@ -60,9 +60,21 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
   cartItems = [],
   ordersCount = 0,
   searchQuery,
-  onSearchChange,
+  onSearchSubmit,
   onClearSearch
 }) => {
+  const [localQuery, setLocalQuery] = useState(searchQuery || '');
+
+  useEffect(() => {
+    setLocalQuery(searchQuery || '');
+  }, [searchQuery]);
+
+  const handleFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (localQuery.trim() && onSearchSubmit) {
+      onSearchSubmit(localQuery);
+    }
+  };
   // On-demand product detail drawer state
   const [selectedDrawerProduct, setSelectedDrawerProduct] = useState<Product | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
@@ -294,26 +306,47 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Floating Translucent Search Bar over video */}
-                <div className="relative flex-1 pointer-events-auto max-w-md mx-auto sm:mx-0">
-                  <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-white/70 pointer-events-none" />
-                  <input
-                    type="text"
-                    placeholder="Search streams, makers, products..."
-                    value={searchQuery || ''}
-                    onChange={(e) => onSearchChange && onSearchChange(e.target.value)}
-                    className="w-full min-h-[40px] bg-black/40 hover:bg-black/55 focus:bg-black/80 backdrop-blur-md border border-white/20 focus:border-[#19BFFF] rounded-full pl-10 pr-9 text-xs text-white placeholder-white/70 focus:outline-none transition-all shadow-xl"
-                  />
-                  {searchQuery && onClearSearch && (
+                <div 
+                  className="relative flex-1 pointer-events-auto max-w-md mx-auto sm:mx-0"
+                  onClick={(e) => e.stopPropagation()}
+                  onTouchStart={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
+                  <form onSubmit={handleFormSubmit} className="relative w-full" onClick={(e) => e.stopPropagation()}>
                     <button
-                      type="button"
-                      onClick={onClearSearch}
-                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-1 rounded-full cursor-pointer"
-                      title="Clear search"
-                      aria-label="Clear search"
+                      type="submit"
+                      className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-[#19BFFF] p-1 cursor-pointer"
+                      title="Search"
+                      aria-label="Submit search"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <Search className="w-4 h-4" />
                     </button>
-                  )}
+                    <input
+                      type="text"
+                      placeholder="Try leather handbags, birthday gifts..."
+                      value={localQuery}
+                      onChange={(e) => setLocalQuery(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      onTouchStart={(e) => e.stopPropagation()}
+                      onFocus={(e) => e.stopPropagation()}
+                      className="w-full min-h-[40px] bg-black/40 hover:bg-black/55 focus:bg-black/80 backdrop-blur-md border border-white/20 focus:border-[#19BFFF] rounded-full pl-10 pr-9 text-xs text-white placeholder-white/70 focus:outline-none transition-all shadow-xl"
+                    />
+                    {(localQuery || searchQuery) && onClearSearch && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setLocalQuery('');
+                          onClearSearch();
+                        }}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-1 rounded-full cursor-pointer"
+                        title="Clear search"
+                        aria-label="Clear search"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </form>
                 </div>
 
                 {/* Quick Basket Access Floating Button (accessible on mobile when standard header is hidden) */}

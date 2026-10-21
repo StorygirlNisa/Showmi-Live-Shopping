@@ -370,7 +370,10 @@ export const SellerHostModeView: React.FC<SellerHostModeViewProps> = ({
                 {sessionProducts.map(prod => (
                   <button
                     key={prod.id}
-                    onClick={() => setSelectedProductId(prod.id)}
+                    onClick={() => {
+                      setSelectedProductId(prod.id);
+                      session.featuredProductId = prod.id;
+                    }}
                     className={`flex items-center gap-2 p-2 rounded-xl border text-left transition-all cursor-pointer ${
                       prod.id === activeProduct?.id
                         ? 'bg-[#0066ff]/20 border-[#0066ff] text-white shadow-sm shadow-[#0066ff]/20'

@@ -154,6 +154,8 @@ export default function App() {
     ];
   });
 
+  const totalItemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
   // Dynamic snippets list with expiry and archive status, persisted to localStorage
   const [snippetsList, setSnippetsList] = useState<StreamSnippet[]>(() => {
     try {
@@ -715,8 +717,10 @@ export default function App() {
     setSearchQuery('');
     setSelectedProductId(null);
     setSelectedSellerId(null);
-    setActiveLiveSessionId(null);
-    setIsSellerHostMode(false);
+    if (tab !== 'Basket') {
+      setActiveLiveSessionId(null);
+      setIsSellerHostMode(false);
+    }
     setBasketInitialStep('basket');
 
     setActiveTab(tab);
@@ -799,7 +803,7 @@ export default function App() {
           ordersCount={ordersList.length}
           onOpenInfoModal={() => setIsSetupModalOpen(true)}
           searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
+          onSearchSubmit={setSearchQuery}
           onClearSearch={() => setSearchQuery('')}
           userRole={userRole}
           currentSeller={SELLERS.find(s => s.id === currentSellerId)}
@@ -818,6 +822,7 @@ export default function App() {
             products={productsList}
             sellers={SELLERS}
             liveSessions={LIVE_SESSIONS}
+            snippets={snippetsList}
             onSelectProduct={(id) => {
               setSearchQuery('');
               handleSelectProduct(id);
@@ -942,7 +947,13 @@ export default function App() {
             onUpdateQuantity={handleUpdateQuantity}
             onRemoveItem={handleRemoveItem}
             onClearCart={handleClearCart}
-            onBackToDiscover={() => setActiveTab('LIVE')}
+            onBackToDiscover={() => {
+              if (activeLiveSessionId) {
+                setActiveTab('LIVE');
+              } else {
+                handleTabChange('LIVE');
+              }
+            }}
             onSelectProduct={handleSelectProduct}
             onPlaceOrder={handlePlaceOrder}
             onViewOrders={() => setActiveTab('My Orders')}
@@ -973,7 +984,7 @@ export default function App() {
             cartItems={cartItems}
             ordersCount={ordersList.length}
             searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
+            onSearchSubmit={setSearchQuery}
             onClearSearch={() => setSearchQuery('')}
           />
         )}
@@ -994,7 +1005,7 @@ export default function App() {
         onSignInAsSeller={handleSignInAsSeller}
       />
 
-      {/* Fixed Black Footer with exactly three navigation controls: Profile, Showroom, Seller Studio */}
+      {/* Fixed Black Footer: Profile | Showroom | Cart | Seller Studio */}
       <footer className="fixed bottom-0 left-0 right-0 z-50 bg-[#0D1018] border-t border-[#242936] py-2.5 px-4 shadow-2xl safe-area-bottom">
         <div className="max-w-md mx-auto flex items-center justify-around h-12">
           {/* 1. Profile */}
@@ -1007,7 +1018,7 @@ export default function App() {
             title="Profile"
           >
             <User className="w-5 h-5" />
-            <span className="text-[10px] font-bold">Profile</span>
+            <span className="text-[10px] font-bold text-white">Profile</span>
           </button>
 
           {/* 2. Showroom */}
@@ -1020,10 +1031,30 @@ export default function App() {
             title="Showroom"
           >
             <Store className="w-5 h-5" />
-            <span className="text-[10px] font-bold">Showroom</span>
+            <span className="text-[10px] font-bold text-white">Showroom</span>
           </button>
 
-          {/* 3. Seller Studio */}
+          {/* 3. Cart */}
+          <button
+            onClick={() => handleTabChange('Basket')}
+            className={`flex flex-col items-center justify-center gap-1 text-xs font-semibold transition-colors cursor-pointer relative ${
+              activeTab === 'Basket' ? 'text-[#19BFFF]' : 'text-slate-400 hover:text-white'
+            }`}
+            aria-label="Cart and checkout"
+            title="Cart"
+          >
+            <div className="relative">
+              <ShoppingBag className="w-5 h-5" />
+              {totalItemCount > 0 && (
+                <span className="absolute -top-1.5 -right-2 bg-[#19BFFF] text-[#0D1018] px-1 py-0.2 rounded-full text-[9px] font-extrabold tabular-nums">
+                  {totalItemCount}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] font-bold text-white">Cart</span>
+          </button>
+
+          {/* 4. Seller Studio */}
           <button
             onClick={() => handleTabChange('Seller Studio')}
             className={`flex flex-col items-center justify-center gap-1 text-xs font-semibold transition-colors cursor-pointer ${
@@ -1033,7 +1064,7 @@ export default function App() {
             title="Seller Studio"
           >
             <Sparkles className="w-5 h-5" />
-            <span className="text-[10px] font-bold">Seller Studio</span>
+            <span className="text-[10px] font-bold text-white">Seller Studio</span>
           </button>
         </div>
       </footer>

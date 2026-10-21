@@ -1,19 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { 
   ArrowLeft, 
   Heart, 
   Send, 
-  ShoppingBag, 
   Users, 
   Volume2, 
   VolumeX, 
   Share2, 
-  Check, 
   Info,
   X,
   Plus
 } from 'lucide-react';
 import { LiveSession, Product, Seller, LiveComment } from '../types';
+import { ProductDetailDrawer } from './ProductDetailDrawer';
 
 interface LiveRoomViewProps {
   session: LiveSession;
@@ -22,8 +21,8 @@ interface LiveRoomViewProps {
   onBack: () => void;
   onSelectProduct: (productId: string) => void;
   onViewSeller: (sellerId: string) => void;
-  onAddToCart: (product: Product) => void;
-  onBuyNow: (product: Product) => void;
+  onAddToCart?: (product: Product) => void;
+  onBuyNow?: (product: Product) => void;
   onSwitchSession: (sessionId: string) => void;
   allLiveSessions: LiveSession[];
   onOpenHostMode?: (sessionId: string) => void;
@@ -58,13 +57,78 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   const [commentInput, setCommentInput] = useState('');
   const [floatingHearts, setFloatingHearts] = useState<FloatingHeart[]>([]);
   const [heartCount, setHeartCount] = useState(842);
-  const [addedProductId, setAddedProductId] = useState<string | null>(null);
-  const [copiedLink, setCopiedLink] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+
+  // Active Pinned Product & Live Session Product Queue
+  const sessionQueueProducts = useMemo(() => {
+    const list: Product[] = [];
+    const featured = products.find(p => p.id === session.featuredProductId);
+    if (featured) list.push(featured);
+
+    (session.additionalProductIds || []).forEach(id => {
+      const extra = products.find(p => p.id === id);
+      if (extra && !list.some(p => p.id === extra.id)) {
+        list.push(extra);
+      }
+    });
+
+    if (seller) {
+      products
+        .filter(p => p.sellerId === seller.id && !list.some(item => item.id === p.id))
+        .forEach(p => list.push(p));
+    }
+
+    return list.length > 0 ? list : products;
+  }, [products, session, seller]);
+
+  const [activeProductId, setActiveProductId] = useState<string>(
+    session.featuredProductId || products[0]?.id || ''
+  );
+
+  // Update active product whenever session's featuredProductId changes
+  useEffect(() => {
+    if (session.featuredProductId) {
+      setActiveProductId(session.featuredProductId);
+    }
+  }, [session.featuredProductId, session.id]);
+
+  const activePinnedProduct = useMemo(() => {
+    return products.find(p => p.id === activeProductId) || 
+           products.find(p => p.id === session.featuredProductId) || 
+           sessionQueueProducts[0] ||
+           products[0];
+  }, [products, activeProductId, session.featuredProductId, sessionQueueProducts]);
+
+  const isSoldOut = activePinnedProduct ? activePinnedProduct.stock <= 0 : false;
+
+  // Confirmation Toast & Share State
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastKey, setToastKey] = useState(0);
+  const toastTimeoutRef = useRef<number | null>(null);
+
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+  const shareTimeoutRef = useRef<number | null>(null);
+
+  // Product Detail Drawer for active pinned product
+  const [selectedDrawerProduct, setSelectedDrawerProduct] = useState<Product | null>(null);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+
+  const openDrawer = (product: Product, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedDrawerProduct(product);
+    setIsDrawerOpen(true);
+  };
 
   const nextHeartId = useRef(0);
   const commentsContainerRef = useRef<HTMLDivElement>(null);
-  const featuredProduct = products.find(p => p.id === session.featuredProductId) || products[0];
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current);
+      if (shareTimeoutRef.current) window.clearTimeout(shareTimeoutRef.current);
+    };
+  }, []);
 
   // Auto-scroll comments to bottom
   useEffect(() => {
@@ -188,15 +252,67 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 
   const handleQuickAdd = (product: Product, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!onAddToCart || product.stock <= 0 || addedProductId === product.id) return;
+    if (!onAddToCart || product.stock <= 0) return;
     onAddToCart(product);
-    setAddedProductId(product.id);
-    setTimeout(() => setAddedProductId(null), 1500);
+    setToastVisible(true);
+    setToastKey(prev => prev + 1);
+
+    if (toastTimeoutRef.current) {
+      window.clearTimeout(toastTimeoutRef.current);
+    }
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setToastVisible(false);
+      toastTimeoutRef.current = null;
+    }, 2000);
   };
 
-  const handleShare = () => {
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
+  const showShareFeedback = (msg: string) => {
+    setShareFeedback(msg);
+    if (shareTimeoutRef.current) window.clearTimeout(shareTimeoutRef.current);
+    shareTimeoutRef.current = window.setTimeout(() => {
+      setShareFeedback(null);
+      shareTimeoutRef.current = null;
+    }, 2500);
+  };
+
+  const handleShare = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    const shareTitle = `Watch ${session.sellerName} LIVE on Showmi`;
+    const shareText = activePinnedProduct 
+      ? `Watch ${session.sellerName} live showcasing "${activePinnedProduct.name}" on Showmi!`
+      : `Watch ${session.sellerName} live on Showmi!`;
+    const shareUrl = window.location.href;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: shareTitle,
+          text: shareText,
+          url: shareUrl
+        });
+        showShareFeedback('Stream link shared!');
+        return;
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
+      }
+    }
+
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(shareUrl);
+        showShareFeedback('Live broadcast link copied!');
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = shareUrl;
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        showShareFeedback('Live broadcast link copied!');
+      }
+    } catch {
+      showShareFeedback('Sharing unavailable on this device');
+    }
   };
 
   return (
@@ -224,8 +340,6 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           />
         )}
         
-
-
         {/* Ambient Top and Bottom Dark Gradient Overlays */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-black/60 pointer-events-none" />
 
@@ -256,8 +370,6 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             </div>
           </div>
 
-
-          
           <div className="flex items-center gap-2">
             <button
               className="p-2 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md text-white border border-white/20 transition-colors cursor-pointer pointer-events-auto"
@@ -274,10 +386,15 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           </div>
         </div>
 
-        {/* Floating Copied Toast */}
-        {copiedLink && (
-          <div className="absolute top-16 left-1/2 -translate-x-1/2 z-40 bg-[#19BFFF] text-[#0D1018] text-xs font-bold px-3.5 py-1.5 rounded-full shadow-lg">
-            Stream link copied!
+        {/* Floating Share Feedback Toast */}
+        {shareFeedback && (
+          <div 
+            role="status"
+            aria-live="polite"
+            className="absolute top-16 left-1/2 -translate-x-1/2 z-50 bg-[#171A21] border border-[#19BFFF]/60 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-2xl shadow-black/80 flex items-center gap-2 animate-fade-in backdrop-blur-md"
+          >
+            <span className="w-2 h-2 rounded-full bg-[#19BFFF] shadow-[0_0_8px_#19BFFF]" />
+            <span>{shareFeedback}</span>
           </div>
         )}
 
@@ -314,76 +431,81 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           ))}
         </div>
 
-          {/* Right-Side Engagement Floating Action Panel: Profile, Like, Product, Share */}
-          <div className="absolute right-3 bottom-44 md:bottom-36 z-30 flex flex-col items-center gap-3">
-            {/* 1. Profile: Host / Seller Showroom Profile */}
-            <button
-              onClick={() => {
-                if (onViewSeller && seller) {
-                  onViewSeller(seller.id);
-                }
-              }}
-              className="flex flex-col items-center gap-1 cursor-pointer active:scale-90 transition-transform group"
-              title={`View ${session.sellerName} showroom profile`}
-              aria-label={`View ${session.sellerName} showroom profile`}
-            >
-              <div className="relative p-0.5 rounded-full bg-gradient-to-tr from-[#19BFFF] to-[#7A3CFF] shadow-lg group-hover:scale-105 transition-transform">
-                <img
-                  src={session.sellerAvatar}
-                  alt={session.sellerName}
-                  referrerPolicy="no-referrer"
-                  className="w-10 h-10 rounded-full object-cover border-2 border-black"
-                />
-              </div>
-            </button>
-
-            {/* 2. Like Button with Counter & Press-and-Hold Support */}
-            <div className="flex flex-col items-center gap-0.5">
-              <button
-                onMouseDown={handleLikeStart}
-                onMouseUp={handleLikeEnd}
-                onMouseLeave={handleLikeEnd}
-                onTouchStart={handleLikeStart}
-                onTouchEnd={handleLikeEnd}
-                onTouchCancel={handleLikeEnd}
-                className="w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-transform active:scale-125 cursor-pointer shadow-xl group select-none"
-                aria-label={`Like livestream. Current likes: ${heartCount}`}
-                title="Like (tap or hold)"
-              >
-                <Heart className="w-5 h-5 text-rose-400 group-hover:scale-110 group-active:text-rose-500 fill-rose-500/30 transition-all" />
-              </button>
-              <span className="text-[11px] font-mono font-bold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
-                {heartCount}
-              </span>
+        {/* Right-Side Engagement Floating Action Panel: Profile, Like, Product, Share */}
+        <div className="absolute right-3 bottom-44 md:bottom-36 z-30 flex flex-col items-center gap-3">
+          {/* 1. Profile: Host / Seller Showroom Profile */}
+          <button
+            onClick={() => {
+              if (onViewSeller && seller) {
+                onViewSeller(seller.id);
+              }
+            }}
+            className="flex flex-col items-center gap-1 cursor-pointer active:scale-90 transition-transform group"
+            title={`View ${session.sellerName} showroom profile`}
+            aria-label={`View ${session.sellerName} showroom profile`}
+          >
+            <div className="relative p-0.5 rounded-full bg-gradient-to-tr from-[#19BFFF] to-[#7A3CFF] shadow-lg group-hover:scale-105 transition-transform">
+              <img
+                src={session.sellerAvatar}
+                alt={session.sellerName}
+                referrerPolicy="no-referrer"
+                className="w-10 h-10 rounded-full object-cover border-2 border-black"
+              />
             </div>
+          </button>
 
-            {/* 3. Product Information Details Trigger */}
+          {/* 2. Like Button with Counter & Press-and-Hold Support */}
+          <div className="flex flex-col items-center gap-0.5">
             <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectProduct(session.featuredProductId);
-              }}
-              className="flex flex-col items-center gap-1 cursor-pointer active:scale-90 transition-transform"
-              aria-label="Inspect featured product"
+              onMouseDown={handleLikeStart}
+              onMouseUp={handleLikeEnd}
+              onMouseLeave={handleLikeEnd}
+              onTouchStart={handleLikeStart}
+              onTouchEnd={handleLikeEnd}
+              onTouchCancel={handleLikeEnd}
+              className="w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-transform active:scale-125 cursor-pointer shadow-xl group select-none"
+              aria-label={`Like livestream. Current likes: ${heartCount}`}
+              title="Like (tap or hold)"
+            >
+              <Heart className="w-5 h-5 text-rose-400 group-hover:scale-110 group-active:text-rose-500 fill-rose-500/30 transition-all" />
+            </button>
+            <span className="text-[11px] font-mono font-bold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+              {heartCount}
+            </span>
+          </div>
+
+          {/* 3. Product Information Details Trigger: opens ProductDetailDrawer for active pinned product */}
+          {activePinnedProduct && (
+            <button
+              onClick={(e) => openDrawer(activePinnedProduct, e)}
+              className="flex flex-col items-center gap-0.5 cursor-pointer active:scale-90 transition-transform"
+              aria-label={`Product Information for ${activePinnedProduct.name}`}
               title="Product Information"
             >
-              <div className="w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-colors">
-                <Info className="w-5 h-5 text-[#19BFFF]" />
+              <div className="w-10 h-10 rounded-full bg-black/50 hover:bg-[#0066ff] text-white flex items-center justify-center backdrop-blur-md transition-colors border border-white/10">
+                <Info className="w-5 h-5 text-[#60a5fa] hover:text-white" />
               </div>
+              <span className="text-[10px] font-semibold text-slate-200 drop-shadow">
+                Product
+              </span>
             </button>
+          )}
 
-            {/* 4. Share Button */}
-            <button
-              onClick={handleShare}
-              className="flex flex-col items-center gap-1 cursor-pointer active:scale-90 transition-transform"
-              title="Share livestream"
-              aria-label="Share livestream"
-            >
-              <div className="w-10 h-10 rounded-full bg-black/40 hover:bg-black/60 border border-white/20 text-white flex items-center justify-center backdrop-blur-md transition-colors">
-                <Share2 className="w-4 h-4" />
-              </div>
-            </button>
-          </div>
+          {/* 4. Share Button: with native share & copy-link fallback */}
+          <button
+            onClick={handleShare}
+            className="flex flex-col items-center gap-0.5 cursor-pointer active:scale-90 transition-transform"
+            title="Share stream"
+            aria-label="Share live stream"
+          >
+            <div className="w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-md transition-colors border border-white/10">
+              <Share2 className="w-4 h-4" />
+            </div>
+            <span className="text-[10px] font-semibold text-slate-200 drop-shadow">
+              Share
+            </span>
+          </button>
+        </div>
 
         {/* Expandable Stream & Maker Details Overlay */}
         {isDescriptionExpanded && (
@@ -408,7 +530,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           </div>
         )}
 
-        {/* Bottom Section: Live Chat Preview + Featured Product Card & Shopping Actions */}
+        {/* Bottom Section: Live Chat Preview + Pinned Product Card & Action Buttons */}
         <div className="relative z-30 px-3 pb-20 md:pb-3 space-y-2 safe-area-bottom">
           {/* Scrollable Live Chat Feed (Semi-transparent) */}
           <div
@@ -448,72 +570,155 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             </button>
           </form>
 
-          {/* Featured Product Card with "Add to Basket" & "Buy Now" Actions */}
-          {featuredProduct && (
-            <div className="bg-[#171A21]/95 backdrop-blur-md border border-[#242936] rounded-2xl p-2.5 flex items-center justify-between gap-3 shadow-2xl">
-              <div className="flex items-center gap-2.5 min-w-0">
-                <img
-                  src={featuredProduct.images[0]}
-                  alt={featuredProduct.name}
-                  className="w-12 h-12 rounded-xl object-cover bg-black shrink-0 border border-white/10"
-                />
-                <div className="min-w-0 text-left">
-                  <h4 className="text-xs font-bold text-white truncate leading-tight font-heading">
-                    {featuredProduct.name}
-                  </h4>
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-xs font-bold text-[#19BFFF] font-mono tabular-nums">
-                      R {featuredProduct.priceZAR.toLocaleString()}
+          {/* Live Product Queue Switcher (when multiple products are queued) */}
+          {sessionQueueProducts.length > 1 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5 px-0.5 pointer-events-auto">
+              <span className="text-[9px] uppercase tracking-wider text-slate-400 font-bold shrink-0">
+                Queue ({sessionQueueProducts.length}):
+              </span>
+              {sessionQueueProducts.map((p, idx) => {
+                const isSelected = p.id === activePinnedProduct?.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveProductId(p.id);
+                      session.featuredProductId = p.id;
+                    }}
+                    className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-all whitespace-nowrap cursor-pointer shrink-0 ${
+                      isSelected
+                        ? 'bg-[#19BFFF] text-[#0D1018] font-bold shadow-sm'
+                        : 'bg-black/60 hover:bg-black/80 text-slate-300 border border-white/10'
+                    }`}
+                    title={`Showcase ${p.name}`}
+                    aria-label={`Showcase product ${idx + 1}: ${p.name}`}
+                  >
+                    #{idx + 1} {p.name.length > 14 ? p.name.slice(0, 14) + '...' : p.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Featured / Active Pinned Product Card in Stream: Identical layout to LIVE feed */}
+          {activePinnedProduct && (
+            <div className="relative">
+              <div 
+                onClick={(e) => openDrawer(activePinnedProduct, e)}
+                className="bg-[#12151d]/90 backdrop-blur-md border border-[#212633] hover:border-[#19BFFF]/60 rounded-xl p-2 sm:p-2.5 flex items-center justify-between gap-2.5 transition-all cursor-pointer shadow-xl active:scale-[0.99] pointer-events-auto"
+              >
+                {/* Product details without thumbnail for maximum text readability */}
+                <div className="min-w-0 flex-1 pr-1 text-left">
+                  <span className="text-[9px] uppercase tracking-wider text-slate-400 block font-medium leading-none mb-1">
+                    Pinned in Stream
+                  </span>
+                  <p className="text-xs sm:text-sm font-bold text-white leading-snug line-clamp-2" title={activePinnedProduct.name}>
+                    {activePinnedProduct.name}
+                  </p>
+                  <div className="flex items-center gap-1.5 mt-1">
+                    <span className="text-xs sm:text-sm font-bold font-mono text-emerald-400 leading-none">
+                      R {activePinnedProduct.priceZAR.toLocaleString()}
                     </span>
-                    <span className="text-[10px] text-slate-400 truncate">
-                      · {session.sellerName}
-                    </span>
+                    <span className="text-slate-500 text-[10px] leading-none">•</span>
+                    {isSoldOut ? (
+                      <span className="text-[10px] sm:text-[11px] font-semibold text-rose-400 leading-none">
+                        Sold out
+                      </span>
+                    ) : activePinnedProduct.stock <= 5 ? (
+                      <span className="text-[10px] sm:text-[11px] font-semibold text-amber-400 leading-none">
+                        Only {activePinnedProduct.stock} left
+                      </span>
+                    ) : (
+                      <span className="text-[10px] sm:text-[11px] text-slate-400 font-medium leading-none">
+                        {activePinnedProduct.stock} in stock
+                      </span>
+                    )}
                   </div>
                 </div>
-              </div>
 
-              {/* Shopping Buttons: Add Item & Buy Now */}
-              <div className="flex items-center gap-1.5 shrink-0">
-                {/* Add to Basket Action */}
-                <button
-                  onClick={(e) => handleQuickAdd(featuredProduct, e)}
-                  disabled={featuredProduct.stock <= 0}
-                  className="px-2.5 py-2 rounded-xl bg-[#20242E] hover:bg-[#28303F] text-white text-xs font-semibold border border-[#242936] flex items-center gap-1 transition-all cursor-pointer active:scale-95 disabled:opacity-50 pointer-events-auto"
-                  title="Add to basket"
-                  aria-label="Add product to basket"
-                >
-                  {addedProductId === featuredProduct.id ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-400" />
-                      <span className="text-emerald-400 text-[11px] font-bold">Added</span>
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-3.5 h-3.5" />
-                      <span className="text-[11px]">Add</span>
-                    </>
+                {/* Action buttons: Identical to LIVE feed */}
+                <div className="flex items-stretch gap-1.5 shrink-0 relative" onClick={(e) => e.stopPropagation()}>
+                  {/* Confirmation Toast: compact, dark charcoal, electric blue accent, directly above action buttons */}
+                  {toastVisible && (
+                    <div 
+                      key={toastKey}
+                      role="status"
+                      aria-live="polite"
+                      className="absolute bottom-full mb-2 right-0 z-50 pointer-events-none select-none animate-fade-in"
+                    >
+                      <div className="bg-[#171A21] border border-[#19BFFF]/50 text-white px-3 py-1.5 rounded-xl shadow-2xl shadow-black/80 flex items-center gap-1.5 backdrop-blur-md">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#19BFFF] shadow-[0_0_8px_#19BFFF] shrink-0" />
+                        <span className="text-[11px] sm:text-xs font-semibold text-white whitespace-nowrap">
+                          Added to basket. Keep browsing!
+                        </span>
+                      </div>
+                    </div>
                   )}
-                </button>
 
-                {/* Buy Now Action */}
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onBuyNow(featuredProduct);
-                  }}
-                  disabled={featuredProduct.stock <= 0}
-                  className="px-3.5 py-2 rounded-xl bg-[#19BFFF] hover:bg-[#00AEEF] text-[#0D1018] text-xs font-bold flex items-center gap-1.5 shadow-md shadow-[#19BFFF]/20 transition-all cursor-pointer active:scale-95 disabled:opacity-50 pointer-events-auto"
-                  aria-label={`Buy Now for R ${featuredProduct.priceZAR.toLocaleString()}`}
-                >
-                  <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
-                  <span className="whitespace-nowrap">Buy Now</span>
-                </button>
+                  {onAddToCart && (
+                    <button
+                      type="button"
+                      onClick={(e) => handleQuickAdd(activePinnedProduct, e)}
+                      disabled={isSoldOut}
+                      className={`min-h-[42px] px-2.5 sm:px-3 py-1.5 rounded-lg flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer shadow active:scale-95 ${
+                        isSoldOut
+                          ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                          : 'bg-[#181c25] hover:bg-[#202534] text-white border border-[#2e3648]'
+                      }`}
+                      title={isSoldOut ? 'Sold out' : 'Add to basket'}
+                      aria-label={`Add ${activePinnedProduct.name} to basket`}
+                    >
+                      <Plus className="w-3.5 h-3.5 text-[#19BFFF] shrink-0" />
+                      <span className="text-[10px] sm:text-[11px] font-bold leading-tight text-center text-slate-100 whitespace-nowrap">
+                        to Basket
+                      </span>
+                    </button>
+                  )}
+
+                  {onBuyNow && (
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (!isSoldOut) onBuyNow(activePinnedProduct);
+                      }}
+                      disabled={isSoldOut}
+                      className="min-h-[42px] px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#19BFFF] hover:bg-[#00AEEF] text-[#0D1018] shadow-md shadow-[#19BFFF]/20 transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                      title="Buy now directly from feed"
+                      aria-label={`Buy now ${activePinnedProduct.name}`}
+                    >
+                      <span>Buy Now</span>
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}
         </div>
 
       </div>
+
+      {/* Product Detail Drawer for Active Pinned Product: Reusing existing drawer component */}
+      <ProductDetailDrawer
+        product={selectedDrawerProduct}
+        seller={seller}
+        isOpen={isDrawerOpen}
+        onClose={() => setIsDrawerOpen(false)}
+        onAddToCart={(prod) => {
+          if (onAddToCart) onAddToCart(prod);
+        }}
+        onBuyNow={(prod) => {
+          if (onBuyNow) {
+            onBuyNow(prod);
+          } else if (onAddToCart) {
+            onAddToCart(prod);
+          }
+        }}
+        onViewSeller={onViewSeller}
+      />
+
     </div>
   );
 };
