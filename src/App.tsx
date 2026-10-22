@@ -767,7 +767,7 @@ export default function App() {
   const handleTabChange = (tab: AppTab) => {
     // Role based navigation restriction
     if (tab === 'Seller Studio' && userRole === 'buyer') {
-       showNotification('Access denied: Buyers cannot access management tools. Switch to Admin or Seller role.');
+       showNotification("Oops! You have a Showshopper account. Apply to become a Showpreneur and start selling!");
        return;
     }
     if (tab === 'Seller Studio' && userRole !== 'seller' && userRole !== 'admin') {
@@ -1162,6 +1162,7 @@ export default function App() {
         }}
         onOpenTab={handleTabChange}
         ordersCount={ordersList.length}
+        totalItemCount={totalItemCount}
       />
 
       {/* Mandatory Host Mode AI Disclaimer Confirmation Modal */}

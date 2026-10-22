@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, User, Lock, CreditCard, Building2, ShieldCheck, Sparkles, Check, MapPin, Package, ShoppingBag } from 'lucide-react';
+import { X, User, Lock, CreditCard, Store, ShieldCheck, Sparkles, Check, MapPin, Package, ShoppingBag } from 'lucide-react';
 import { Seller } from '../types';
 import { AppTab } from './Navigation';
 
@@ -14,6 +14,7 @@ interface ProfileModalProps {
   onOpenSellerSignIn?: () => void;
   onOpenTab?: (tab: AppTab) => void;
   ordersCount?: number;
+  totalItemCount?: number;
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({
@@ -25,7 +26,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   sellers,
   onSelectSeller,
   onOpenTab,
-  ordersCount = 0
+  ordersCount = 0,
+  totalItemCount = 0
 }) => {
   const [activeSection, setActiveSection] = useState<'menu' | 'profile' | 'security' | 'payments' | 'address' | 'verification'>('menu');
   const [fullName, setFullName] = useState(userRole === 'seller' && currentSeller ? currentSeller.name : 'Nisa Bardien');
@@ -49,7 +51,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   };
 
   const renderSectionHeader = (title: string) => (
-    <div className="flex items-center gap-3 p-4 border-b border-[#212633] bg-[#0c0e12]/50">
+    <div className="flex items-center gap-3 p-4 border-b border-[#212633] bg-[#0c0e12]/50 shrink-0">
       <button onClick={() => setActiveSection('menu')} className="text-slate-400 hover:text-white cursor-pointer">←</button>
       <h2 className="text-base font-bold text-white tracking-tight">{title}</h2>
     </div>
@@ -57,7 +59,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
-      <div className="bg-[#14171f] border border-[#212633] rounded-3xl max-w-xl w-full max-h-[90vh] flex flex-col shadow-2xl relative animate-fade-in overflow-hidden">
+      <div className="bg-[#14171f] border border-[#212633] rounded-3xl max-w-xl w-full h-[90vh] max-h-[90vh] flex flex-col shadow-2xl relative animate-fade-in overflow-hidden">
+        
+        {/* Main Body Flex Container */}
         <div className="flex-1 flex flex-col overflow-hidden">
         
         {activeSection === 'menu' ? (
@@ -66,7 +70,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                     <h2 className="text-base sm:text-lg font-bold text-white">Profile Settings</h2>
                     <button onClick={onClose} className="text-slate-400 hover:text-white p-1 cursor-pointer" aria-label="Close profile"><X className="w-5 h-5"/></button>
                 </div>
-                <div className="flex-1 overflow-y-auto p-3 sm:p-4">
+                <div className="flex-1 overflow-y-auto p-3 sm:p-4 pb-20">
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
                         <button onClick={() => setActiveSection('profile')} className="flex flex-col items-center justify-center p-4 sm:p-6 bg-[#1e2330] rounded-2xl text-white hover:bg-[#283042] text-center gap-2 sm:gap-3 cursor-pointer active:scale-95 transition-all">
                             <User className="w-7 h-7 sm:w-8 sm:h-8 text-[#0066ff]"/>
@@ -109,7 +113,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             </>
         ) : (
             <>
-                <div className="flex-1 overflow-y-auto">
+                <div className="flex-1 overflow-y-auto pb-20">
                     {activeSection === 'profile' && (
                         <>
                             {renderSectionHeader('Personal Details')}
@@ -189,29 +193,65 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 </div>
             </>
         )}
-        </div>
-        <footer className="shrink-0 bg-[#0D1018] border-t border-[#242936] py-2.5 px-4 safe-area-bottom">
-          <div className="max-w-md mx-auto flex items-center justify-around h-12">
-            <button onClick={onClose} className="flex flex-col items-center justify-center gap-1 text-xs font-semibold text-[#19BFFF]">
-              <User className="w-5 h-5" />
-              <span className="text-[10px] font-bold text-white">Profile</span>
-            </button>
-            <button onClick={() => { if(onOpenTab) onOpenTab('Showrooms'); onClose(); }} className="flex flex-col items-center justify-center gap-1 text-xs font-semibold text-slate-400 hover:text-white">
-              <Building2 className="w-5 h-5" />
-              <span className="text-[10px] font-bold text-white">Showroom</span>
-            </button>
-            <button onClick={() => { if(onOpenTab) onOpenTab('Basket'); onClose(); }} className="flex flex-col items-center justify-center gap-1 text-xs font-semibold text-slate-400 hover:text-white">
+      </div>
+
+      {/* Footer anchored at the bottom of modal card */}
+      <footer className="shrink-0 bg-[#0D1018] border-t border-[#242936] py-2.5 px-4 shadow-2xl safe-area-bottom z-20">
+        <div className="max-w-md mx-auto flex items-center justify-around h-12">
+          {/* 1. Profile */}
+          <button
+            onClick={onClose}
+            className="flex flex-col items-center justify-center gap-1 text-xs font-semibold text-[#19BFFF] cursor-pointer"
+            aria-label="Profile and account settings"
+            title="Profile"
+          >
+            <User className="w-5 h-5" />
+            <span className="text-[10px] font-bold text-white">Profile</span>
+          </button>
+
+          {/* 2. Showroom */}
+          <button
+            onClick={() => { if (onOpenTab) onOpenTab('Showrooms'); onClose(); }}
+            className="flex flex-col items-center justify-center gap-1 text-xs font-semibold text-slate-400 hover:text-white cursor-pointer"
+            aria-label="Showrooms directory"
+            title="Showroom"
+          >
+            <Store className="w-5 h-5" />
+            <span className="text-[10px] font-bold text-white">Showroom</span>
+          </button>
+
+          {/* 3. Cart */}
+          <button
+            onClick={() => { if (onOpenTab) onOpenTab('Basket'); onClose(); }}
+            className="flex flex-col items-center justify-center gap-1 text-xs font-semibold text-slate-400 hover:text-white cursor-pointer relative"
+            aria-label="Cart and checkout"
+            title="Cart"
+          >
+            <div className="relative">
               <ShoppingBag className="w-5 h-5" />
-              <span className="text-[10px] font-bold text-white">Cart</span>
-            </button>
-            <button onClick={() => { if(onOpenTab) onOpenTab('Seller Studio'); onClose(); }} className="flex flex-col items-center justify-center gap-1 text-xs font-semibold text-slate-400 hover:text-white">
-              <Sparkles className="w-5 h-5" />
-              <span className="text-[10px] font-bold text-white">Seller Studio</span>
-            </button>
-          </div>
-        </footer>
+              {totalItemCount > 0 && (
+                <span className="absolute -top-1.5 -right-2 bg-[#19BFFF] text-[#0D1018] px-1 py-0.2 rounded-full text-[9px] font-extrabold tabular-nums">
+                  {totalItemCount}
+                </span>
+              )}
+            </div>
+            <span className="text-[10px] font-bold text-white">Cart</span>
+          </button>
+
+          {/* 4. Seller Studio */}
+          <button
+            onClick={() => { if (onOpenTab) onOpenTab('Seller Studio'); onClose(); }}
+            className="flex flex-col items-center justify-center gap-1 text-xs font-semibold text-slate-400 hover:text-white cursor-pointer"
+            aria-label="Seller Studio management"
+            title="Seller Studio"
+          >
+            <Sparkles className="w-5 h-5" />
+            <span className="text-[10px] font-bold text-white">Seller Studio</span>
+          </button>
+        </div>
+      </footer>
+
       </div>
     </div>
   );
 };
-
