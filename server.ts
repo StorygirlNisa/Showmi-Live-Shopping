@@ -30,7 +30,8 @@ app.use((req, res, next) => {
   console.log(`Request: ${req.method} ${req.url}`);
   next();
 });
-app.post('/api/seller-ai/generate', async (req, res) => {
+app.post('/api/generate', async (req, res) => {
+  console.log(`[${new Date().toISOString()}] Handling request to /api/generate`);
   try {
     const { taskType, product, seller, customContext, snippet, productImage } = req.body;
 
