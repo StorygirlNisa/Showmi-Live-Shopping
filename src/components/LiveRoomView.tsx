@@ -486,7 +486,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         </div>
 
         {/* Right-Side Engagement Floating Action Panel: Profile, Like, Product, Share */}
-        <div className="absolute right-3 bottom-44 md:bottom-36 z-30 flex flex-col items-center gap-3 pointer-events-auto">
+        <div className="absolute right-3 bottom-60 md:bottom-36 z-30 flex flex-col items-center gap-3 pointer-events-auto">
           {/* 1. Profile: Host / Seller Showroom Profile */}
           <button
             onClick={(e) => {
@@ -544,16 +544,13 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                 e.preventDefault();
                 openDrawer(activePinnedProduct, e);
               }}
-              className="flex flex-col items-center gap-0.5 cursor-pointer active:scale-90 transition-transform"
+              className="flex flex-col items-center cursor-pointer active:scale-90 transition-transform"
               aria-label={`Product Information for ${activePinnedProduct.name}`}
               title="Product Information"
             >
               <div className="w-10 h-10 rounded-full bg-black/50 hover:bg-[#0066ff] text-white flex items-center justify-center backdrop-blur-md transition-colors border border-white/10">
                 <Info className="w-5 h-5 text-[#60a5fa] hover:text-white" />
               </div>
-              <span className="text-[10px] font-semibold text-slate-200 drop-shadow">
-                Product
-              </span>
             </button>
           )}
 

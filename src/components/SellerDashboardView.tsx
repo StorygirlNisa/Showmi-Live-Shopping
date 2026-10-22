@@ -355,6 +355,10 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
         })
       });
 
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+      }
+
       const data = await response.json();
       if (data.success && data.text) {
         const raw = data.text;
@@ -558,6 +562,10 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
       });
 
       clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+      }
 
       const data = await response.json();
       if (data.success && data.text) {

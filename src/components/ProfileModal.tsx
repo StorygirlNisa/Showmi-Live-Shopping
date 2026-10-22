@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, User, Lock, CreditCard, Building2, ShieldCheck, Sparkles, Check, MapPin, Package } from 'lucide-react';
+import { X, User, Lock, CreditCard, Building2, ShieldCheck, Sparkles, Check, MapPin, Package, ShoppingBag } from 'lucide-react';
 import { Seller } from '../types';
 import { AppTab } from './Navigation';
 
@@ -189,6 +189,40 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
             </>
         )}
       </div>
+      {/* Persistent Footer: Profile | Showroom | Cart | Seller Studio */}
+      <footer className="shrink-0 bg-[#0D1018] border-t border-[#242936] py-2.5 px-4 safe-area-bottom">
+        <div className="max-w-md mx-auto flex items-center justify-around h-12">
+          <button
+            onClick={onClose}
+            className="flex flex-col items-center justify-center gap-1 text-xs font-semibold transition-colors cursor-pointer text-[#19BFFF]"
+            aria-label="Profile and account settings"
+          >
+            <User className="w-5 h-5" />
+            <span className="text-[10px] font-bold text-white">Profile</span>
+          </button>
+          <button
+            onClick={() => { if(onOpenTab) onOpenTab('Showrooms'); onClose(); }}
+            className="flex flex-col items-center justify-center gap-1 text-xs font-semibold transition-colors cursor-pointer text-slate-400 hover:text-white"
+          >
+            <Building2 className="w-5 h-5" />
+            <span className="text-[10px] font-bold text-white">Showroom</span>
+          </button>
+          <button
+            onClick={() => { if(onOpenTab) onOpenTab('Basket'); onClose(); }}
+            className="flex flex-col items-center justify-center gap-1 text-xs font-semibold transition-colors cursor-pointer text-slate-400 hover:text-white"
+          >
+            <ShoppingBag className="w-5 h-5" />
+            <span className="text-[10px] font-bold text-white">Cart</span>
+          </button>
+          <button
+            onClick={() => { if(onOpenTab) onOpenTab('Seller Studio'); onClose(); }}
+            className="flex flex-col items-center justify-center gap-1 text-xs font-semibold transition-colors cursor-pointer text-slate-400 hover:text-white"
+          >
+            <Sparkles className="w-5 h-5" />
+            <span className="text-[10px] font-bold text-white">Seller Studio</span>
+          </button>
+        </div>
+      </footer>
     </div>
   );
 };
