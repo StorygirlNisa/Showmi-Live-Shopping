@@ -58,6 +58,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   return (
     <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4">
       <div className="bg-[#14171f] border border-[#212633] rounded-3xl max-w-xl w-full max-h-[90vh] flex flex-col shadow-2xl relative animate-fade-in overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden">
         
         {activeSection === 'menu' ? (
             <>
@@ -188,41 +189,28 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                 </div>
             </>
         )}
-      </div>
-      {/* Persistent Footer: Profile | Showroom | Cart | Seller Studio */}
-      <footer className="shrink-0 bg-[#0D1018] border-t border-[#242936] py-2.5 px-4 safe-area-bottom">
-        <div className="max-w-md mx-auto flex items-center justify-around h-12">
-          <button
-            onClick={onClose}
-            className="flex flex-col items-center justify-center gap-1 text-xs font-semibold transition-colors cursor-pointer text-[#19BFFF]"
-            aria-label="Profile and account settings"
-          >
-            <User className="w-5 h-5" />
-            <span className="text-[10px] font-bold text-white">Profile</span>
-          </button>
-          <button
-            onClick={() => { if(onOpenTab) onOpenTab('Showrooms'); onClose(); }}
-            className="flex flex-col items-center justify-center gap-1 text-xs font-semibold transition-colors cursor-pointer text-slate-400 hover:text-white"
-          >
-            <Building2 className="w-5 h-5" />
-            <span className="text-[10px] font-bold text-white">Showroom</span>
-          </button>
-          <button
-            onClick={() => { if(onOpenTab) onOpenTab('Basket'); onClose(); }}
-            className="flex flex-col items-center justify-center gap-1 text-xs font-semibold transition-colors cursor-pointer text-slate-400 hover:text-white"
-          >
-            <ShoppingBag className="w-5 h-5" />
-            <span className="text-[10px] font-bold text-white">Cart</span>
-          </button>
-          <button
-            onClick={() => { if(onOpenTab) onOpenTab('Seller Studio'); onClose(); }}
-            className="flex flex-col items-center justify-center gap-1 text-xs font-semibold transition-colors cursor-pointer text-slate-400 hover:text-white"
-          >
-            <Sparkles className="w-5 h-5" />
-            <span className="text-[10px] font-bold text-white">Seller Studio</span>
-          </button>
         </div>
-      </footer>
+        <footer className="shrink-0 bg-[#0D1018] border-t border-[#242936] py-2.5 px-4 safe-area-bottom">
+          <div className="max-w-md mx-auto flex items-center justify-around h-12">
+            <button onClick={onClose} className="flex flex-col items-center justify-center gap-1 text-xs font-semibold text-[#19BFFF]">
+              <User className="w-5 h-5" />
+              <span className="text-[10px] font-bold text-white">Profile</span>
+            </button>
+            <button onClick={() => { if(onOpenTab) onOpenTab('Showrooms'); onClose(); }} className="flex flex-col items-center justify-center gap-1 text-xs font-semibold text-slate-400 hover:text-white">
+              <Building2 className="w-5 h-5" />
+              <span className="text-[10px] font-bold text-white">Showroom</span>
+            </button>
+            <button onClick={() => { if(onOpenTab) onOpenTab('Basket'); onClose(); }} className="flex flex-col items-center justify-center gap-1 text-xs font-semibold text-slate-400 hover:text-white">
+              <ShoppingBag className="w-5 h-5" />
+              <span className="text-[10px] font-bold text-white">Cart</span>
+            </button>
+            <button onClick={() => { if(onOpenTab) onOpenTab('Seller Studio'); onClose(); }} className="flex flex-col items-center justify-center gap-1 text-xs font-semibold text-slate-400 hover:text-white">
+              <Sparkles className="w-5 h-5" />
+              <span className="text-[10px] font-bold text-white">Seller Studio</span>
+            </button>
+          </div>
+        </footer>
+      </div>
     </div>
   );
 };

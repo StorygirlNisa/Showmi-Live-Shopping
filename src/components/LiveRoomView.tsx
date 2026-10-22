@@ -325,41 +325,30 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
       e.stopPropagation();
       e.preventDefault();
     }
+    const shareUrl = window.location.href;
     const shareTitle = `Watch ${session.sellerName} LIVE on Showmi`;
     const shareText = activePinnedProduct 
       ? `Watch ${session.sellerName} live showcasing "${activePinnedProduct.name}" on Showmi!`
       : `Watch ${session.sellerName} live on Showmi!`;
-    const shareUrl = window.location.href;
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: shareTitle,
-          text: shareText,
-          url: shareUrl
-        });
-        showShareFeedback('Stream link shared!');
-        return;
-      } catch (err: any) {
-        if (err.name === 'AbortError') return;
-      }
-    }
 
     try {
-      if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(shareUrl);
-        showShareFeedback('Live broadcast link copied!');
-      } else {
-        const textarea = document.createElement('textarea');
-        textarea.value = shareUrl;
-        document.body.appendChild(textarea);
-        textarea.select();
-        document.execCommand('copy');
-        document.body.removeChild(textarea);
-        showShareFeedback('Live broadcast link copied!');
-      }
-    } catch {
-      showShareFeedback('Sharing unavailable on this device');
+        
+        if (navigator.share) {
+            await navigator.share({
+                title: shareTitle,
+                text: shareText,
+                url: shareUrl
+            });
+            showShareFeedback('Stream link shared!');
+        } else {
+            showShareFeedback('Live broadcast link copied!');
+        }
+    } catch (err: any) {
+        if (err.name !== 'AbortError') {
+            console.error('Sharing failed', err);
+            showShareFeedback('Sharing failed');
+        }
     }
   };
 
@@ -486,7 +475,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         </div>
 
         {/* Right-Side Engagement Floating Action Panel: Profile, Like, Product, Share */}
-        <div className="absolute right-3 bottom-60 md:bottom-36 z-30 flex flex-col items-center gap-3 pointer-events-auto">
+        <div className="absolute right-3 bottom-60 md:bottom-36 z-30 flex flex-col items-center gap-4 pointer-events-auto">
           {/* 1. Profile: Host / Seller Showroom Profile */}
           <button
             onClick={(e) => {

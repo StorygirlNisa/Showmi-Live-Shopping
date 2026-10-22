@@ -464,16 +464,13 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                 {featured && (
                   <button
                     onClick={(e) => openDrawer(featured, e)}
-                    className="flex flex-col items-center gap-0.5 cursor-pointer active:scale-90 transition-transform"
+                    className="flex flex-col items-center cursor-pointer active:scale-90 transition-transform"
                     title="Product Information"
                     aria-label="Product Information"
                   >
                     <div className="w-10 h-10 rounded-full bg-black/50 hover:bg-[#0066ff] text-white flex items-center justify-center backdrop-blur-md transition-colors">
                       <Info className="w-5 h-5 text-[#60a5fa] hover:text-white" />
                     </div>
-                    <span className="text-[10px] font-semibold text-slate-200 drop-shadow">
-                      Product
-                    </span>
                   </button>
                 )}
 

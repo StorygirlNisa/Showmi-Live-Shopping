@@ -26,6 +26,10 @@ const ai = new GoogleGenAI({
 });
 
 // API Route for AI Selling Assistant
+app.use((req, res, next) => {
+  console.log(`Request: ${req.method} ${req.url}`);
+  next();
+});
 app.post('/api/seller-ai/generate', async (req, res) => {
   try {
     const { taskType, product, seller, customContext, snippet, productImage } = req.body;
