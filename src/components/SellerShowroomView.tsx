@@ -12,7 +12,8 @@ import {
   Sparkles, 
   Check, 
   MessageSquare,
-  X
+  X,
+  Plus
 } from 'lucide-react';
 import { Seller, Product, StreamSnippet } from '../types';
 
@@ -407,31 +408,56 @@ export const SellerStorefrontView: React.FC<SellerStorefrontViewProps> = ({
                     </span>
                   </div>
 
-                  <button
-                    onClick={(e) => handleQuickAdd(product, e)}
-                    disabled={product.stock <= 0}
-                    className={`w-full min-h-[44px] py-2.5 px-3 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer active:scale-98 ${
-                      product.stock <= 0
-                        ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
-                        : addedProductId === product.id
-                        ? 'bg-emerald-600 text-white'
-                        : 'bg-[#181c25] hover:bg-[#0066ff] text-slate-200 hover:text-white border border-[#262c3a] hover:border-transparent'
-                    }`}
-                  >
-                    {product.stock <= 0 ? (
-                      'Out of Stock'
-                    ) : addedProductId === product.id ? (
-                      <>
-                        <Check className="w-3.5 h-3.5" />
-                        Added to Basket
-                      </>
-                    ) : (
-                      <>
-                        <ShoppingBag className="w-3.5 h-3.5" />
-                        Add to Basket
-                      </>
-                    )}
-                  </button>
+                  <div className="grid grid-cols-2 gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      onClick={(e) => handleQuickAdd(product, e)}
+                      disabled={product.stock <= 0}
+                      className={`min-h-[42px] py-2 px-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-95 ${
+                        product.stock <= 0
+                          ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                          : addedProductId === product.id
+                          ? 'bg-emerald-600 text-white'
+                          : 'bg-[#181c25] hover:bg-[#202534] text-slate-200 hover:text-white border border-[#2e3648]'
+                      }`}
+                      title={product.stock <= 0 ? 'Out of stock' : 'Add to basket'}
+                      aria-label={`Add ${product.name} to basket`}
+                    >
+                      {product.stock <= 0 ? (
+                        'Out of Stock'
+                      ) : addedProductId === product.id ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-white" />
+                          <span>Added</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-3.5 h-3.5 text-[#19BFFF]" />
+                          <span>+ to Basket</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (product.stock > 0) {
+                          if (onBuyNow) {
+                            onBuyNow(product);
+                          } else {
+                            onAddToCart(product);
+                          }
+                        }
+                      }}
+                      disabled={product.stock <= 0}
+                      className="min-h-[42px] py-2 px-2.5 rounded-xl text-xs font-bold bg-[#19BFFF] hover:bg-[#00AEEF] disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-[#0D1018] flex items-center justify-center gap-1 shadow-md shadow-[#19BFFF]/20 cursor-pointer active:scale-95 transition-all"
+                      title={product.stock <= 0 ? 'Sold out' : 'Buy Now'}
+                      aria-label={`Buy now ${product.name}`}
+                    >
+                      <span>Buy Now</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

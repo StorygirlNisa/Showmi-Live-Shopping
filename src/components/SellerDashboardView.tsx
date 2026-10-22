@@ -516,6 +516,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
 
   // AI Suggest Description Assistant Handler (Multimodal)
   const handleAiSuggestDescription = async () => {
+    if (isAiGeneratingDesc) return;
     if (!productForm.name.trim()) {
       setAiDescError('Please enter a product title first.');
       return;
@@ -524,67 +525,65 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
     setIsAiGeneratingDesc(true);
     setAiDescError(null);
 
-    let attempts = 0;
-    const maxAttempts = 2;
-    let successText = '';
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout safeguard
 
-    while (attempts < maxAttempts && !successText) {
-      attempts++;
-      try {
-        let productImagePayload = undefined;
-        if (productForm.image && productForm.image.startsWith('data:')) {
-          const match = productForm.image.match(/^data:(image\/[a-zA-Z+-]+);base64,(.+)$/);
-          if (match) {
-            productImagePayload = {
-              mimeType: match[1],
-              data: match[2]
-            };
-          }
+    try {
+      let productImagePayload = undefined;
+      if (productForm.image && productForm.image.startsWith('data:')) {
+        const match = productForm.image.match(/^data:(image\/[a-zA-Z+-]+);base64,(.+)$/);
+        if (match) {
+          productImagePayload = {
+            mimeType: match[1],
+            data: match[2]
+          };
         }
-
-        const response = await fetch('/api/seller-ai/generate', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            taskType: 'suggest_description',
-            product: {
-              name: productForm.name,
-              category: productForm.category,
-              categoryLabel: productForm.categoryLabel,
-              description: productForm.description
-            },
-            seller: currentSeller,
-            productImage: productImagePayload
-          })
-        });
-
-        const data = await response.json();
-        if (data.success && data.text) {
-          const cleanText = data.text.trim();
-          if (cleanText.length >= 150) {
-            successText = cleanText;
-          } else if (attempts === maxAttempts) {
-            successText = cleanText;
-          }
-        }
-      } catch (err) {
-        console.warn('AI Suggest Description error:', err);
       }
-    }
 
-    setIsAiGeneratingDesc(false);
+      const response = await fetch('/api/seller-ai/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          taskType: 'suggest_description',
+          product: {
+            name: productForm.name,
+            category: productForm.category,
+            categoryLabel: productForm.categoryLabel,
+            description: productForm.description
+          },
+          seller: currentSeller,
+          productImage: productImagePayload
+        }),
+        signal: controller.signal
+      });
 
-    if (successText) {
-      setProductForm(prev => ({ ...prev, description: successText }));
-    } else {
-      setAiDescError('AI generation failed or produced a description under 150 characters. Please provide more details and try again.');
+      clearTimeout(timeoutId);
+
+      const data = await response.json();
+      if (data.success && data.text) {
+        const cleanText = data.text.trim();
+        setProductForm(prev => ({ ...prev, description: cleanText }));
+        setAiDescError(null);
+      } else {
+        throw new Error(data.error || 'AI generation failed to return text');
+      }
+    } catch (err: any) {
+      console.error('AI Suggest Description error:', err);
+      if (err?.name === 'AbortError') {
+        setAiDescError('AI generation timed out (exceeded 20s). Please try again or type description manually.');
+      } else {
+        setAiDescError(err?.message || 'AI generation failed. Please try again or type manually.');
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      setIsAiGeneratingDesc(false);
     }
   };
 
   // Product CRUD Handlers
   const handleOpenAddProductModal = () => {
     setEditingProductId(null);
-    setImagePreviewUrl('https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&q=80&w=800');
+    setImagePreviewUrl('');
     setImageUploadError(null);
     setAiDescError(null);
     setProductForm({
@@ -593,7 +592,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
       categoryLabel: 'Handmade Ceramics',
       priceZAR: 450,
       stock: 15,
-      image: 'https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&q=80&w=800',
+      image: '',
       description: '',
       featuresStr: 'Handcrafted, Small batch, Local clay',
       dispatchTime: '24–48 hours',
@@ -627,6 +626,14 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
     e.preventDefault();
     if (!productForm.name.trim()) {
       alert('Product name is required');
+      return;
+    }
+    if (!productForm.image || !productForm.image.trim()) {
+      alert('Product image is required before publishing');
+      return;
+    }
+    if (!productForm.description || !productForm.description.trim()) {
+      alert('Product description is required');
       return;
     }
     if (productForm.priceZAR <= 0) {
@@ -913,7 +920,6 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                 <div className="space-y-3 pt-3 border-t border-[#212633]">
                   <div className="flex justify-between items-center">
                     <span className="text-xs font-bold text-[#0066ff]">Enhanced Description</span>
-                    <button onClick={handleApplyDescription} className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg cursor-pointer">Apply to Store</button>
                   </div>
                   <textarea
                     rows={5}
@@ -921,6 +927,17 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                     onChange={(e) => setCopyResults({ ...copyResults, improvedDescription: e.target.value })}
                     className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-3 text-xs text-white"
                   />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (selectedProduct && copyResults.improvedDescription && onUpdateProductDescription) {
+                        onUpdateProductDescription(selectedProduct.id, copyResults.improvedDescription);
+                      }
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs font-bold cursor-pointer shadow-md transition-colors"
+                  >
+                    Save Enhanced Description
+                  </button>
                 </div>
               )}
             </div>
@@ -1404,7 +1421,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
       {/* Add / Edit Product Modal with Image Upload & AI Suggest Description */}
       {isProductModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#14171f] border border-[#212633] rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 sm:p-8 space-y-6 shadow-2xl relative animate-fade-in">
+          <div className="bg-[#14171f] border border-[#212633] rounded-3xl max-w-lg w-full max-h-[85vh] overflow-y-auto p-6 sm:p-8 space-y-6 shadow-2xl relative animate-fade-in pb-24">
             <div className="flex items-center justify-between pb-4 border-b border-[#212633]">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 rounded-xl bg-[#0066ff] flex items-center justify-center text-white font-bold">
@@ -1445,7 +1462,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                   Product Image (Upload from Device or Camera)
                 </label>
 
-                <div className="flex flex-col sm:flex-row items-center gap-4 p-3 rounded-2xl bg-[#0c0e12] border border-[#212633]">
+                <div className="flex flex-col sm:flex-row items-center gap-3 p-2 rounded-xl bg-[#0c0e12] border border-[#212633]">
                   {imagePreviewUrl ? (
                     <img
                       src={imagePreviewUrl}

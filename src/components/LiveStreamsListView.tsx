@@ -7,7 +7,6 @@ import {
   Radio, 
   Heart, 
   Share2, 
-  ShoppingBag, 
   Check, 
   Info,
   Sparkles,
@@ -107,6 +106,12 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
   useEffect(() => {
     if (feedContainerRef.current && savedLiveScrollTop > 0) {
       feedContainerRef.current.scrollTop = savedLiveScrollTop;
+      const raf = requestAnimationFrame(() => {
+        if (feedContainerRef.current && savedLiveScrollTop > 0) {
+          feedContainerRef.current.scrollTop = savedLiveScrollTop;
+        }
+      });
+      return () => cancelAnimationFrame(raf);
     }
   }, []);
 
@@ -349,25 +354,6 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                   </form>
                 </div>
 
-                {/* Quick Basket Access Floating Button (accessible on mobile when standard header is hidden) */}
-                {onOpenTab && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onOpenTab('Basket');
-                    }}
-                    className="pointer-events-auto flex items-center justify-center min-h-[40px] px-3 rounded-full bg-black/40 hover:bg-black/60 backdrop-blur-md border border-white/20 text-white text-xs font-semibold transition-all cursor-pointer shadow-xl active:scale-95 gap-1.5 shrink-0"
-                    title="Basket"
-                    aria-label={`Basket with ${totalCartCount} items`}
-                  >
-                    <ShoppingBag className="w-4 h-4 text-[#19BFFF]" />
-                    {totalCartCount > 0 && (
-                      <span className="bg-[#19BFFF] text-[#0D1018] px-1.5 py-0.2 rounded-full text-[11px] font-bold tabular-nums">
-                        {totalCartCount}
-                      </span>
-                    )}
-                  </button>
-                )}
 
                 {/* Mute Toggle Button */}
                 <button

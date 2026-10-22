@@ -78,6 +78,16 @@ const safeStorage = {
   }
 };
 
+interface CartOriginContext {
+  tab: AppTab;
+  selectedProductId: string | null;
+  selectedSellerId: string | null;
+  activeLiveSessionId: string | null;
+  isSellerHostMode: boolean;
+  searchQuery: string;
+  windowScrollY: number;
+}
+
 export default function App() {
   // Role & Authentication State
   const [userRole, setUserRole] = useState<'admin' | 'buyer' | 'seller'>(() => {
@@ -111,6 +121,10 @@ export default function App() {
   const [selectedSellerId, setSelectedSellerId] = useState<string | null>(null);
   const [activeLiveSessionId, setActiveLiveSessionId] = useState<string | null>(null);
   const [basketInitialStep, setBasketInitialStep] = useState<'basket' | 'checkout'>('basket');
+
+  // Origin tracking when navigating to Cart/Basket to ensure Back returns to exact originating context
+  const [cartOrigin, setCartOrigin] = useState<CartOriginContext | null>(null);
+  const cartOriginRef = useRef<CartOriginContext | null>(null);
   
   // Modals
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
@@ -256,8 +270,29 @@ export default function App() {
     setTimeout(() => setNotification(null), 2500);
   };
 
-  // Reference to prevent accidental duplicate additions caused by single button tap
+  // References to prevent accidental rapid double-taps on the same button
   const lastAddRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
+  const lastBuyRef = useRef<{ id: string; time: number }>({ id: '', time: 0 });
+
+  const openCart = (step: 'basket' | 'checkout' = 'basket') => {
+    // Only capture origin if we are not already on the Basket tab
+    if (activeTab !== 'Basket') {
+      const origin: CartOriginContext = {
+        tab: activeTab,
+        selectedProductId,
+        selectedSellerId,
+        activeLiveSessionId,
+        isSellerHostMode,
+        searchQuery,
+        windowScrollY: window.scrollY || document.documentElement.scrollTop || 0
+      };
+      cartOriginRef.current = origin;
+      setCartOrigin(origin);
+    }
+    setBasketInitialStep(step);
+    setActiveTab('Basket');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleAddToCart = (product: Product, quantity = 1) => {
     const currentProduct = productsList.find(p => p.id === product.id) || product;
@@ -270,12 +305,11 @@ export default function App() {
 
     // Prevent accidental duplicate additions caused by rapid single button tap
     const now = Date.now();
-    if (lastAddRef.current.id === product.id && now - lastAddRef.current.time < 500) {
+    if (lastAddRef.current.id === product.id && now - lastAddRef.current.time < 350) {
       return;
     }
     lastAddRef.current = { id: product.id, time: now };
 
-    console.log('Adding to cart:', currentProduct.name, 'qty:', quantity);
     setCartItems(prev => {
       const existing = prev.find(item => item.product.id === currentProduct.id);
       if (existing) {
@@ -288,47 +322,43 @@ export default function App() {
       }
       return [...prev, { product: currentProduct, quantity: Math.min(availableStock, quantity) }];
     });
-    console.log('Cart state updated');
-    if (activeTab !== 'LIVE') {
-      showNotification('Added to basket. Keep browsing!');
-    }
+
+    // Display consistent confirmation toast across all views including LIVE feed and active live sessions
+    showNotification('Added to basket. Keep browsing!');
   };
 
   const handleBuyNow = (product: Product, quantity = 1) => {
     const currentProduct = productsList.find(p => p.id === product.id) || product;
+    const availableStock = typeof currentProduct.stock === 'number' ? currentProduct.stock : 99;
 
-    if (currentProduct.stock <= 0) {
+    if (availableStock <= 0) {
       showNotification(`${currentProduct.name} is currently out of stock`);
       return;
     }
 
     // Prevent accidental duplicate additions caused by rapid single button tap
     const now = Date.now();
-    if (lastAddRef.current.id === product.id && now - lastAddRef.current.time < 500) {
+    if (lastBuyRef.current.id === product.id && now - lastBuyRef.current.time < 350) {
       return;
     }
-    lastAddRef.current = { id: product.id, time: now };
+    lastBuyRef.current = { id: product.id, time: now };
 
     // Add selected product to basket while preserving all existing items
     setCartItems(prev => {
       const existing = prev.find(item => item.product.id === currentProduct.id);
       if (existing) {
-        const newQty = Math.min(currentProduct.stock, existing.quantity + quantity);
+        const newQty = Math.min(availableStock, existing.quantity + quantity);
         return prev.map(item =>
           item.product.id === currentProduct.id
             ? { ...item, product: currentProduct, quantity: newQty }
             : item
         );
       }
-      return [...prev, { product: currentProduct, quantity: Math.min(currentProduct.stock, quantity) }];
+      return [...prev, { product: currentProduct, quantity: Math.min(availableStock, quantity) }];
     });
 
-    // Navigate to Basket & Checkout flow at Step 1: Basket (do not skip to checkout)
-    setSelectedProductId(null);
-    setActiveLiveSessionId(null);
-    setSelectedSellerId(null);
-    setBasketInitialStep('basket');
-    setActiveTab('Basket');
+    // Navigate to Basket & Checkout flow at Step 1: Basket (capturing origin context for Back navigation)
+    openCart('basket');
   };
 
   const handleUpdateQuantity = (productId: string, quantity: number) => {
@@ -704,6 +734,36 @@ export default function App() {
     showNotification('Promotion expired! Verified promo prompt removed from coach queue');
   };
 
+  const handleBackFromCart = () => {
+    const origin = cartOriginRef.current || cartOrigin;
+    // Clear origin immediately to avoid duplicate navigation history entries or loops
+    cartOriginRef.current = null;
+    setCartOrigin(null);
+
+    if (origin && origin.tab !== 'Basket') {
+      setActiveTab(origin.tab);
+      setSelectedProductId(origin.selectedProductId);
+      setSelectedSellerId(origin.selectedSellerId);
+      setActiveLiveSessionId(origin.activeLiveSessionId);
+      setIsSellerHostMode(origin.isSellerHostMode);
+      setSearchQuery(origin.searchQuery);
+
+      if (origin.windowScrollY > 0) {
+        requestAnimationFrame(() => {
+          window.scrollTo({ top: origin.windowScrollY, behavior: 'auto' });
+        });
+      }
+    } else {
+      // Graceful fallback: return to Showrooms feed without hardcoding LIVE
+      setActiveTab('Showrooms');
+      setSelectedProductId(null);
+      setSelectedSellerId(null);
+      setActiveLiveSessionId(null);
+      setIsSellerHostMode(false);
+      window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  };
+
   const handleTabChange = (tab: AppTab) => {
     // Role based navigation restriction
     if (tab === 'Seller Studio' && userRole === 'buyer') {
@@ -714,13 +774,22 @@ export default function App() {
       setUserRole('seller');
       setCurrentSellerId(currentSellerId || SELLERS[0].id);
     }
+
+    if (tab === 'Basket') {
+      openCart('basket');
+      return;
+    }
+
+    // Direct tab switch away from Cart or between primary views:
+    // Clear any cart origin so we don't leave stale return destinations
+    cartOriginRef.current = null;
+    setCartOrigin(null);
+
     setSearchQuery('');
     setSelectedProductId(null);
     setSelectedSellerId(null);
-    if (tab !== 'Basket') {
-      setActiveLiveSessionId(null);
-      setIsSellerHostMode(false);
-    }
+    setActiveLiveSessionId(null);
+    setIsSellerHostMode(false);
     setBasketInitialStep('basket');
 
     setActiveTab(tab);
@@ -768,8 +837,8 @@ export default function App() {
     }
   };
 
-  const isLiveFeed = activeTab === 'LIVE' && !selectedProductId && !selectedSellerId && searchQuery.trim() === '' && !isSellerHostMode;
-  const isActiveLiveRoom = !!activeLiveSession && !isSellerHostMode;
+  const isLiveFeed = activeTab === 'LIVE' && !selectedProductId && !selectedSellerId && searchQuery.trim() === '' && !isSellerHostMode && !activeLiveSessionId;
+  const isActiveLiveRoom = activeTab === 'LIVE' && !!activeLiveSession && !isSellerHostMode;
   const isImmersiveLive = isLiveFeed || isActiveLiveRoom;
 
   const appContent = (
@@ -813,8 +882,53 @@ export default function App() {
 
       {/* Main Content Area */}
       <main className={isImmersiveLive ? "flex-1 pb-0 md:pb-20 overflow-hidden" : "flex-1 pb-24 md:pb-20"}>
-        {/* Dedicated Search Results View */}
-        {searchQuery.trim() !== '' ? (
+        {/* Preserved Active Live Session: kept mounted even when viewing Basket so video and session state do not restart */}
+        {activeLiveSession && !isSellerHostMode && (
+          <div className={activeTab === 'Basket' ? 'hidden' : 'contents'}>
+            <LiveRoomView
+              session={activeLiveSession}
+              products={productsList}
+              seller={SELLERS.find(s => s.id === activeLiveSession.sellerId)}
+              allLiveSessions={LIVE_SESSIONS}
+              onBack={() => {
+                setActiveLiveSessionId(null);
+                cartOriginRef.current = null;
+                setCartOrigin(null);
+              }}
+              onSelectProduct={handleSelectProduct}
+              onViewSeller={handleSelectSeller}
+              onAddToCart={handleAddToCart}
+              onBuyNow={handleBuyNow}
+              onSwitchSession={(sessionId) => setActiveLiveSessionId(sessionId)}
+              isActive={activeTab !== 'Basket'}
+            />
+          </div>
+        )}
+
+        {/* Primary View Routing */}
+        {activeTab === 'Basket' ? (
+          /* View: Basket & Checkout Preview */
+          <BasketCheckoutView
+            cartItems={cartItems}
+            productsList={productsList}
+            currentSellerId={userRole === 'seller' ? currentSellerId : undefined}
+            onUpdateQuantity={handleUpdateQuantity}
+            onRemoveItem={handleRemoveItem}
+            onClearCart={handleClearCart}
+            onBackToDiscover={handleBackFromCart}
+            onSelectProduct={handleSelectProduct}
+            onPlaceOrder={handlePlaceOrder}
+            onViewOrders={() => {
+              cartOriginRef.current = null;
+              setCartOrigin(null);
+              setActiveTab('My Orders');
+            }}
+            initialStep={basketInitialStep}
+          />
+        ) : activeLiveSession && !isSellerHostMode ? (
+          /* Preserved active live session is rendered above */
+          null
+        ) : searchQuery.trim() !== '' ? (
           <SearchResultsView
             query={searchQuery}
             onClearQuery={() => setSearchQuery('')}
@@ -850,20 +964,6 @@ export default function App() {
             onViewShopperLiveRoom={() => setIsSellerHostMode(false)}
             onSimulateOrderStockDecrement={handleSimulateOrderStockDecrement}
             onExpirePromotionNow={handleExpirePromotionNow}
-            onSwitchSession={(sessionId) => setActiveLiveSessionId(sessionId)}
-          />
-        ) : activeLiveSession && !isSellerHostMode ? (
-          /* View: Active Livestream Room */
-          <LiveRoomView
-            session={activeLiveSession}
-            products={productsList}
-            seller={SELLERS.find(s => s.id === activeLiveSession.sellerId)}
-            allLiveSessions={LIVE_SESSIONS}
-            onBack={() => setActiveLiveSessionId(null)}
-            onSelectProduct={handleSelectProduct}
-            onViewSeller={handleSelectSeller}
-            onAddToCart={handleAddToCart}
-            onBuyNow={handleBuyNow}
             onSwitchSession={(sessionId) => setActiveLiveSessionId(sessionId)}
           />
         ) : selectedProduct ? (
@@ -937,27 +1037,6 @@ export default function App() {
             onReportIssue={handleReportIssue}
             onBackToShopping={() => setActiveTab('LIVE')}
             onSelectProduct={handleSelectProduct}
-          />
-        ) : activeTab === 'Basket' ? (
-          /* View: Basket & Checkout Preview */
-          <BasketCheckoutView
-            cartItems={cartItems}
-            productsList={productsList}
-            currentSellerId={userRole === 'seller' ? currentSellerId : undefined}
-            onUpdateQuantity={handleUpdateQuantity}
-            onRemoveItem={handleRemoveItem}
-            onClearCart={handleClearCart}
-            onBackToDiscover={() => {
-              if (activeLiveSessionId) {
-                setActiveTab('LIVE');
-              } else {
-                handleTabChange('LIVE');
-              }
-            }}
-            onSelectProduct={handleSelectProduct}
-            onPlaceOrder={handlePlaceOrder}
-            onViewOrders={() => setActiveTab('My Orders')}
-            initialStep={basketInitialStep}
           />
         ) : activeTab === 'Showrooms' ? (
           /* View: Showrooms Directory */

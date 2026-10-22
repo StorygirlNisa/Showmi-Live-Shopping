@@ -126,7 +126,7 @@ Keep each tip under 25 words. Warm South African tone. Never invent unlisted fea
       ];
     }
 
-    // Call Gemini model
+    // Call Gemini model (optimized for speed with Flash Lite)
     let responseText = '';
     let modelUsed = 'gemini-3.1-flash-lite';
 
@@ -136,7 +136,8 @@ Keep each tip under 25 words. Warm South African tone. Never invent unlisted fea
         contents,
         config: {
           systemInstruction,
-          temperature: 0.7,
+          temperature: 0.5,
+          maxOutputTokens: 250,
         },
       });
       responseText = result.text || '';
@@ -147,7 +148,8 @@ Keep each tip under 25 words. Warm South African tone. Never invent unlisted fea
         contents,
         config: {
           systemInstruction,
-          temperature: 0.7,
+          temperature: 0.5,
+          maxOutputTokens: 250,
         },
       });
       responseText = fallbackResult.text || '';

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { 
   ShoppingBag, 
   Trash2, 
@@ -70,10 +70,13 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
 }) => {
   // Checkout Form State
   const [step, setStep] = useState<'basket' | 'checkout' | 'confirmation'>(initialStep || 'basket');
+  const prevInitialStepRef = useRef(initialStep);
+  const submittingRef = useRef(false);
 
-  // Synchronize step whenever initialStep changes (e.g. navigating via Buy Now)
+  // Synchronize step whenever initialStep explicitly changes from outside (e.g. navigating via Buy Now)
   useEffect(() => {
-    if (initialStep) {
+    if (initialStep && initialStep !== prevInitialStepRef.current) {
+      prevInitialStepRef.current = initialStep;
       setStep(initialStep);
     }
   }, [initialStep]);
@@ -195,8 +198,32 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
     }
   };
 
-  const handleSimulatePayment = (e: React.FormEvent) => {
+  const handleProceedToCheckout = (e: React.MouseEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    if (cartItems.some(i => i.product.stock <= 0)) {
+      return;
+    }
+    setStep('checkout');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleSimulatePayment = (e?: React.FormEvent | React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+
+    // Strict guard: orders can only be placed explicitly on the checkout review step
+    if (step !== 'checkout') {
+      return;
+    }
+
+    // Prevent accidental duplicate submissions
+    if (isProcessingPayment || submittingRef.current) {
+      return;
+    }
+
     setCheckoutStockError(null);
     setFieldErrors({});
 
@@ -242,6 +269,7 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
       return;
     }
 
+    submittingRef.current = true;
     setIsProcessingPayment(true);
 
     setTimeout(() => {
@@ -252,11 +280,13 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
 
       if (finalFailing.length > 0) {
         setIsProcessingPayment(false);
+        submittingRef.current = false;
         setCheckoutStockError('Order cancelled: stock was updated elsewhere while approving payment. Please adjust your basket.');
         return;
       }
 
       setIsProcessingPayment(false);
+      submittingRef.current = false;
 
       const now = new Date();
       const estDelivery = new Date(now.getTime() + 3 * 24 * 3600000);
@@ -502,13 +532,21 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
       <div className="flex items-center justify-between pb-4 border-b border-[#212633]">
         <div className="flex items-center gap-3">
           <button
-            onClick={onBackToDiscover}
-            className="text-slate-400 hover:text-white transition-colors cursor-pointer"
+            onClick={() => {
+              if (step === 'checkout') {
+                setStep('basket');
+              } else {
+                onBackToDiscover();
+              }
+            }}
+            className="text-slate-400 hover:text-white transition-colors cursor-pointer p-1 -ml-1 rounded-lg hover:bg-white/5"
+            aria-label="Back"
+            title="Back"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
-            {step === 'basket' ? 'Your Shopping Basket' : 'Checkout & Dispatch Details'}
+            {step === 'basket' ? 'Your Shopping Basket' : 'Checkout Review & Delivery Details'}
           </h1>
         </div>
 
@@ -524,7 +562,7 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
           </button>
           <span className="text-slate-600">→</span>
           <span className={`px-2 py-0.5 rounded ${step === 'checkout' ? 'bg-[#0066ff] text-white font-bold' : 'text-slate-400'}`}>
-            2. Delivery & Pay
+            2. Review & Place Order
           </span>
         </div>
       </div>
@@ -613,7 +651,70 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
           ) : (
             /* South African Delivery & Simulated Payment Form */
             <form id="checkout-form" onSubmit={handleSimulatePayment} className="space-y-6">
-              
+              {/* Step 2 Review Banner */}
+              <div className="p-4 rounded-2xl bg-[#14171f] border border-blue-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#19BFFF] animate-pulse"></span>
+                    <span className="text-[11px] font-mono text-[#19BFFF] font-bold uppercase tracking-wider">Step 2 of 2 · Checkout Review</span>
+                  </div>
+                  <p className="text-xs text-slate-300">
+                    Review your delivery destination and chosen payment option below before placing your order.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setStep('basket');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-[#1e2330] hover:bg-[#283244] text-xs font-semibold text-slate-200 hover:text-white transition-colors shrink-0 flex items-center justify-center gap-1.5 cursor-pointer self-start sm:self-auto border border-[#2e374d]"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Return to Cart to Edit Items</span>
+                </button>
+              </div>
+
+              {/* Items in this order review card */}
+              <div className="p-5 rounded-2xl bg-[#14171f] border border-[#212633] space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs font-bold text-white uppercase tracking-wider">
+                    <ShoppingBag className="w-4 h-4 text-[#0066ff]" />
+                    <span>Order Items ({resolvedCartItems.reduce((s, i) => s + i.quantity, 0)})</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setStep('basket');
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className="text-xs text-[#19BFFF] hover:underline cursor-pointer font-medium"
+                  >
+                    Edit Quantities
+                  </button>
+                </div>
+                <div className="divide-y divide-[#212633]/70">
+                  {resolvedCartItems.map((item) => (
+                    <div key={item.product.id} className="py-2.5 flex items-center justify-between text-xs gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img
+                          src={item.product.images[0]}
+                          alt={item.product.name}
+                          className="w-10 h-10 rounded-lg object-cover bg-black border border-[#212633] shrink-0"
+                        />
+                        <div className="min-w-0">
+                          <p className="font-semibold text-white truncate">{item.product.name}</p>
+                          <p className="text-[11px] text-slate-400">Qty: {item.quantity} · R {item.product.priceZAR.toLocaleString()} each</p>
+                        </div>
+                      </div>
+                      <span className="font-mono font-bold text-white shrink-0">
+                        R {(item.product.priceZAR * item.quantity).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               {/* Delivery Address Card */}
               <div className="p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-4">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -990,50 +1091,58 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
               </div>
             </div>
 
-            {/* Progress Button */}
+            {/* Progress Actions */}
             {step === 'basket' ? (
-              <div className="space-y-2">
+              <div key="basket-action-panel" className="space-y-2">
                 <button
-                  onClick={() => setStep('checkout')}
-                  disabled={cartItems.some(i => i.product.stock <= 0)}
+                  key="btn-proceed-to-checkout"
+                  type="button"
+                  onClick={handleProceedToCheckout}
+                  disabled={resolvedCartItems.some(i => i.product.stock <= 0)}
                   className="w-full py-3.5 px-4 rounded-xl text-sm font-bold bg-[#19BFFF] hover:bg-[#00AEEF] disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-[#0D1018] flex items-center justify-center gap-2 shadow-lg shadow-[#19BFFF]/25 cursor-pointer transition-all active:scale-[0.99]"
                 >
-                  Proceed to Checkout
+                  <span>Proceed to Checkout</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
-                {cartItems.some(i => i.product.stock <= 0) && (
+                {resolvedCartItems.some(i => i.product.stock <= 0) && (
                   <p className="text-[11px] text-red-400 text-center font-medium">
                     An item in your basket is currently out of stock. Please remove it to proceed.
                   </p>
                 )}
               </div>
             ) : (
-              <div className="space-y-2">
+              <div key="checkout-action-panel" className="space-y-2.5">
                 <button
-                  type="submit"
-                  form="checkout-form"
-                  disabled={isProcessingPayment}
-                  className="w-full py-3.5 px-4 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 cursor-pointer transition-all active:scale-[0.99] disabled:opacity-50"
+                  key="btn-place-order"
+                  type="button"
+                  onClick={handleSimulatePayment}
+                  disabled={isProcessingPayment || hasAnyStockIssue}
+                  className="w-full py-3.5 px-4 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed text-white flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/25 cursor-pointer transition-all active:scale-[0.99]"
                 >
                   {isProcessingPayment ? (
                     <>
                       <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-                      Simulating SA Payment Approval...
+                      <span>Simulating SA Payment Approval...</span>
                     </>
                   ) : (
                     <>
                       <Lock className="w-4 h-4" />
-                      Place Simulated Order · R {grandTotalZAR.toLocaleString()}
+                      <span>Place Order · R {grandTotalZAR.toLocaleString()}</span>
                     </>
                   )}
                 </button>
 
                 <button
+                  key="btn-edit-basket"
                   type="button"
-                  onClick={() => setStep('basket')}
-                  className="w-full py-2 text-xs text-slate-400 hover:text-white transition-colors cursor-pointer text-center"
+                  onClick={() => {
+                    setStep('basket');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="w-full py-2.5 text-xs text-slate-400 hover:text-white transition-colors cursor-pointer text-center flex items-center justify-center gap-1.5"
                 >
-                  Edit Basket Items
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Return to Cart to Edit Items</span>
                 </button>
               </div>
             )}

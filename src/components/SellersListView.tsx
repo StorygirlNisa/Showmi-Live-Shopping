@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Seller, Product, StreamSnippet } from '../types';
 import { MapPin, Star, Film, ArrowRight, CheckCircle2, Store, Users } from 'lucide-react';
 
@@ -12,6 +12,9 @@ interface SellersListViewProps {
   onToggleFollow?: (sellerId: string) => void;
 }
 
+// In-memory persistent scroll offset to preserve Showrooms feed browsing position across navigation
+let savedShowroomsScrollTop = 0;
+
 export const SellersListView: React.FC<SellersListViewProps> = ({
   sellers,
   products,
@@ -22,6 +25,28 @@ export const SellersListView: React.FC<SellersListViewProps> = ({
   onToggleFollow
 }) => {
   const displaySellers = sellers;
+
+  // Restore feed scroll position when returning to Showrooms
+  useEffect(() => {
+    if (savedShowroomsScrollTop > 0) {
+      window.scrollTo({ top: savedShowroomsScrollTop, behavior: 'auto' });
+      const raf = requestAnimationFrame(() => {
+        window.scrollTo({ top: savedShowroomsScrollTop, behavior: 'auto' });
+      });
+      return () => cancelAnimationFrame(raf);
+    }
+  }, []);
+
+  // Track window scroll position while browsing the Showrooms feed
+  useEffect(() => {
+    const handleScroll = () => {
+      savedShowroomsScrollTop = window.scrollY || document.documentElement.scrollTop || 0;
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
 
   return (
     <div className="flex flex-col w-full min-h-[calc(100vh-154px)] bg-[#0c0e12] pb-28">

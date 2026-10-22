@@ -21,11 +21,12 @@ interface LiveRoomViewProps {
   onBack: () => void;
   onSelectProduct: (productId: string) => void;
   onViewSeller: (sellerId: string) => void;
-  onAddToCart?: (product: Product) => void;
-  onBuyNow?: (product: Product) => void;
+  onAddToCart?: (product: Product, quantity?: number) => void;
+  onBuyNow?: (product: Product, quantity?: number) => void;
   onSwitchSession: (sessionId: string) => void;
   allLiveSessions: LiveSession[];
   onOpenHostMode?: (sessionId: string) => void;
+  isActive?: boolean;
 }
 
 interface FloatingHeart {
@@ -35,6 +36,9 @@ interface FloatingHeart {
   color: string;
   isGradient?: boolean;
 }
+
+// Global playback timestamps map to preserve exact playback position across views without restarting
+const sessionPlaybackTimes: Record<string, number> = {};
 
 export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   session,
@@ -47,7 +51,8 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   onBuyNow,
   onSwitchSession,
   allLiveSessions,
-  onOpenHostMode
+  onOpenHostMode,
+  isActive = true
 }) => {
   const [isMuted, setIsMuted] = useState(true);
   const [isPlaying] = useState(true);
@@ -114,21 +119,60 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   const openDrawer = (product: Product, e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
     setSelectedDrawerProduct(product);
     setIsDrawerOpen(true);
   };
 
   const nextHeartId = useRef(0);
   const commentsContainerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
-  // Cleanup timeouts on unmount
+  // Preserve and restore video playback position so session never restarts when opening/returning from Cart
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (!isActive) {
+      sessionPlaybackTimes[session.id] = video.currentTime;
+      video.pause();
+    } else {
+      const savedTime = sessionPlaybackTimes[session.id];
+      if (savedTime && Math.abs(video.currentTime - savedTime) > 0.3) {
+        try {
+          video.currentTime = savedTime;
+        } catch {}
+      }
+      video.play().catch(err => {
+        if (err.name !== 'AbortError') console.error("Playback resume failed", err);
+      });
+    }
+  }, [isActive, session.id]);
+
+  // Restore saved playback time when mounting or switching sessions
+  useEffect(() => {
+    const video = videoRef.current;
+    const savedTime = sessionPlaybackTimes[session.id];
+    if (video && savedTime) {
+      try {
+        video.currentTime = savedTime;
+      } catch {}
+    }
+  }, [session.id]);
+
+  // Cleanup timeouts on unmount and save current playback time
   useEffect(() => {
     return () => {
+      if (videoRef.current) {
+        sessionPlaybackTimes[session.id] = videoRef.current.currentTime;
+      }
       if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current);
       if (shareTimeoutRef.current) window.clearTimeout(shareTimeoutRef.current);
     };
-  }, []);
+  }, [session.id]);
 
   // Auto-scroll comments to bottom
   useEffect(() => {
@@ -234,6 +278,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 
   const handleLikeStart = (e: React.MouseEvent | React.TouchEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     setHeartCount(h => h + 1);
     spawnHearts(2);
 
@@ -275,8 +320,11 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     }, 2500);
   };
 
-  const handleShare = async (e?: React.MouseEvent) => {
-    if (e) e.stopPropagation();
+  const handleShare = async (e?: React.MouseEvent | React.TouchEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
     const shareTitle = `Watch ${session.sellerName} LIVE on Showmi`;
     const shareText = activePinnedProduct 
       ? `Watch ${session.sellerName} live showcasing "${activePinnedProduct.name}" on Showmi!`
@@ -323,11 +371,17 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         {/* Livestream Video / Cover */}
         {session.videoUrl && !videoError ? (
           <video
+            ref={videoRef}
             src={session.videoUrl}
             autoPlay
             muted={isMuted}
             loop
             playsInline
+            onTimeUpdate={() => {
+              if (videoRef.current) {
+                sessionPlaybackTimes[session.id] = videoRef.current.currentTime;
+              }
+            }}
             className={`absolute inset-0 w-full h-full object-cover transition-opacity duration-700 ${isPlaying ? 'opacity-100' : 'opacity-60'}`}
             onError={() => setVideoError(true)}
           />
@@ -432,10 +486,12 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         </div>
 
         {/* Right-Side Engagement Floating Action Panel: Profile, Like, Product, Share */}
-        <div className="absolute right-3 bottom-44 md:bottom-36 z-30 flex flex-col items-center gap-3">
+        <div className="absolute right-3 bottom-44 md:bottom-36 z-30 flex flex-col items-center gap-3 pointer-events-auto">
           {/* 1. Profile: Host / Seller Showroom Profile */}
           <button
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
               if (onViewSeller && seller) {
                 onViewSeller(seller.id);
               }
@@ -457,6 +513,12 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           {/* 2. Like Button with Counter & Press-and-Hold Support */}
           <div className="flex flex-col items-center gap-0.5">
             <button
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                setHeartCount(h => h + 1);
+                spawnHearts(2);
+              }}
               onMouseDown={handleLikeStart}
               onMouseUp={handleLikeEnd}
               onMouseLeave={handleLikeEnd}
@@ -477,7 +539,11 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           {/* 3. Product Information Details Trigger: opens ProductDetailDrawer for active pinned product */}
           {activePinnedProduct && (
             <button
-              onClick={(e) => openDrawer(activePinnedProduct, e)}
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                openDrawer(activePinnedProduct, e);
+              }}
               className="flex flex-col items-center gap-0.5 cursor-pointer active:scale-90 transition-transform"
               aria-label={`Product Information for ${activePinnedProduct.name}`}
               title="Product Information"
@@ -493,7 +559,11 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
 
           {/* 4. Share Button: with native share & copy-link fallback */}
           <button
-            onClick={handleShare}
+            onClick={(e) => {
+              e.stopPropagation();
+              e.preventDefault();
+              handleShare(e);
+            }}
             className="flex flex-col items-center gap-0.5 cursor-pointer active:scale-90 transition-transform"
             title="Share stream"
             aria-label="Share live stream"
@@ -501,9 +571,6 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
             <div className="w-10 h-10 rounded-full bg-black/50 hover:bg-black/70 text-white flex items-center justify-center backdrop-blur-md transition-colors border border-white/10">
               <Share2 className="w-4 h-4" />
             </div>
-            <span className="text-[10px] font-semibold text-slate-200 drop-shadow">
-              Share
-            </span>
           </button>
         </div>
 
@@ -706,14 +773,14 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         seller={seller}
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
-        onAddToCart={(prod) => {
-          if (onAddToCart) onAddToCart(prod);
+        onAddToCart={(prod, qty) => {
+          if (onAddToCart) onAddToCart(prod, qty);
         }}
-        onBuyNow={(prod) => {
+        onBuyNow={(prod, qty) => {
           if (onBuyNow) {
-            onBuyNow(prod);
+            onBuyNow(prod, qty);
           } else if (onAddToCart) {
-            onAddToCart(prod);
+            onAddToCart(prod, qty);
           }
         }}
         onViewSeller={onViewSeller}
