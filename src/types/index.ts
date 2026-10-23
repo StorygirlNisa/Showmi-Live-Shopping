@@ -62,6 +62,7 @@ export interface Seller {
   verifiedArtisan: boolean;
   snippets: StreamSnippet[];
   currentLiveSessionId?: string;
+  ownerUid?: string;
 }
 
 export interface LiveComment {
@@ -72,6 +73,8 @@ export interface LiveComment {
   timestamp: string;
   isHost?: boolean;
   isCurrentUser?: boolean;
+  isModerator?: boolean;
+  senderSellerId?: string;
 }
 
 export interface LiveSession {
@@ -88,8 +91,11 @@ export interface LiveSession {
   additionalProductIds: string[];
   streamCategory: string;
   initialComments: LiveComment[];
+  moderatorSellerIds?: string[];
+  moderatorUids?: string[];
   videoUrl?: string;
 }
+
 
 export interface CartItem {
   product: Product;
@@ -118,6 +124,7 @@ export interface OrderItem {
 export interface Order {
   id: string;
   buyerId: string;
+  sellerIds: string[];
   customerName: string;
   customerEmail: string;
   customerPhone: string;

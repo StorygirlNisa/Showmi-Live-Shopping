@@ -3,21 +3,124 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Default Deny
+    // --- Global Helpers ---
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function getUserData() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isAdmin() { return isSignedIn() && getUserData().role == 'admin'; }
+    function isSeller() { return isSignedIn() && getUserData().role == 'seller'; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    // --- Validation Helpers ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'role', 'createdAt']) &&
+             data.keys().hasOnly(['email', 'displayName', 'role', 'sellerId', 'createdAt']) &&
+             data.email is string && data.email.size() <= 256 &&
+             data.role in ['buyer', 'seller', 'admin'] &&
+             data.createdAt == request.time;
+    }
+
+    function isValidSeller(data) {
+      return data.keys().hasAll(['ownerUid', 'name', 'handle']) &&
+             data.keys().hasOnly(['ownerUid', 'name', 'handle', 'bio', 'city', 'province', 'tagline', 'avatar', 'bannerImage', 'rating', 'moderatorUids']) &&
+             data.name is string && data.name.size() <= 100 &&
+             data.handle is string && data.handle.size() <= 50 &&
+             data.ownerUid is string && (data.ownerUid == request.auth.uid || isAdmin());
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll(['id', 'name', 'sellerId', 'priceZAR', 'stock']) &&
+             data.name is string && data.name.size() <= 200 &&
+             data.priceZAR is number && data.priceZAR >= 0 &&
+             data.stock is number && data.stock >= 0 &&
+             isValidId(data.sellerId);
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll(['id', 'buyerId', 'sellerIds', 'totalZAR', 'createdAt', 'items']) &&
+             data.buyerId == request.auth.uid &&
+             data.totalZAR is number && data.totalZAR >= 0 &&
+             data.sellerIds is list && data.sellerIds.size() > 0 &&
+             data.items is list && data.items.size() > 0;
+    }
+
+    function isValidLiveSession(data) {
+      return data.keys().hasAll(['id', 'sellerId', 'isLive']) &&
+             isValidId(data.id) && isValidId(data.sellerId) &&
+             data.isLive is bool;
+    }
+
+    // --- Default Deny ---
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Products: Open read, secure write
-    match /products/{productId} {
-      allow read: if true;
-      allow write: if request.auth != null; // Simplified for now as per constraints
+    // --- Users Collection ---
+    match /users/{userId} {
+      allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming()) && incoming().role == 'buyer';
+      allow update: if isSignedIn() && request.auth.uid == userId && 
+                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'sellerId']) &&
+                    incoming().role == existing().role;
     }
 
-    // Orders: Secure access
+    // --- Sellers Collection ---
+    match /sellers/{sellerId} {
+      allow read: if true;
+      allow create: if isAdmin() && isValidSeller(incoming());
+      allow update: if isSignedIn() && (
+        existing().ownerUid == request.auth.uid || isAdmin()
+      ) && isValidSeller(incoming()) && incoming().ownerUid == existing().ownerUid;
+    }
+
+    // --- Products Collection ---
+    match /products/{productId} {
+      allow read: if true;
+      allow write: if isSignedIn() && (
+        isAdmin() || (
+          isSeller() && 
+          getUserData().sellerId == incoming().sellerId
+        )
+      ) && isValidProduct(incoming());
+    }
+
+    // --- Orders Collection ---
     match /orders/{orderId} {
-      allow read: if request.auth != null && (resource.data.buyerId == request.auth.uid);
-      allow create: if request.auth != null;
+      allow read: if isSignedIn() && (
+        resource.data.buyerId == request.auth.uid || 
+        (isSeller() && getUserData().sellerId in resource.data.sellerIds) ||
+        isAdmin()
+      );
+      allow create: if isSignedIn() && isValidOrder(incoming());
+      allow update: if isSignedIn() && (
+        (resource.data.buyerId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['items', 'confirmedAt', 'paymentReleased', 'paymentReleasedAt'])) ||
+        (isSeller() && getUserData().sellerId in resource.data.sellerIds && incoming().diff(existing()).affectedKeys().hasOnly(['items'])) ||
+        isAdmin()
+      );
+    }
+
+    // --- Live Sessions ---
+    match /live_sessions/{sessionId} {
+      allow read: if true;
+      allow create: if isSignedIn() && (isAdmin() || (isSeller() && getUserData().sellerId == incoming().sellerId)) && isValidLiveSession(incoming());
+      allow update: if isSignedIn() && (
+        isAdmin() || 
+        getUserData().sellerId == existing().sellerId
+      ) && isValidLiveSession(incoming());
+
+      // Comments Sub-collection
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isSignedIn() && incoming().senderUid == request.auth.uid && incoming().text.size() <= 500;
+        allow delete: if isSignedIn() && (
+          request.auth.uid == existing().senderUid ||
+          getUserData().sellerId == get(/databases/$(database)/documents/live_sessions/$(sessionId)).data.sellerId ||
+          request.auth.uid in get(/databases/$(database)/documents/live_sessions/$(sessionId)).data.moderatorUids ||
+          isAdmin()
+        );
+      }
     }
   }
 }

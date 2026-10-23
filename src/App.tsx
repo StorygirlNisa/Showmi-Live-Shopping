@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { User, Store, Sparkles, Radio, ShoppingBag, Package } from 'lucide-react';
 import { Navigation, AppTab } from './components/Navigation';
 import { AdminRoleSwitcher } from './components/AdminRoleSwitcher';
@@ -19,13 +19,36 @@ import { SellerSignInModal } from './components/SellerSignInModal';
 import { SellerHostModeView } from './components/SellerHostModeView';
 import { ResponsivePreviewToolbar, ViewportMode } from './components/ResponsivePreviewToolbar';
 import { SearchResultsView } from './components/SearchResultsView';
+import { 
+  onAuthStateChanged, 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  signOut,
+  User as FirebaseUser
+} from 'firebase/auth';
+import { 
+  doc, 
+  getDoc, 
+  setDoc, 
+  serverTimestamp,
+  onSnapshot,
+  collection,
+  query,
+  updateDoc,
+  deleteDoc,
+  writeBatch,
+  runTransaction,
+  where
+} from 'firebase/firestore';
+import { auth, db } from './lib/firebase';
 
 import { PRODUCTS, SELLERS, LIVE_SESSIONS, INITIAL_PROMOTIONS, INITIAL_ORDERS, INITIAL_ISSUES } from './data/mockData';
-import { Product, CartItem, StreamSnippet, LivePromotion, Order, OrderItem, OrderIssue, IssueType } from './types';
+import { Product, Seller, CartItem, StreamSnippet, LivePromotion, Order, OrderItem, OrderIssue, IssueType, LiveComment, LiveSession } from './types';
 import { MyOrdersView } from './components/MyOrdersView';
 import { OrderPlacementPayload } from './components/BasketCheckoutView';
 import { ProfileModal } from './components/ProfileModal';
 import { HostDisclaimerModal } from './components/HostDisclaimerModal';
+import { LiveCountdownOverlay } from './components/LiveCountdownOverlay';
 
 const STORAGE_KEYS = {
   PRODUCTS: 'showmi_products_v1',
@@ -36,7 +59,10 @@ const STORAGE_KEYS = {
   ORDER_ISSUES: 'showmi_order_issues_v1',
   USER_ROLE: 'showmi_user_role_v1',
   SELLER_ID: 'showmi_current_seller_id_v1',
-  FOLLOWED_SELLERS: 'showmi_followed_sellers_v1'
+  FOLLOWED_SELLERS: 'showmi_followed_sellers_v1',
+  SESSION_MODERATORS: 'showmi_session_moderators_v1',
+  SESSION_COMMENTS: 'showmi_session_comments_v1',
+  DELETED_COMMENTS: 'showmi_deleted_comments_v1'
 };
 
 // In-memory fallback map to handle sandbox iframe storage restrictions or QuotaExceededError
@@ -90,21 +116,11 @@ interface CartOriginContext {
 
 export default function App() {
   // Role & Authentication State
-  const [userRole, setUserRole] = useState<'admin' | 'buyer' | 'seller'>(() => {
-    try {
-      const saved = safeStorage.getItem(STORAGE_KEYS.USER_ROLE);
-      if (saved === 'seller' || saved === 'admin') return saved;
-    } catch {}
-    return 'buyer';
-  });
+  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
+  const [userRole, setUserRole] = useState<'admin' | 'buyer' | 'seller'>('buyer');
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
 
-  const [currentSellerId, setCurrentSellerId] = useState<string>(() => {
-    try {
-      const saved = safeStorage.getItem(STORAGE_KEYS.SELLER_ID);
-      if (saved) return saved;
-    } catch {}
-    return SELLERS[0].id;
-  });
+  const [currentSellerId, setCurrentSellerId] = useState<string>(SELLERS[0].id);
 
   const [followedSellerIds, setFollowedSellerIds] = useState<string[]>(() => {
     try {
@@ -113,6 +129,165 @@ export default function App() {
     } catch {}
     return SELLERS.map(s => s.id);
   });
+
+  // Sync User Profile with Firestore
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setCurrentUser(user);
+      
+      if (user) {
+        try {
+          const userDocRef = doc(db, 'users', user.uid);
+          const userDoc = await getDoc(userDocRef);
+          
+          if (!userDoc.exists()) {
+            // New user registration
+            const isInitialAdmin = user.email === 'nisabardien@gmail.com';
+            const newUser = {
+              email: user.email,
+              displayName: user.displayName,
+              role: isInitialAdmin ? 'admin' : 'buyer',
+              createdAt: serverTimestamp()
+            };
+            await setDoc(userDocRef, newUser);
+            setUserRole(isInitialAdmin ? 'admin' : 'buyer');
+          } else {
+            // Existing user
+            const data = userDoc.data();
+            setUserRole(data.role || 'buyer');
+            if (data.sellerId) {
+              setCurrentSellerId(data.sellerId);
+            }
+          }
+        } catch (error) {
+          console.error("Error syncing user record:", error);
+        }
+      } else {
+        setUserRole('buyer');
+      }
+      setIsAuthLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  // Dynamic products list persisted to localStorage (Initial/Fallback)
+  const [productsList, setProductsList] = useState<Product[]>(() => {
+    try {
+      const saved = safeStorage.getItem(STORAGE_KEYS.PRODUCTS);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return PRODUCTS;
+  });
+
+  const [isSeeding, setIsSeeding] = useState(false);
+  const [firestoreProducts, setFirestoreProducts] = useState<Product[]>([]);
+  const [firestoreSellers, setFirestoreSellers] = useState<Seller[]>([]);
+
+  // 1. Sync Products from Firestore
+  useEffect(() => {
+    const q = query(collection(db, 'products'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list: Product[] = [];
+      snapshot.forEach((doc) => {
+        list.push(doc.data() as Product);
+      });
+      setFirestoreProducts(list);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // 2. Sync Sellers from Firestore
+  useEffect(() => {
+    const q = query(collection(db, 'sellers'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list: Seller[] = [];
+      snapshot.forEach((doc) => {
+        list.push(doc.data() as Seller);
+      });
+      setFirestoreSellers(list);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Merge Firestore data with Mock data (Firestore takes precedence)
+  const allProducts = useMemo(() => {
+    if (firestoreProducts.length === 0) return productsList;
+    return firestoreProducts;
+  }, [firestoreProducts, productsList]);
+
+  const allSellers = useMemo(() => {
+    if (firestoreSellers.length === 0) return SELLERS;
+    // Map existing mock data to firestore format if needed, 
+    // but for now we assume firestoreSellers contains all necessary info
+    return firestoreSellers;
+  }, [firestoreSellers]);
+
+  const [firestoreOrders, setFirestoreOrders] = useState<Order[]>([]);
+
+  // 3. Sync Orders from Firestore (Filtered by role)
+  useEffect(() => {
+    if (!currentUser) {
+      setFirestoreOrders([]);
+      return;
+    }
+
+    let q;
+    if (userRole === 'admin') {
+      q = query(collection(db, 'orders'));
+    } else if (userRole === 'seller' && currentSellerId) {
+      q = query(collection(db, 'orders'), where('sellerIds', 'array-contains', currentSellerId));
+    } else {
+      q = query(collection(db, 'orders'), where('buyerId', '==', currentUser.uid));
+    }
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list: Order[] = [];
+      snapshot.forEach((doc) => {
+        list.push(doc.data() as Order);
+      });
+      // Sort by createdAt descending
+      list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setFirestoreOrders(list);
+    });
+
+    return () => unsubscribe();
+  }, [currentUser, userRole, currentSellerId]);
+
+  // Dynamic orders list persisted to localStorage (Initial/Fallback)
+  const [ordersList, setOrdersList] = useState<Order[]>(() => {
+    try {
+      const saved = safeStorage.getItem(STORAGE_KEYS.ORDERS);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return INITIAL_ORDERS;
+  });
+
+  // Merge Firestore orders with local orders (Firestore takes precedence)
+  const allOrders = useMemo(() => {
+    if (firestoreOrders.length === 0) return ordersList;
+    return firestoreOrders;
+  }, [firestoreOrders, ordersList]);
+
+  const [firestoreSessions, setFirestoreSessions] = useState<LiveSession[]>([]);
+
+  // 4. Sync Live Sessions from Firestore
+  useEffect(() => {
+    const q = query(collection(db, 'live_sessions'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list: LiveSession[] = [];
+      snapshot.forEach((doc) => {
+        list.push(doc.data() as LiveSession);
+      });
+      setFirestoreSessions(list);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const allSessions = useMemo(() => {
+    if (firestoreSessions.length === 0) return LIVE_SESSIONS;
+    return firestoreSessions;
+  }, [firestoreSessions]);
 
   // Core Navigation Tabs: 'LIVE' | 'SA Makers' | 'Seller Studio' | 'Basket'
   const [activeTab, setActiveTab] = useState<AppTab>('LIVE');
@@ -132,16 +307,9 @@ export default function App() {
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isHostDisclaimerOpen, setIsHostDisclaimerOpen] = useState(false);
   const [pendingHostSessionId, setPendingHostSessionId] = useState<string | null>(null);
+  const [isLiveCountdownActive, setIsLiveCountdownActive] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
 
-  // Dynamic products list persisted to localStorage
-  const [productsList, setProductsList] = useState<Product[]>(() => {
-    try {
-      const saved = safeStorage.getItem(STORAGE_KEYS.PRODUCTS);
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return PRODUCTS;
-  });
 
   // Basket State with initial item for demonstration, persisted to localStorage
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
@@ -179,14 +347,6 @@ export default function App() {
     return SELLERS.flatMap(s => s.snippets);
   });
 
-  // Dynamic orders list, persisted to localStorage
-  const [ordersList, setOrdersList] = useState<Order[]>(() => {
-    try {
-      const saved = safeStorage.getItem(STORAGE_KEYS.ORDERS);
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return INITIAL_ORDERS;
-  });
 
   // Dynamic promotions list, persisted to localStorage
   const [promotionsList, setPromotionsList] = useState<LivePromotion[]>(() => {
@@ -204,6 +364,37 @@ export default function App() {
       if (saved) return JSON.parse(saved);
     } catch {}
     return INITIAL_ISSUES;
+  });
+
+  // Shared Live Session Moderators registry (sessionId -> array of appointed seller IDs)
+  const [sessionModerators, setSessionModerators] = useState<Record<string, string[]>>(() => {
+    try {
+      const saved = safeStorage.getItem(STORAGE_KEYS.SESSION_MODERATORS);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return {};
+  });
+
+  // Shared Live Session Comments state (sessionId -> LiveComment[])
+  const [sessionComments, setSessionComments] = useState<Record<string, LiveComment[]>>(() => {
+    try {
+      const saved = safeStorage.getItem(STORAGE_KEYS.SESSION_COMMENTS);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    const initialMap: Record<string, LiveComment[]> = {};
+    LIVE_SESSIONS.forEach(s => {
+      initialMap[s.id] = s.initialComments || [];
+    });
+    return initialMap;
+  });
+
+  // Track deleted comment IDs to ensure persistent deletion across components and timers
+  const [deletedCommentIds, setDeletedCommentIds] = useState<string[]>(() => {
+    try {
+      const saved = safeStorage.getItem(STORAGE_KEYS.DELETED_COMMENTS);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
   });
 
   // Host Mode toggle: controls private host mode during live stream
@@ -265,6 +456,21 @@ export default function App() {
     safeStorage.setItem(STORAGE_KEYS.ORDER_ISSUES, JSON.stringify(orderIssues));
   }, [orderIssues]);
 
+  // Sync session moderators to safe storage
+  useEffect(() => {
+    safeStorage.setItem(STORAGE_KEYS.SESSION_MODERATORS, JSON.stringify(sessionModerators));
+  }, [sessionModerators]);
+
+  // Sync session comments to safe storage
+  useEffect(() => {
+    safeStorage.setItem(STORAGE_KEYS.SESSION_COMMENTS, JSON.stringify(sessionComments));
+  }, [sessionComments]);
+
+  // Sync deleted comments to safe storage
+  useEffect(() => {
+    safeStorage.setItem(STORAGE_KEYS.DELETED_COMMENTS, JSON.stringify(deletedCommentIds));
+  }, [deletedCommentIds]);
+
   const showNotification = (msg: string) => {
     setNotification(msg);
     setTimeout(() => setNotification(null), 2500);
@@ -295,7 +501,12 @@ export default function App() {
   };
 
   const handleAddToCart = (product: Product, quantity = 1) => {
-    const currentProduct = productsList.find(p => p.id === product.id) || product;
+    if (userRole === 'seller' && currentSellerId && product.sellerId === currentSellerId) {
+      showNotification("Oops! You can't buy your own item.");
+      return;
+    }
+
+    const currentProduct = allProducts.find(p => p.id === product.id) || product;
     const availableStock = typeof currentProduct.stock === 'number' ? currentProduct.stock : 99;
 
     if (availableStock <= 0) {
@@ -328,7 +539,12 @@ export default function App() {
   };
 
   const handleBuyNow = (product: Product, quantity = 1) => {
-    const currentProduct = productsList.find(p => p.id === product.id) || product;
+    if (userRole === 'seller' && currentSellerId && product.sellerId === currentSellerId) {
+      showNotification("Oops! You can't buy your own item.");
+      return;
+    }
+
+    const currentProduct = allProducts.find(p => p.id === product.id) || product;
     const availableStock = typeof currentProduct.stock === 'number' ? currentProduct.stock : 99;
 
     if (availableStock <= 0) {
@@ -362,7 +578,7 @@ export default function App() {
   };
 
   const handleUpdateQuantity = (productId: string, quantity: number) => {
-    const currentProduct = productsList.find(p => p.id === productId);
+    const currentProduct = allProducts.find(p => p.id === productId);
     const maxStock = currentProduct ? currentProduct.stock : 999;
     const clampedQty = Math.max(1, Math.min(maxStock, quantity));
     setCartItems(prev =>
@@ -381,128 +597,157 @@ export default function App() {
   };
 
   // Order placement, inventory decrement & persistent storage
-  const handlePlaceOrder = (orderPayload: OrderPlacementPayload) => {
-    // 1. Decrement inventory
-    setProductsList(prevProducts => {
-      return prevProducts.map(prod => {
-        const purchased = orderPayload.items.find(item => item.product.id === prod.id);
-        if (purchased) {
-          const updatedStock = Math.max(0, prod.stock - purchased.quantity);
-          return {
-            ...prod,
-            stock: updatedStock
-          };
+  const handlePlaceOrder = async (orderPayload: OrderPlacementPayload) => {
+    if (!currentUser) {
+      showNotification('Please sign in to place an order');
+      return;
+    }
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const productRefs = orderPayload.items.map(item => doc(db, 'products', item.product.id));
+        const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
+
+        // 1. Validate Stock
+        for (let i = 0; i < productDocs.length; i++) {
+          const productDoc = productDocs[i];
+          const item = orderPayload.items[i];
+          const data = productDoc.data();
+          if (!productDoc.exists() || !data) {
+            throw new Error(`Product ${item.product.name} no longer exists.`);
+          }
+          const currentStock = data.stock;
+          if (currentStock < item.quantity) {
+            throw new Error(`Insufficient stock for ${item.product.name}. Available: ${currentStock}`);
+          }
         }
-        return prod;
+
+        // 2. Deduct Stock
+        for (let i = 0; i < productDocs.length; i++) {
+          const productDoc = productDocs[i];
+          const item = orderPayload.items[i];
+          const data = productDoc.data();
+          if (data) {
+            transaction.update(productRefs[i], {
+              stock: data.stock - item.quantity
+            });
+          }
+        }
+
+        // 3. Create Order Record
+        const sellerIds = Array.from(new Set(orderPayload.items.map(item => item.product.sellerId)));
+        const orderRef = doc(db, 'orders', orderPayload.orderId);
+        
+        const newOrderRecord: Order = {
+          id: orderPayload.orderId,
+          buyerId: currentUser.uid,
+          sellerIds,
+          customerName: orderPayload.customerName,
+          customerEmail: orderPayload.customerEmail,
+          customerPhone: orderPayload.customerPhone,
+          shippingAddress: orderPayload.shippingAddress,
+          city: orderPayload.city,
+          province: orderPayload.province,
+          postalCode: orderPayload.postalCode,
+          items: orderPayload.items.map(ci => ({
+            productId: ci.product.id,
+            sellerId: ci.product.sellerId,
+            sellerName: ci.product.sellerName || 'Maker',
+            productImage: ci.product.images[0],
+            name: ci.product.name,
+            quantity: ci.quantity,
+            priceZAR: ci.product.priceZAR,
+            status: 'awaiting_dispatch' as const
+          })),
+          subtotalZAR: orderPayload.subtotalZAR,
+          shippingZAR: orderPayload.shippingZAR,
+          protectionFeeZAR: orderPayload.protectionFeeZAR,
+          totalZAR: orderPayload.totalZAR,
+          createdAt: new Date().toISOString(),
+          estimatedDeliveryDate: orderPayload.estimatedDeliveryDate,
+          protectionExpiresAt: orderPayload.protectionExpiresAt,
+          deliveryMethod: orderPayload.deliveryMethod,
+          paymentMethod: orderPayload.paymentMethod
+        };
+
+        transaction.set(orderRef, newOrderRecord);
       });
-    });
 
-    // 2. Construct persistent Order record
-    const newOrderRecord: Order = {
-      id: orderPayload.orderId,
-      buyerId: 'buyer-current',
-      customerName: orderPayload.customerName,
-      customerEmail: orderPayload.customerEmail,
-      customerPhone: orderPayload.customerPhone,
-      shippingAddress: orderPayload.shippingAddress,
-      city: orderPayload.city,
-      province: orderPayload.province,
-      postalCode: orderPayload.postalCode,
-      items: orderPayload.items.map(ci => ({
-        productId: ci.product.id,
-        sellerId: ci.product.sellerId,
-        sellerName: ci.product.sellerName,
-        productImage: ci.product.images[0],
-        name: ci.product.name,
-        quantity: ci.quantity,
-        priceZAR: ci.product.priceZAR,
-        status: 'awaiting_dispatch' as const
-      })),
-      subtotalZAR: orderPayload.subtotalZAR,
-      shippingZAR: orderPayload.shippingZAR,
-      protectionFeeZAR: orderPayload.protectionFeeZAR,
-      totalZAR: orderPayload.totalZAR,
-      createdAt: new Date().toISOString(),
-      estimatedDeliveryDate: orderPayload.estimatedDeliveryDate,
-      protectionExpiresAt: orderPayload.protectionExpiresAt,
-      deliveryMethod: orderPayload.deliveryMethod,
-      paymentMethod: orderPayload.paymentMethod
-    };
-
-    // 3. Add to ordersList (avoiding duplicates)
-    setOrdersList(prev => {
-      if (prev.some(o => o.id === newOrderRecord.id)) {
-        return prev;
-      }
-      return [newOrderRecord, ...prev];
-    });
-
-    showNotification(`Order #${newOrderRecord.id} saved & inventory updated!`);
+      showNotification(`Order #${orderPayload.orderId} placed successfully!`);
+    } catch (error: any) {
+      console.error("Order transaction failed:", error);
+      showNotification(error.message || "Checkout failed. Please try again.");
+    }
   };
 
   // Seller dispatch & fulfillment status updates (scoped by seller ID)
-  const handleUpdateOrderItemStatus = (
+  const handleUpdateOrderItemStatus = async (
     orderId: string, 
     productId: string, 
     sellerId: string, 
     newStatus: OrderItem['status'], 
     tracking?: { courierPartner?: string; trackingNumber?: string }
   ) => {
-    setOrdersList(prev => 
-      prev.map(order => {
-        if (order.id !== orderId) return order;
+    const order = allOrders.find(o => o.id === orderId);
+    if (!order) return;
+
+    const updatedItems = order.items.map(item => {
+      if (item.productId === productId && item.sellerId === sellerId) {
         return {
-          ...order,
-          items: order.items.map(item => {
-            // Permission check: seller can only update their own items
-            if (item.productId === productId && item.sellerId === sellerId) {
-              return {
-                ...item,
-                status: newStatus,
-                courierPartner: tracking?.courierPartner || item.courierPartner,
-                trackingNumber: tracking?.trackingNumber || item.trackingNumber,
-                dispatchedAt: newStatus === 'in_transit' ? new Date().toISOString() : item.dispatchedAt,
-                deliveredAt: newStatus === 'delivered' ? new Date().toISOString() : item.deliveredAt,
-              };
-            }
-            return item;
-          })
+          ...item,
+          status: newStatus,
+          courierPartner: tracking?.courierPartner || item.courierPartner,
+          trackingNumber: tracking?.trackingNumber || item.trackingNumber,
+          dispatchedAt: newStatus === 'in_transit' ? new Date().toISOString() : item.dispatchedAt,
+          deliveredAt: newStatus === 'delivered' ? new Date().toISOString() : item.deliveredAt,
         };
-      })
-    );
-    showNotification(`Status updated: ${newStatus.replace('_', ' ')}`);
+      }
+      return item;
+    });
+
+    try {
+      await updateDoc(doc(db, 'orders', orderId), { items: updatedItems });
+      showNotification(`Status updated: ${newStatus.replace('_', ' ')}`);
+    } catch (error) {
+      console.error("Failed to update order status:", error);
+      showNotification("Update failed. Permission denied?");
+    }
   };
 
   // Buyer receipt confirmation (Simulated payment release)
-  const handleConfirmItemReceipt = (orderId: string, productId: string) => {
-    setOrdersList(prev =>
-      prev.map(order => {
-        if (order.id !== orderId) return order;
-        const now = new Date().toISOString();
-        const updatedItems = order.items.map(item => {
-          if (item.productId === productId) {
-            return {
-              ...item,
-              status: 'confirmed' as const,
-              confirmedAt: now,
-              paymentReleased: true,
-              paymentReleasedAt: now
-            };
-          }
-          return item;
-        });
+  const handleConfirmItemReceipt = async (orderId: string, productId: string) => {
+    const order = allOrders.find(o => o.id === orderId);
+    if (!order) return;
 
-        const allConfirmed = updatedItems.every(i => i.status === 'confirmed');
+    const now = new Date().toISOString();
+    const updatedItems = order.items.map(item => {
+      if (item.productId === productId) {
         return {
-          ...order,
-          items: updatedItems,
-          confirmedAt: allConfirmed ? now : order.confirmedAt,
-          paymentReleased: allConfirmed ? true : order.paymentReleased,
-          paymentReleasedAt: allConfirmed ? now : order.paymentReleasedAt
+          ...item,
+          status: 'confirmed' as const,
+          confirmedAt: now,
+          paymentReleased: true,
+          paymentReleasedAt: now
         };
-      })
-    );
-    showNotification('Delivery confirmed! Simulated payment released to seller.');
+      }
+      return item;
+    });
+
+    const allConfirmed = updatedItems.every(i => i.status === 'confirmed');
+    const updateData: any = { items: updatedItems };
+    if (allConfirmed) {
+      updateData.confirmedAt = now;
+      updateData.paymentReleased = true;
+      updateData.paymentReleasedAt = now;
+    }
+
+    try {
+      await updateDoc(doc(db, 'orders', orderId), updateData);
+      showNotification('Delivery confirmed! Simulated payment released to seller.');
+    } catch (error) {
+      console.error("Failed to confirm receipt:", error);
+      showNotification("Confirmation failed. Permission denied?");
+    }
   };
 
   // Buyer issue reporting handler (persisted to localStorage)
@@ -611,22 +856,76 @@ export default function App() {
     showNotification(`Snippet republished! Active for ${durationHours === 168 ? '7 days' : durationHours + ' hours'}`);
   };
 
-  // Product Inventory CRUD Handlers for Seller Studio
-  const handleAddProduct = (product: Product) => {
-    setProductsList(prev => [product, ...prev]);
-    showNotification(`Added new product "${product.name}" to store inventory`);
+  const handleSeedFirestore = async () => {
+    if (userRole !== 'admin') return;
+    setIsSeeding(true);
+    try {
+      const batch = writeBatch(db);
+      
+      // 1. Seed Sellers
+      SELLERS.forEach(seller => {
+        const sellerRef = doc(db, 'sellers', seller.id);
+        // Link all mock sellers to the current admin for initial control
+        batch.set(sellerRef, {
+          ...seller,
+          ownerUid: currentUser?.uid || 'initial-admin'
+        });
+      });
+
+      // 2. Seed Products
+      PRODUCTS.forEach(product => {
+        const productRef = doc(db, 'products', product.id);
+        batch.set(productRef, product);
+      });
+
+      // 3. Seed Live Sessions
+      LIVE_SESSIONS.forEach(session => {
+        const sessionRef = doc(db, 'live_sessions', session.id);
+        batch.set(sessionRef, {
+          ...session,
+          moderatorUids: []
+        });
+      });
+
+      await batch.commit();
+      showNotification('Marketplace and LIVE sessions seeded!');
+    } catch (error) {
+      console.error("Seeding failed:", error);
+      showNotification('Seeding failed. Check console.');
+    } finally {
+      setIsSeeding(false);
+    }
   };
 
-  const handleUpdateProduct = (updatedProduct: Product) => {
-    setProductsList(prev =>
-      prev.map(p => (p.id === updatedProduct.id ? updatedProduct : p))
-    );
-    showNotification(`Updated product "${updatedProduct.name}"`);
+  // Product Inventory CRUD Handlers for Seller Studio - Now using Firestore
+  const handleAddProduct = async (product: Product) => {
+    try {
+      await setDoc(doc(db, 'products', product.id), product);
+      showNotification(`Added new product "${product.name}" to store inventory`);
+    } catch (error) {
+      console.error("Error adding product:", error);
+      showNotification("Failed to add product. Permission denied?");
+    }
   };
 
-  const handleDeleteProduct = (productId: string) => {
-    setProductsList(prev => prev.filter(p => p.id !== productId));
-    showNotification('Removed product from store inventory');
+  const handleUpdateProduct = async (updatedProduct: Product) => {
+    try {
+      await updateDoc(doc(db, 'products', updatedProduct.id), updatedProduct as any);
+      showNotification(`Updated product "${updatedProduct.name}"`);
+    } catch (error) {
+      console.error("Error updating product:", error);
+      showNotification("Failed to update product. Permission denied?");
+    }
+  };
+
+  const handleDeleteProduct = async (productId: string) => {
+    try {
+      await deleteDoc(doc(db, 'products', productId));
+      showNotification('Removed product from store inventory');
+    } catch (error) {
+      console.error("Error deleting product:", error);
+      showNotification("Failed to delete product. Permission denied?");
+    }
   };
 
   const handleResetDemoData = () => {
@@ -639,16 +938,28 @@ export default function App() {
     safeStorage.removeItem(STORAGE_KEYS.USER_ROLE);
     safeStorage.removeItem(STORAGE_KEYS.SELLER_ID);
     safeStorage.removeItem(STORAGE_KEYS.FOLLOWED_SELLERS);
+    safeStorage.removeItem(STORAGE_KEYS.SESSION_MODERATORS);
+    safeStorage.removeItem(STORAGE_KEYS.SESSION_COMMENTS);
+    safeStorage.removeItem(STORAGE_KEYS.DELETED_COMMENTS);
     setProductsList(PRODUCTS);
     setCartItems([{ product: PRODUCTS[0], quantity: 1 }]);
     setSnippetsList(SELLERS.flatMap(s => s.snippets));
     setPromotionsList(INITIAL_PROMOTIONS);
     setOrdersList(INITIAL_ORDERS);
     setOrderIssues(INITIAL_ISSUES);
+    setSessionModerators({});
+    const initialMap: Record<string, LiveComment[]> = {};
+    LIVE_SESSIONS.forEach(s => {
+      initialMap[s.id] = s.initialComments || [];
+    });
+    setSessionComments(initialMap);
+    setDeletedCommentIds([]);
     setUserRole('buyer');
     setCurrentSellerId(SELLERS[0].id);
     setFollowedSellerIds(SELLERS.map(s => s.id));
     setIsSellerHostMode(false);
+    setIsLiveCountdownActive(false);
+    setPendingHostSessionId(null);
     setActiveTab('LIVE');
     showNotification('Reset all demo data and role to default buyer');
   };
@@ -663,12 +974,52 @@ export default function App() {
     });
   };
 
+  // Real Authentication Handlers
+  const handleSignIn = async () => {
+    const provider = new GoogleAuthProvider();
+    try {
+      await signInWithPopup(auth, provider);
+      showNotification('Successfully signed in with Google');
+    } catch (error) {
+      console.error('Sign-in error:', error);
+      showNotification('Sign-in failed. Please check your browser popup settings.');
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOut(auth);
+      showNotification('Signed out');
+      setActiveTab('LIVE');
+    } catch (error) {
+      console.error('Sign-out error:', error);
+    }
+  };
+
   // Role & Authentication Handlers
-  const handleSignInAsSeller = (sellerId: string) => {
-    setUserRole('seller');
-    setCurrentSellerId(sellerId);
-    setActiveTab('Seller Studio');
-    showNotification(`Signed in as seller: ${SELLERS.find(s => s.id === sellerId)?.name || 'Maker'}`);
+  const handleSignInAsSeller = async (sellerId: string) => {
+    if (!currentUser) {
+      showNotification('Please sign in with Google first');
+      handleSignIn();
+      return;
+    }
+
+    // Link current UID to the mock seller profile in Firestore
+    try {
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      await setDoc(userDocRef, { 
+        sellerId,
+        role: 'seller' 
+      }, { merge: true });
+      
+      setUserRole('seller');
+      setCurrentSellerId(sellerId);
+      setActiveTab('Seller Studio');
+      showNotification(`Profile linked! Signed in as ${SELLERS.find(s => s.id === sellerId)?.name || 'Maker'}`);
+    } catch (error) {
+      console.error("Error linking seller profile:", error);
+      showNotification("Failed to link profile. Are you an admin?");
+    }
   };
 
   // Navigation handlers
@@ -691,19 +1042,18 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleOpenHostMode = (sessionId: string) => {
-    setPendingHostSessionId(sessionId);
+  const handleOpenHostMode = (sessionId?: string) => {
+    const targetSession = allSessions.find(s => s.id === sessionId)
+      || allSessions.find(s => s.sellerId === currentSellerId)
+      || allSessions[0];
+    setPendingHostSessionId(targetSession.id);
     setIsHostDisclaimerOpen(true);
   };
 
   const handleConfirmHostDisclaimer = () => {
-    if (pendingHostSessionId) {
-      setActiveLiveSessionId(pendingHostSessionId);
-      setIsSellerHostMode(true);
-      setSelectedProductId(null);
-    }
     setIsHostDisclaimerOpen(false);
-    setPendingHostSessionId(null);
+    // Launch full-screen 3-2-1 LIVE countdown before entering Host Studio
+    setIsLiveCountdownActive(true);
   };
 
   const handleCancelHostDisclaimer = () => {
@@ -711,17 +1061,102 @@ export default function App() {
     setPendingHostSessionId(null);
   };
 
-  const handleSimulateOrderStockDecrement = (productId: string) => {
-    setProductsList(prev =>
-      prev.map(p => {
-        if (p.id === productId) {
-          const newStock = Math.max(0, p.stock - 1);
-          return { ...p, stock: newStock };
-        }
-        return p;
-      })
-    );
-    showNotification('Simulated 1 order! Inventory decremented & stock reminder refreshed');
+  const handleCountdownComplete = () => {
+    setIsLiveCountdownActive(false);
+    if (pendingHostSessionId) {
+      setActiveLiveSessionId(pendingHostSessionId);
+      setIsSellerHostMode(true);
+      setSelectedProductId(null);
+      setPendingHostSessionId(null);
+    }
+  };
+
+  const handleCountdownCancel = () => {
+    setIsLiveCountdownActive(false);
+    setPendingHostSessionId(null);
+  };
+
+  const handleSimulateOrderStockDecrement = async (productId: string) => {
+    const product = allProducts.find(p => p.id === productId);
+    if (!product) return;
+    
+    try {
+      await updateDoc(doc(db, 'products', productId), {
+        stock: Math.max(0, product.stock - 1)
+      });
+      showNotification('Simulated 1 order! Inventory decremented & stock reminder refreshed');
+    } catch (error) {
+      console.error("Simulation failed:", error);
+    }
+  };
+
+  // Moderator Appointment & Revocation Handlers (Firestore Enforced)
+  const handleAppointModerator = async (sessionId: string, sellerId: string) => {
+    const seller = allSellers.find(s => s.id === sellerId);
+    if (!seller || !seller.ownerUid) {
+      showNotification("Cannot appoint moderator: seller not linked to a real account.");
+      return;
+    }
+
+    try {
+      const sessionRef = doc(db, 'live_sessions', sessionId);
+      const session = allSessions.find(s => s.id === sessionId);
+      const currentMods = session?.moderatorUids || [];
+      if (!currentMods.includes(seller.ownerUid)) {
+        await updateDoc(sessionRef, {
+          moderatorUids: [...currentMods, seller.ownerUid]
+        });
+      }
+      showNotification(`Appointed ${seller.name} as chat moderator`);
+    } catch (error) {
+      console.error("Moderator appointment failed:", error);
+      showNotification("Failed to appoint moderator. Permission denied?");
+    }
+  };
+
+  const handleRevokeModerator = async (sessionId: string, sellerId: string) => {
+    const seller = allSellers.find(s => s.id === sellerId);
+    if (!seller || !seller.ownerUid) return;
+
+    try {
+      const sessionRef = doc(db, 'live_sessions', sessionId);
+      const session = allSessions.find(s => s.id === sessionId);
+      const currentMods = session?.moderatorUids || [];
+      await updateDoc(sessionRef, {
+        moderatorUids: currentMods.filter((uid: string) => uid !== seller.ownerUid)
+      });
+      showNotification(`Revoked moderator status for ${seller.name}`);
+    } catch (error) {
+      console.error("Moderator revocation failed:", error);
+    }
+  };
+
+  // Shared Chat Comment Add & Delete Handlers (Firestore Enforced)
+  const handleAddSessionComment = async (sessionId: string, comment: LiveComment) => {
+    if (!currentUser) return;
+    
+    try {
+      const commentRef = doc(collection(db, 'live_sessions', sessionId, 'comments'));
+      const newComment = {
+        ...comment,
+        id: commentRef.id,
+        senderUid: currentUser.uid,
+        timestamp: serverTimestamp()
+      };
+      await setDoc(commentRef, newComment);
+    } catch (error) {
+      console.error("Failed to add comment:", error);
+    }
+  };
+
+  const handleDeleteSessionComment = async (sessionId: string, commentId: string) => {
+    try {
+      await deleteDoc(doc(db, 'live_sessions', sessionId, 'comments', commentId));
+      showNotification('Comment deleted from live session feed');
+    } catch (error) {
+      console.error("Failed to delete comment:", error);
+      showNotification("Delete failed. Permission denied?");
+    }
   };
 
   const handleExpirePromotionNow = (promoId: string) => {
@@ -796,29 +1231,31 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleUpdateProductDescription = (productId: string, newDesc: string) => {
-    setProductsList(prev =>
-      prev.map(p => (p.id === productId ? { ...p, description: newDesc } : p))
-    );
-    showNotification('Product description updated across Showmi');
+  const handleUpdateProductDescription = async (productId: string, newDesc: string) => {
+    try {
+      await updateDoc(doc(db, 'products', productId), { description: newDesc });
+      showNotification('Product description updated across Showmi');
+    } catch (error) {
+      console.error("Update failed:", error);
+    }
   };
 
   // Resolve current active item/entity
   const selectedProduct = selectedProductId 
-    ? productsList.find(p => p.id === selectedProductId) 
+    ? allProducts.find(p => p.id === selectedProductId) 
     : null;
 
   const selectedSeller = selectedSellerId 
-    ? SELLERS.find(s => s.id === selectedSellerId) 
+    ? allSellers.find(s => s.id === selectedSellerId) 
     : selectedProduct 
-    ? SELLERS.find(s => s.id === selectedProduct.sellerId) 
+    ? allSellers.find(s => s.id === selectedProduct.sellerId) 
     : null;
 
   const activeLiveSession = activeLiveSessionId 
-    ? LIVE_SESSIONS.find(s => s.id === activeLiveSessionId) 
+    ? allSessions.find(s => s.id === activeLiveSessionId) 
     : null;
 
-  const currentSeller = SELLERS.find(s => s.id === currentSellerId);
+  const currentSeller = allSellers.find(s => s.id === currentSellerId);
 
   const getViewportWidthStyle = () => {
     switch (viewportMode) {
@@ -851,7 +1288,9 @@ export default function App() {
           setUserRole={setUserRole}
           currentSellerId={currentSellerId}
           onSelectSeller={setCurrentSellerId}
-          sellers={SELLERS.map(s => ({ id: s.id, name: s.name }))}
+          sellers={allSellers.map(s => ({ id: s.id, name: s.name }))}
+          onSeedData={handleSeedFirestore}
+          isSeeding={isSeeding}
         />
       </div>
 
@@ -869,14 +1308,17 @@ export default function App() {
           activeTab={activeTab}
           setActiveTab={handleTabChange}
           cartItems={cartItems}
-          ordersCount={ordersList.length}
+          ordersCount={allOrders.length}
           onOpenInfoModal={() => setIsSetupModalOpen(true)}
           searchQuery={searchQuery}
           onSearchSubmit={setSearchQuery}
           onClearSearch={() => setSearchQuery('')}
           userRole={userRole}
-          currentSeller={SELLERS.find(s => s.id === currentSellerId)}
+          currentSeller={allSellers.find(s => s.id === currentSellerId)}
           onOpenSellerSignIn={() => setIsSellerSignInModalOpen(true)}
+          currentUser={currentUser}
+          onSignIn={handleSignIn}
+          onSignOut={handleSignOut}
         />
       </div>
 
@@ -887,9 +1329,10 @@ export default function App() {
           <div className={activeTab === 'Basket' ? 'hidden' : 'contents'}>
             <LiveRoomView
               session={activeLiveSession}
-              products={productsList}
-              seller={SELLERS.find(s => s.id === activeLiveSession.sellerId)}
+              products={allProducts}
+              seller={allSellers.find(s => s.id === activeLiveSession.sellerId)}
               allLiveSessions={LIVE_SESSIONS}
+              allSellers={allSellers}
               onBack={() => {
                 setActiveLiveSessionId(null);
                 cartOriginRef.current = null;
@@ -901,6 +1344,11 @@ export default function App() {
               onBuyNow={handleBuyNow}
               onSwitchSession={(sessionId) => setActiveLiveSessionId(sessionId)}
               isActive={activeTab !== 'Basket'}
+              onAddComment={(comment) => handleAddSessionComment(activeLiveSession.id, comment)}
+              onDeleteComment={(commentId) => handleDeleteSessionComment(activeLiveSession.id, commentId)}
+              moderatorSellerIds={sessionModerators[activeLiveSession.id] || []}
+              currentSellerId={currentSellerId}
+              userRole={userRole}
             />
           </div>
         )}
@@ -910,7 +1358,7 @@ export default function App() {
           /* View: Basket & Checkout Preview */
           <BasketCheckoutView
             cartItems={cartItems}
-            productsList={productsList}
+            productsList={allProducts}
             currentSellerId={userRole === 'seller' ? currentSellerId : undefined}
             onUpdateQuantity={handleUpdateQuantity}
             onRemoveItem={handleRemoveItem}
@@ -933,8 +1381,8 @@ export default function App() {
             query={searchQuery}
             onClearQuery={() => setSearchQuery('')}
             onSetQuery={(q) => setSearchQuery(q)}
-            products={productsList}
-            sellers={SELLERS}
+            products={allProducts}
+            sellers={allSellers}
             liveSessions={LIVE_SESSIONS}
             snippets={snippetsList}
             onSelectProduct={(id) => {
@@ -954,8 +1402,8 @@ export default function App() {
         ) : isSellerHostMode && activeLiveSession ? (
           <SellerHostModeView
             session={activeLiveSession}
-            seller={SELLERS.find(s => s.id === activeLiveSession.sellerId) || SELLERS[0]}
-            products={productsList}
+            seller={allSellers.find(s => s.id === activeLiveSession.sellerId) || allSellers[0]}
+            products={allProducts}
             promotions={promotionsList}
             onExitHostMode={() => {
               setIsSellerHostMode(false);
@@ -965,7 +1413,14 @@ export default function App() {
             onSimulateOrderStockDecrement={handleSimulateOrderStockDecrement}
             onExpirePromotionNow={handleExpirePromotionNow}
             onSwitchSession={(sessionId) => setActiveLiveSessionId(sessionId)}
+            onAddComment={(comment) => handleAddSessionComment(activeLiveSession.id, comment)}
+            onDeleteComment={(commentId) => handleDeleteSessionComment(activeLiveSession.id, commentId)}
+            moderatorSellerIds={sessionModerators[activeLiveSession.id] || []}
+            onAppointModerator={(sellerId) => handleAppointModerator(activeLiveSession.id, sellerId)}
+            onRevokeModerator={(sellerId) => handleRevokeModerator(activeLiveSession.id, sellerId)}
+            allSellers={allSellers}
           />
+
         ) : selectedProduct ? (
           /* View: Product Detail Page */
           <ProductDetailView
@@ -986,7 +1441,7 @@ export default function App() {
           /* View: Seller Showroom */
           <SellerStorefrontView
             seller={selectedSeller}
-            products={productsList}
+            products={allProducts}
             snippets={snippetsList}
             onBack={() => setSelectedSellerId(null)}
             onSelectProduct={handleSelectProduct}
@@ -1006,11 +1461,11 @@ export default function App() {
         ) : activeTab === 'Seller Studio' && (userRole === 'seller' || userRole === 'admin') ? (
           /* View: Seller Dashboard & AI Selling Assistant */
           <SellerDashboardView
-            sellers={SELLERS}
-            products={productsList}
+            sellers={allSellers}
+            products={allProducts}
             snippets={snippetsList}
             promotions={promotionsList}
-            orders={ordersList}
+            orders={allOrders}
             issues={orderIssues}
             currentSellerId={currentSellerId}
             onSelectSeller={(id) => setCurrentSellerId(id)}
@@ -1027,11 +1482,13 @@ export default function App() {
             onDeleteProduct={handleDeleteProduct}
             onUpdateOrderItemStatus={handleUpdateOrderItemStatus}
             onRespondToIssue={handleSellerRespondIssue}
+            sessionModerators={sessionModerators}
+            liveSessions={LIVE_SESSIONS}
           />
         ) : activeTab === 'My Orders' ? (
           /* View: Buyer Orders & 14-day Protection Tracker */
           <MyOrdersView
-            orders={ordersList}
+            orders={allOrders}
             issues={orderIssues}
             onConfirmDelivery={handleConfirmItemReceipt}
             onReportIssue={handleReportIssue}
@@ -1041,8 +1498,8 @@ export default function App() {
         ) : activeTab === 'Showrooms' ? (
           /* View: Showrooms Directory */
           <SellersListView
-            sellers={SELLERS}
-            products={productsList}
+            sellers={allSellers}
+            products={allProducts}
             snippets={snippetsList}
             onSelectSeller={handleSelectSeller}
             onOpenLiveRoom={handleOpenLiveRoom}
@@ -1052,20 +1509,25 @@ export default function App() {
         ) : (
           /* Default View: LIVE Streams Immersive Shopping Feed with Vertical Scrolling */
           <LiveStreamsListView
-            liveSessions={LIVE_SESSIONS}
-            products={productsList}
-            sellers={SELLERS}
+            liveSessions={allSessions}
+            products={allProducts}
+            sellers={allSellers}
             onOpenLiveRoom={handleOpenLiveRoom}
             onAddToCart={handleAddToCart}
             onBuyNow={handleBuyNow}
             onSelectSeller={handleSelectSeller}
             onOpenTab={handleTabChange}
             cartItems={cartItems}
-            ordersCount={ordersList.length}
+            ordersCount={allOrders.length}
             searchQuery={searchQuery}
             onSearchSubmit={setSearchQuery}
             onClearSearch={() => setSearchQuery('')}
+            sessionModerators={sessionModerators}
+            sessionComments={sessionComments}
+            deletedCommentIds={deletedCommentIds}
+            currentSellerId={currentSellerId}
           />
+
         )}
       </main>
 
@@ -1080,7 +1542,7 @@ export default function App() {
       <SellerSignInModal
         isOpen={isSellerSignInModalOpen}
         onClose={() => setIsSellerSignInModalOpen(false)}
-        sellers={SELLERS}
+        sellers={allSellers}
         onSignInAsSeller={handleSignInAsSeller}
       />
 
@@ -1155,14 +1617,16 @@ export default function App() {
         userRole={userRole}
         setUserRole={setUserRole}
         currentSeller={currentSeller}
-        sellers={SELLERS}
+        sellers={allSellers}
         onSelectSeller={(sellerId) => {
           setCurrentSellerId(sellerId);
           safeStorage.setItem(STORAGE_KEYS.SELLER_ID, sellerId);
         }}
         onOpenTab={handleTabChange}
-        ordersCount={ordersList.length}
+        ordersCount={allOrders.length}
         totalItemCount={totalItemCount}
+        currentUser={currentUser}
+        onSignOut={handleSignOut}
       />
 
       {/* Mandatory Host Mode AI Disclaimer Confirmation Modal */}
@@ -1171,6 +1635,16 @@ export default function App() {
         onConfirm={handleConfirmHostDisclaimer}
         onCancel={handleCancelHostDisclaimer}
       />
+
+      {/* Full-Screen 3-2-1 LIVE Broadcast Countdown */}
+      {isLiveCountdownActive && (
+        <LiveCountdownOverlay
+          onComplete={handleCountdownComplete}
+          onCancel={handleCountdownCancel}
+          sessionTitle={LIVE_SESSIONS.find(s => s.id === pendingHostSessionId)?.title}
+          sellerName={allSellers.find(s => s.id === (LIVE_SESSIONS.find(l => l.id === pendingHostSessionId)?.sellerId || currentSellerId))?.name}
+        />
+      )}
 
       {/* Development-only Responsive Preview Option Toolbar */}
       <ResponsivePreviewToolbar

@@ -18,6 +18,9 @@ interface NavigationProps {
   currentSeller?: Seller;
   onOpenSellerSignIn: () => void;
   ordersCount?: number;
+  currentUser: any | null;
+  onSignIn: () => void;
+  onSignOut: () => void;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
@@ -31,7 +34,10 @@ export const Navigation: React.FC<NavigationProps> = ({
   userRole,
   currentSeller,
   onOpenSellerSignIn,
-  ordersCount = 0
+  ordersCount = 0,
+  currentUser,
+  onSignIn,
+  onSignOut
 }) => {
   const [localQuery, setLocalQuery] = useState(searchQuery);
 
@@ -95,8 +101,39 @@ export const Navigation: React.FC<NavigationProps> = ({
           </form>
         </div>
 
-        {/* Right Actions: Redundant header basket button removed; persistent footer provides Cart access */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0" />
+        {/* Right Actions: Auth & Setup */}
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          {currentUser ? (
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => onOpenInfoModal()}
+                className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1e2330] hover:bg-[#283042] border border-[#242936] text-[11px] font-bold text-white transition-colors cursor-pointer"
+              >
+                <span>Setup</span>
+              </button>
+              <div className="flex items-center gap-2 pl-2 border-l border-[#242936]">
+                <img 
+                  src={currentUser.photoURL || `https://ui-avatars.com/api/?name=${currentUser.displayName || 'User'}&background=random`} 
+                  alt="Profile" 
+                  className="w-8 h-8 rounded-full border border-[#242936]"
+                />
+                <button 
+                  onClick={onSignOut}
+                  className="hidden md:block text-[11px] font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
+                >
+                  Sign Out
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={onSignIn}
+              className="px-4 py-2 rounded-xl bg-[#19BFFF] hover:bg-[#00AEEF] text-[#0D1018] text-xs font-bold transition-all shadow-lg shadow-[#19BFFF]/20 active:scale-95 cursor-pointer"
+            >
+              Sign In
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Mobile Search Bar Row (Directly below branding row on mobile) */}

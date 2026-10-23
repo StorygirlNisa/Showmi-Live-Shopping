@@ -204,7 +204,7 @@ export const MobileSellerStudio: React.FC<MobileSellerStudioProps> = ({
               Launch your private seller studio and start broadcasting to South African shoppers with real-time AI sales coaching.
             </p>
             <button
-              onClick={() => onOpenLiveHostMode(seller.currentLiveSessionId || 'session-1')}
+              onClick={() => onOpenLiveHostMode(seller.id)}
               className="w-full py-3 bg-[#19BFFF] hover:bg-[#00AEEF] text-[#0D1018] text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md shadow-[#19BFFF]/20 active:scale-95"
             >
               <Radio className="w-4 h-4" />

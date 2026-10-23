@@ -1,5 +1,37 @@
 {
   "entities": {
+    "User": {
+      "title": "User",
+      "description": "App user profile",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "role": { "type": "string", "enum": ["buyer", "seller", "admin"] },
+        "sellerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role", "createdAt"]
+    },
+    "Seller": {
+      "title": "Seller",
+      "description": "Seller profile linked to mock ID",
+      "type": "object",
+      "properties": {
+        "ownerUid": { "type": "string" },
+        "name": { "type": "string" },
+        "handle": { "type": "string" },
+        "bio": { "type": "string" },
+        "city": { "type": "string" },
+        "province": { "type": "string" },
+        "tagline": { "type": "string" },
+        "avatar": { "type": "string" },
+        "bannerImage": { "type": "string" },
+        "rating": { "type": "number" },
+        "moderatorUids": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["ownerUid", "name", "handle"]
+    },
     "Product": {
       "title": "Product",
       "description": "Product in inventory",
@@ -9,7 +41,8 @@
         "name": { "type": "string" },
         "sellerId": { "type": "string" },
         "priceZAR": { "type": "number" },
-        "stock": { "type": "number" }
+        "stock": { "type": "number" },
+        "liveNowSessionId": { "type": "string" }
       },
       "required": ["id", "name", "sellerId", "priceZAR", "stock"]
     },
@@ -20,20 +53,71 @@
       "properties": {
         "id": { "type": "string" },
         "buyerId": { "type": "string" },
+        "sellerIds": { "type": "array", "items": { "type": "string" } },
         "totalZAR": { "type": "number" },
+        "status": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": ["id", "buyerId", "totalZAR", "createdAt"]
+      "required": ["id", "buyerId", "sellerIds", "totalZAR", "createdAt"]
+    },
+    "LiveSession": {
+      "title": "LiveSession",
+      "description": "Live stream session",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "isLive": { "type": "boolean" },
+        "featuredProductId": { "type": "string" },
+        "moderatorUids": { "type": "array", "items": { "type": "string" } },
+        "viewerCount": { "type": "number" },
+        "coverImage": { "type": "string" },
+        "videoUrl": { "type": "string" },
+        "streamCategory": { "type": "string" }
+      },
+      "required": ["id", "sellerId", "isLive"]
+    },
+    "Comment": {
+      "title": "Comment",
+      "description": "Live chat comment",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "text": { "type": "string" },
+        "senderUid": { "type": "string" },
+        "userName": { "type": "string" },
+        "isHost": { "type": "boolean" },
+        "isModerator": { "type": "boolean" },
+        "timestamp": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "text", "senderUid", "userName", "timestamp"]
     }
   },
   "firestore": {
+    "users": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "sellers": {
+      "schema": "Seller",
+      "description": "Seller profiles"
+    },
     "products": {
       "schema": "Product",
-      "description": "Store inventory"
+      "description": "Marketplace products"
     },
     "orders": {
       "schema": "Order",
-      "description": "Customer orders"
+      "description": "Orders"
+    },
+    "live_sessions": {
+      "schema": "LiveSession",
+      "description": "Live sessions"
+    },
+    "live_sessions/{sessionId}/comments": {
+      "schema": "Comment",
+      "description": "Session comments"
     }
   }
 }

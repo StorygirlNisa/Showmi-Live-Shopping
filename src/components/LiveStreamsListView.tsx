@@ -15,9 +15,10 @@ import {
   Package,
   Search,
   X,
-  Plus
+  Plus,
+  ShieldCheck
 } from 'lucide-react';
-import { LiveSession, Product, Seller, CartItem } from '../types';
+import { LiveSession, Product, Seller, CartItem, LiveComment } from '../types';
 import { ProductDetailDrawer } from './ProductDetailDrawer';
 
 interface LiveStreamsListViewProps {
@@ -34,6 +35,10 @@ interface LiveStreamsListViewProps {
   searchQuery?: string;
   onSearchSubmit?: (query: string) => void;
   onClearSearch?: () => void;
+  sessionModerators?: Record<string, string[]>;
+  sessionComments?: Record<string, LiveComment[]>;
+  deletedCommentIds?: string[];
+  currentSellerId?: string;
 }
 
 interface FloatingHeart {
@@ -60,7 +65,11 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
   ordersCount = 0,
   searchQuery,
   onSearchSubmit,
-  onClearSearch
+  onClearSearch,
+  sessionModerators,
+  sessionComments,
+  deletedCommentIds = [],
+  currentSellerId
 }) => {
   const [localQuery, setLocalQuery] = useState(searchQuery || '');
 
@@ -494,20 +503,38 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
               {/* Bottom Essential Overlay: Comments, Showroom Info & Pinned Product */}
               <div className="absolute left-3.5 right-16 sm:right-20 bottom-20 sm:bottom-20 z-20 space-y-2">
                 
-                {/* Live Comments / Chat Feed Preview */}
-                <div className="h-16 overflow-y-auto space-y-1 scrollbar-none pr-2 text-left pointer-events-auto">
-                  {(session.initialComments || []).slice(-3).map((c) => (
-                    <div
-                      key={c.id}
-                      className="inline-block max-w-full px-2 py-0.5 rounded-lg bg-black/50 backdrop-blur-sm text-[11px] text-white border border-white/10"
-                    >
-                      <span className={`font-bold mr-1 ${c.isHost ? 'text-[#19BFFF]' : 'text-slate-300'}`}>
-                        {c.userName}:
-                      </span>
-                      <span className="text-slate-100">{c.text}</span>
+                {/* Live Comments / Chat Feed Preview with Synchronized Active Comments */}
+                {(() => {
+                  const cardComments = ((sessionComments && sessionComments[session.id]) || session.initialComments || [])
+                    .filter(c => !(deletedCommentIds || []).includes(c.id));
+                  const isAppointedMod = Boolean(currentSellerId && sessionModerators?.[session.id]?.includes(currentSellerId));
+                  return (
+                    <div className="space-y-1">
+                      {isAppointedMod && (
+                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-500/40 text-[10px] text-emerald-300 font-semibold backdrop-blur-sm pointer-events-auto shadow-sm">
+                          <ShieldCheck className="w-3 h-3 text-emerald-400 shrink-0" />
+                          <span>Appointed Moderator · Tap to Open & Moderate</span>
+                        </div>
+                      )}
+                      <div className="h-16 overflow-y-auto space-y-1 scrollbar-none pr-2 text-left pointer-events-auto">
+                        {cardComments.slice(-3).map((c) => (
+                          <div
+                            key={c.id}
+                            className="inline-block max-w-full px-2 py-0.5 rounded-lg bg-black/50 backdrop-blur-sm text-[11px] text-white border border-white/10"
+                          >
+                            <span className={`font-bold mr-1 inline-flex items-center gap-0.5 ${
+                              c.isHost ? 'text-[#19BFFF]' : c.isModerator ? 'text-emerald-400' : 'text-slate-300'
+                            }`}>
+                              {c.isModerator && <ShieldCheck className="w-2.5 h-2.5 text-emerald-400 inline" />}
+                              {c.userName}:
+                            </span>
+                            <span className="text-slate-100">{c.text}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  ))}
-                </div>
+                  );
+                })()}
 
                 {/* Showroom Information Block: Immediately above pinned product block */}
                 <div className="space-y-0.5 text-left pointer-events-auto">

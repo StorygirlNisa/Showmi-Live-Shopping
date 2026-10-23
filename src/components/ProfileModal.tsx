@@ -15,6 +15,8 @@ interface ProfileModalProps {
   onOpenTab?: (tab: AppTab) => void;
   ordersCount?: number;
   totalItemCount?: number;
+  currentUser?: any | null;
+  onSignOut?: () => void;
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({
@@ -27,11 +29,13 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   onSelectSeller,
   onOpenTab,
   ordersCount = 0,
-  totalItemCount = 0
+  totalItemCount = 0,
+  currentUser,
+  onSignOut
 }) => {
   const [activeSection, setActiveSection] = useState<'menu' | 'profile' | 'security' | 'payments' | 'address' | 'verification'>('menu');
-  const [fullName, setFullName] = useState(userRole === 'seller' && currentSeller ? currentSeller.name : 'Nisa Bardien');
-  const [email, setEmail] = useState('nisabardien@gmail.com');
+  const [fullName, setFullName] = useState(currentUser?.displayName || (userRole === 'seller' && currentSeller ? currentSeller.name : 'Nisa Bardien'));
+  const [email, setEmail] = useState(currentUser?.email || 'nisabardien@gmail.com');
   const [phone, setPhone] = useState('+27 82 555 0192');
   const [savedSuccess, setSavedSuccess] = useState(false);
   
@@ -108,6 +112,16 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                             </div>
                             <span className="font-semibold text-xs sm:text-sm">My Orders & Tracking</span>
                         </button>
+                        {currentUser && (
+                          <button 
+                              onClick={() => { if (onSignOut) onSignOut(); onClose(); }} 
+                              className="flex flex-col items-center justify-center p-4 sm:p-6 bg-red-900/20 rounded-2xl text-red-400 hover:bg-red-900/30 text-center gap-2 sm:gap-3 cursor-pointer active:scale-95 transition-all border border-red-900/30"
+                              title="Sign out of your account"
+                          >
+                              <X className="w-7 h-7 sm:w-8 sm:h-8 text-red-500"/>
+                              <span className="font-semibold text-xs sm:text-sm">Sign Out</span>
+                          </button>
+                        )}
                     </div>
                 </div>
             </>

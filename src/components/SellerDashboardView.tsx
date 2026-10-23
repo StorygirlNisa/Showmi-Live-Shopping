@@ -29,7 +29,7 @@ import {
   MessageSquare,
   Send
 } from 'lucide-react';
-import { Seller, Product, StreamSnippet, LivePromotion, Category, Order, OrderItem, OrderIssue } from '../types';
+import { Seller, Product, StreamSnippet, LivePromotion, Category, Order, OrderItem, OrderIssue, LiveSession } from '../types';
 import { MobileSellerStudio } from './MobileSellerStudio';
 
 
@@ -64,6 +64,8 @@ interface SellerDashboardViewProps {
     issueId: string, 
     response: { message: string; resolutionNote?: string; status?: 'seller_responded' | 'resolved' }
   ) => void;
+  sessionModerators?: Record<string, string[]>;
+  liveSessions?: LiveSession[];
 }
 
 export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
@@ -87,7 +89,9 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
   onUpdateProduct,
   onDeleteProduct,
   onUpdateOrderItemStatus,
-  onRespondToIssue
+  onRespondToIssue,
+  sessionModerators = {},
+  liveSessions = []
 }) => {
   const currentSeller = sellers.find(s => s.id === currentSellerId) || sellers[0];
   const sellerProducts = products.filter(p => p.sellerId === currentSeller.id);
@@ -742,11 +746,12 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
           <div className="flex items-center gap-2 bg-[#14171f] p-2.5 rounded-xl border border-[#212633] w-full sm:w-fit min-w-0">
             <Store className="w-4 h-4 text-[#0066ff] ml-1 shrink-0" />
             <span className="text-xs text-slate-400 shrink-0">Managing:</span>
-            {userRole === 'admin' ? (
+            {onSelectSeller ? (
               <select
                 value={currentSellerId}
                 onChange={(e) => onSelectSeller(e.target.value)}
                 className="bg-[#0D1018] text-white px-2.5 py-1 rounded-lg border border-[#212633] text-xs font-bold outline-none cursor-pointer"
+                title="Select showroom to manage"
               >
                 {sellers.map(s => (
                   <option key={s.id} value={s.id}>{s.name} ({s.city}, {s.province})</option>
@@ -757,6 +762,53 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
             )}
           </div>
         </div>
+
+        {/* Appointed Moderator Status Notices */}
+        {(() => {
+          const sellerSessionId = currentSeller.currentLiveSessionId || (liveSessions.find(s => s.sellerId === currentSeller.id)?.id);
+          const appointedModsForThisSeller = sellerSessionId ? (sessionModerators[sellerSessionId] || []) : [];
+          const sessionsModeratedByCurrentSeller = liveSessions.filter(s => 
+            (sessionModerators[s.id] || []).includes(currentSeller.id)
+          );
+
+          return (
+            <div className="space-y-2">
+              {appointedModsForThisSeller.length > 0 && (
+                <div className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-emerald-950/40 border border-emerald-500/30 text-xs text-emerald-300">
+                  <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>
+                    Appointed Chat Moderator{appointedModsForThisSeller.length > 1 ? 's' : ''} for your live broadcast:{' '}
+                    <strong>
+                      {appointedModsForThisSeller
+                        .map(id => sellers.find(s => s.id === id)?.name || id)
+                        .join(', ')}
+                    </strong>
+                  </span>
+                </div>
+              )}
+
+              {sessionsModeratedByCurrentSeller.length > 0 && (
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 p-3 rounded-xl bg-emerald-950/50 border border-emerald-500/40 text-xs text-emerald-300">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span>
+                      You are an Appointed Chat Moderator for:{' '}
+                      <strong>
+                        {sessionsModeratedByCurrentSeller.map(s => s.title).join(', ')}
+                      </strong>
+                    </span>
+                  </div>
+                  <button
+                    onClick={onBackToShopping}
+                    className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg text-xs cursor-pointer shrink-0 shadow-sm"
+                  >
+                    View Live Feed & Moderate
+                  </button>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* Applied Notification */}
         {appliedNotification && (
@@ -779,9 +831,9 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-[#212633] w-full min-w-0">
-            {onOpenLiveHostMode && currentSeller.currentLiveSessionId ? (
+            {onOpenLiveHostMode && (currentSeller.currentLiveSessionId || liveSessions.find(s => s.sellerId === currentSeller.id)) ? (
               <button
-                onClick={() => onOpenLiveHostMode(currentSeller.currentLiveSessionId!)}
+                onClick={() => onOpenLiveHostMode(currentSeller.currentLiveSessionId || liveSessions.find(s => s.sellerId === currentSeller.id)!.id)}
                 className="w-full sm:w-auto py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 cursor-pointer"
               >
                 <Radio className="w-4 h-4" />
@@ -843,6 +895,29 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
         {/* AI Sales Assistant Tab (Includes Livestream Prep & Copy Generation) */}
         {activeTab === 'ai' && (
           <div className="flex flex-col w-full min-w-0 gap-8">
+            {/* Host Mode Launcher Card */}
+            <div className="p-5 sm:p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-4 w-full min-w-0">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm sm:text-base font-bold text-white flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-[#0066ff]" />
+                  Live Broadcast Host
+                </h3>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+                  Ready
+                </span>
+              </div>
+              <p className="text-xs sm:text-sm text-slate-400">
+                Launch your private seller studio and start broadcasting to South African shoppers with real-time AI sales coaching.
+              </p>
+              <button
+                onClick={() => onOpenLiveHostMode && onOpenLiveHostMode(currentSeller.id)}
+                className="w-full py-3.5 px-4 rounded-xl text-xs sm:text-sm font-bold bg-[#0066ff] hover:bg-[#0052cc] text-white flex items-center justify-center gap-2 shadow-lg cursor-pointer transition-all active:scale-[0.99]"
+              >
+                <Radio className="w-4 h-4" />
+                <span>Launch Live / Host Mode</span>
+              </button>
+            </div>
+
             {/* 1. Livestream Prep Section */}
             <div className="p-5 sm:p-6 rounded-2xl bg-[#14171f] border border-[#212633] space-y-5 w-full min-w-0">
               <h2 className="text-sm font-bold text-white tracking-tight flex items-center gap-2">

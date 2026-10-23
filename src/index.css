@@ -362,6 +362,27 @@
   animation: fadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+@keyframes countdownPop {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+    filter: blur(4px);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+    filter: blur(0px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-countdown-pop {
+  animation: countdownPop 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
 /* Custom subtle scrollbar with official palette */
 ::-webkit-scrollbar {
   width: 6px;

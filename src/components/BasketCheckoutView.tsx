@@ -201,6 +201,10 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
   const handleProceedToCheckout = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (hasOwnArtisanProduct) {
+      setCheckoutStockError("Oops! You can't buy your own item.");
+      return;
+    }
     if (cartItems.some(i => i.product.stock <= 0)) {
       return;
     }
@@ -212,6 +216,11 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
     if (e) {
       e.preventDefault();
       e.stopPropagation();
+    }
+
+    if (hasOwnArtisanProduct) {
+      setCheckoutStockError("Oops! You can't buy your own item.");
+      return;
     }
 
     // Strict guard: orders can only be placed explicitly on the checkout review step

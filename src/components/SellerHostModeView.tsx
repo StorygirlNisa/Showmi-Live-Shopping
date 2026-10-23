@@ -23,10 +23,21 @@ import {
   Radio,
   ExternalLink,
   ChevronRight,
-  Info
+  Info,
+  UserPlus,
+  UserCheck
 } from 'lucide-react';
 import { LiveSession, Product, Seller, LivePromotion, SalesCoachPrompt, LiveComment } from '../types';
 import { buildSalesCoachQueue, getActivePromotionForProduct } from '../services/salesCoachQueue';
+import { db } from '../lib/firebase';
+import { 
+  collection, 
+  query, 
+  onSnapshot, 
+  orderBy, 
+  doc, 
+  updateDoc 
+} from 'firebase/firestore';
 
 interface SellerHostModeViewProps {
   session: LiveSession;
@@ -38,6 +49,13 @@ interface SellerHostModeViewProps {
   onSimulateOrderStockDecrement?: (productId: string) => void;
   onExpirePromotionNow?: (promoId: string) => void;
   onSwitchSession?: (sessionId: string) => void;
+  comments?: LiveComment[];
+  onAddComment?: (comment: LiveComment) => void;
+  onDeleteComment?: (commentId: string) => void;
+  moderatorSellerIds?: string[];
+  onAppointModerator?: (sellerId: string) => void;
+  onRevokeModerator?: (sellerId: string) => void;
+  allSellers?: Seller[];
 }
 
 export const SellerHostModeView: React.FC<SellerHostModeViewProps> = ({
@@ -49,15 +67,58 @@ export const SellerHostModeView: React.FC<SellerHostModeViewProps> = ({
   onViewShopperLiveRoom,
   onSimulateOrderStockDecrement,
   onExpirePromotionNow,
-  onSwitchSession
+  onSwitchSession,
+  comments,
+  onAddComment,
+  onDeleteComment,
+  moderatorSellerIds = [],
+  onAppointModerator,
+  onRevokeModerator,
+  allSellers = []
 }) => {
+  // Real-time metadata and comments from Firestore
+  const [sessionMetadata, setSessionMetadata] = useState<LiveSession>(session);
+  const [firestoreComments, setFirestoreComments] = useState<LiveComment[]>([]);
+  const activeComments = comments || firestoreComments;
+
+  // 1. Sync Session Metadata (Pinned Product, Moderator UIDs, etc.)
+  useEffect(() => {
+    const unsubscribe = onSnapshot(doc(db, 'live_sessions', session.id), (snapshot) => {
+      if (snapshot.exists()) {
+        setSessionMetadata(snapshot.data() as LiveSession);
+      }
+    });
+    return () => unsubscribe();
+  }, [session.id]);
+
+  // 2. Sync Comments
+  useEffect(() => {
+    const q = query(
+      collection(db, 'live_sessions', session.id, 'comments'),
+      orderBy('timestamp', 'asc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list: LiveComment[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        list.push({
+          ...data,
+          id: doc.id,
+          timestamp: data.timestamp ? new Date(data.timestamp.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'
+        } as LiveComment);
+      });
+      setFirestoreComments(list);
+    });
+    return () => unsubscribe();
+  }, [session.id]);
+
   // Available products for this host session
   const sessionProducts = useMemo(() => {
     const list: Product[] = [];
-    const featured = products.find(p => p.id === session.featuredProductId);
+    const featured = products.find(p => p.id === sessionMetadata.featuredProductId);
     if (featured) list.push(featured);
 
-    session.additionalProductIds.forEach(id => {
+    (sessionMetadata.additionalProductIds || []).forEach(id => {
       const extra = products.find(p => p.id === id);
       if (extra && !list.some(p => p.id === extra.id)) {
         list.push(extra);
@@ -70,12 +131,18 @@ export const SellerHostModeView: React.FC<SellerHostModeViewProps> = ({
       .forEach(p => list.push(p));
 
     return list;
-  }, [products, session, seller]);
+  }, [products, sessionMetadata, seller]);
 
   // Currently showcased product by host
   const [selectedProductId, setSelectedProductId] = useState<string>(
-    session.featuredProductId || sessionProducts[0]?.id || ''
+    sessionMetadata.featuredProductId || sessionProducts[0]?.id || ''
   );
+
+  useEffect(() => {
+    if (sessionMetadata.featuredProductId) {
+      setSelectedProductId(sessionMetadata.featuredProductId);
+    }
+  }, [sessionMetadata.featuredProductId]);
 
   const activeProduct = useMemo(() => {
     return products.find(p => p.id === selectedProductId) || sessionProducts[0];
@@ -100,8 +167,10 @@ export const SellerHostModeView: React.FC<SellerHostModeViewProps> = ({
   // Host camera & audio simulation
   const [isMuted, setIsMuted] = useState(true);
   const [viewerCount, setViewerCount] = useState(session.viewerCount);
-  const [hostComments, setHostComments] = useState<LiveComment[]>(session.initialComments);
+  const [localComments, setLocalComments] = useState<LiveComment[]>(session.initialComments || []);
   const [hostReplyText, setHostReplyText] = useState('');
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
+  const [isModeratorModalOpen, setIsModeratorModalOpen] = useState(false);
 
   // Re-build prompt queue whenever active product, stock, or promotions change
   const rawPrompts = useMemo(() => {
@@ -139,22 +208,24 @@ export const SellerHostModeView: React.FC<SellerHostModeViewProps> = ({
     const interval = setInterval(() => {
       if (idx < automatedComments.length) {
         const item = automatedComments[idx];
-        setHostComments(prev => [
-          ...prev,
-          {
-            id: `host-chat-${Date.now()}`,
-            userName: item.userName,
-            text: item.text,
-            timestamp: 'Just now'
-          }
-        ]);
+        const newMsg: LiveComment = {
+          id: `host-chat-${session.id}-${idx}-${Date.now()}`,
+          userName: item.userName,
+          text: item.text,
+          timestamp: 'Just now'
+        };
+        if (onAddComment) {
+          onAddComment(newMsg);
+        } else {
+          setLocalComments(prev => [...prev, newMsg]);
+        }
         idx = (idx + 1) % automatedComments.length;
         setViewerCount(v => v + Math.floor(Math.random() * 5) - 2);
       }
-    }, 12000);
+    }, 14000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [session.id, onAddComment]);
 
   // Controls
   const handleNextPrompt = () => {
@@ -187,17 +258,30 @@ export const SellerHostModeView: React.FC<SellerHostModeViewProps> = ({
     e.preventDefault();
     if (!hostReplyText.trim()) return;
 
-    setHostComments(prev => [
-      ...prev,
-      {
-        id: `host-msg-${Date.now()}`,
-        userName: `${seller.name} (Host)`,
-        text: hostReplyText.trim(),
-        timestamp: 'Just now',
-        isHost: true
-      }
-    ]);
+    const newComment: LiveComment = {
+      id: `host-msg-${session.id}-${Date.now()}`,
+      userName: `${seller.name} (Host)`,
+      text: hostReplyText.trim(),
+      timestamp: 'Just now',
+      isHost: true,
+      senderSellerId: seller.id
+    };
+
+    if (onAddComment) {
+      onAddComment(newComment);
+    } else {
+      setLocalComments(prev => [...prev, newComment]);
+    }
     setHostReplyText('');
+  };
+
+  const handleConfirmDelete = (commentId: string) => {
+    if (onDeleteComment) {
+      onDeleteComment(commentId);
+    } else {
+      setLocalComments(prev => prev.filter(item => item.id !== commentId));
+    }
+    setDeletingCommentId(null);
   };
 
   // AI Coach On-Demand guidance request
@@ -229,6 +313,18 @@ export const SellerHostModeView: React.FC<SellerHostModeViewProps> = ({
       );
     } finally {
       setIsRequestingAiTip(false);
+    }
+  };
+
+  // Product Pinning (Firestore)
+  const handlePinProduct = async (productId: string) => {
+    setSelectedProductId(productId);
+    try {
+      await updateDoc(doc(db, 'live_sessions', session.id), {
+        featuredProductId: productId
+      });
+    } catch (error) {
+      console.error("Failed to pin product:", error);
     }
   };
 
@@ -370,10 +466,7 @@ export const SellerHostModeView: React.FC<SellerHostModeViewProps> = ({
                 {sessionProducts.map(prod => (
                   <button
                     key={prod.id}
-                    onClick={() => {
-                      setSelectedProductId(prod.id);
-                      session.featuredProductId = prod.id;
-                    }}
+                    onClick={() => handlePinProduct(prod.id)}
                     className={`flex items-center gap-2 p-2 rounded-xl border text-left transition-all cursor-pointer ${
                       prod.id === activeProduct?.id
                         ? 'bg-[#0066ff]/20 border-[#0066ff] text-white shadow-sm shadow-[#0066ff]/20'
@@ -409,28 +502,107 @@ export const SellerHostModeView: React.FC<SellerHostModeViewProps> = ({
                 <Users className="w-3.5 h-3.5 text-blue-400" />
                 Live Viewer Chat Stream
               </span>
-              <span className="text-[10px] text-slate-400 font-mono">
-                {hostComments.length} comments
-              </span>
+              <div className="flex items-center gap-2">
+                {/* Host Moderator Appointment Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsModeratorModalOpen(true)}
+                  className="px-2.5 py-1 rounded-lg bg-[#19BFFF]/15 hover:bg-[#19BFFF]/25 text-[#19BFFF] border border-[#19BFFF]/30 text-[11px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+                  title="Appoint Showpreneurs as chat moderators"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Moderators ({moderatorSellerIds.length})</span>
+                </button>
+                <span className="text-[10px] text-slate-400 font-mono">
+                  {activeComments.length} comments
+                </span>
+              </div>
             </div>
 
+            {/* Active Moderator Chips */}
+            {moderatorSellerIds.length > 0 && (
+              <div className="flex items-center gap-1.5 flex-wrap pt-0.5 pb-1 border-b border-[#212633]/50">
+                <span className="text-[10px] text-slate-400 font-medium">Active Mods:</span>
+                {moderatorSellerIds.map(modId => {
+                  const modSeller = allSellers.find(s => s.id === modId);
+                  return (
+                    <span
+                      key={modId}
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-[10px] font-bold"
+                    >
+                      <ShieldCheck className="w-2.5 h-2.5 text-emerald-400" />
+                      <span>{modSeller?.name || modId}</span>
+                      <button
+                        type="button"
+                        onClick={() => onRevokeModerator && onRevokeModerator(modId)}
+                        className="text-slate-400 hover:text-red-400 ml-0.5 cursor-pointer text-xs"
+                        title={`Revoke ${modSeller?.name || modId}`}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+
             <div className="h-44 overflow-y-auto space-y-2 pr-1 scrollbar-none text-xs">
-              {hostComments.slice(-5).map(c => (
+              {activeComments.slice(-6).map(c => (
                 <div
                   key={c.id}
-                  className={`p-2 rounded-xl ${
+                  className={`p-2 rounded-xl relative group ${
                     c.isHost
                       ? 'bg-amber-950/40 border border-amber-600/30 text-amber-200'
+                      : c.isModerator
+                      ? 'bg-emerald-950/30 border border-emerald-500/30 text-emerald-200'
                       : 'bg-[#0c0e12] border border-[#212633] text-slate-300'
                   }`}
                 >
                   <div className="flex items-center justify-between text-[10px] mb-0.5">
-                    <span className={`font-bold ${c.isHost ? 'text-amber-400' : 'text-blue-400'}`}>
+                    <span className={`font-bold flex items-center gap-1 ${
+                      c.isHost ? 'text-amber-400' : c.isModerator ? 'text-emerald-400' : 'text-blue-400'
+                    }`}>
+                      {c.isModerator && <ShieldCheck className="w-3 h-3 text-emerald-400" />}
                       {c.userName}
                     </span>
-                    <span className="text-slate-500 font-mono">{c.timestamp}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-slate-500 font-mono">{c.timestamp}</span>
+                      {deletingCommentId !== c.id && (
+                        <button
+                          type="button"
+                          onClick={() => setDeletingCommentId(c.id)}
+                          className="text-[10px] text-red-400 hover:text-red-300 underline opacity-75 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          title="Remove message"
+                        >
+                          Delete
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <p className="text-white text-xs">{c.text}</p>
+
+                  {/* Confirmation banner */}
+                  {deletingCommentId === c.id && (
+                    <div className="mt-2 pt-2 border-t border-red-500/30 bg-red-950/30 p-2 rounded-lg flex items-center justify-between gap-2">
+                      <span className="text-[10px] text-red-300 font-medium">Remove message?</span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => setDeletingCommentId(null)}
+                          className="px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:text-white text-[10px] font-semibold cursor-pointer"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleConfirmDelete(c.id)}
+                          className="px-2 py-0.5 rounded bg-red-600 text-white hover:bg-red-500 text-[10px] font-bold cursor-pointer"
+                        >
+                          Confirm
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -837,6 +1009,75 @@ export const SellerHostModeView: React.FC<SellerHostModeViewProps> = ({
         </div>
 
       </div>
+
+      {/* Host Moderator Management Modal */}
+      {isModeratorModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="bg-[#171A21] border border-[#242936] rounded-3xl w-full max-w-sm p-6 space-y-4 shadow-2xl relative">
+            <button
+              onClick={() => setIsModeratorModalOpen(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+
+            <div className="space-y-1">
+              <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-[#19BFFF]" />
+                Appoint Moderators
+              </h3>
+              <p className="text-xs text-slate-400">
+                Search and appoint fellow makers to moderate your chat and keep the stream safe.
+              </p>
+            </div>
+
+            <div className="space-y-3 max-h-64 overflow-y-auto pr-1 scrollbar-none">
+              {(allSellers || []).filter(s => s.id !== seller.id).map(s => {
+                const isMod = moderatorSellerIds.includes(s.id);
+                return (
+                  <div key={s.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-[#0D1018] border border-[#242936]">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <img src={s.avatar} alt={s.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-white truncate">{s.name}</p>
+                        <p className="text-[10px] text-slate-400">{s.city}</p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        if (isMod) {
+                          onRevokeModerator && onRevokeModerator(s.id);
+                        } else {
+                          onAppointModerator && onAppointModerator(s.id);
+                        }
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                        isMod
+                          ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20'
+                          : 'bg-[#19BFFF] text-[#0D1018] hover:bg-[#00AEEF]'
+                      }`}
+                    >
+                      {isMod ? <X className="w-3 h-3" /> : <UserPlus className="w-3 h-3" />}
+                      <span>{isMod ? 'Revoke' : 'Appoint'}</span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={() => setIsModeratorModalOpen(false)}
+              className="w-full py-3 bg-[#242936] hover:bg-[#2d3343] text-white text-xs font-bold rounded-xl cursor-pointer transition-all"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

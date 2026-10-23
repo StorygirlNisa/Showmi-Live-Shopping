@@ -39,7 +39,8 @@ export const SELLERS: Seller[] = [
     salesCount: 0,
     followersCount: 0,
     verifiedArtisan: true,
-    snippets: []
+    snippets: [],
+    currentLiveSessionId: 'live-cupcake-01'
   },
   {
     id: 'seller-glow-theory',
@@ -55,7 +56,8 @@ export const SELLERS: Seller[] = [
     salesCount: 1420,
     followersCount: 12800,
     verifiedArtisan: true,
-    snippets: []
+    snippets: [],
+    currentLiveSessionId: 'live-glow-01'
   },
   {
     id: 'seller-style-edit',
@@ -71,7 +73,8 @@ export const SELLERS: Seller[] = [
     salesCount: 2310,
     followersCount: 24500,
     verifiedArtisan: true,
-    snippets: []
+    snippets: [],
+    currentLiveSessionId: 'live-style-01'
   }
 ];
 
@@ -148,7 +151,12 @@ export const LIVE_SESSIONS: LiveSession[] = [
     featuredProductId: 'prod-cupcake-6',
     additionalProductIds: [],
     streamCategory: 'Food & Bakery',
-    initialComments: [],
+    initialComments: [
+      { id: 'c-cupcake-1', userName: 'Zandi K.', text: 'Are the vanilla bean cupcakes nut-free?', timestamp: '2m ago' },
+      { id: 'c-cupcake-2', userName: 'Lungile M.', text: 'The packaging looks so premium! Adding to cart 🇿🇦', timestamp: '1m ago' },
+      { id: 'c-cupcake-3', userName: 'SpamBot99', text: 'Earn quick money online: visit www.fakelink-za.xyz 🚫', timestamp: 'Just now' },
+      { id: 'c-cupcake-4', userName: 'Kobus V.', text: 'Can this be shipped via local door-to-door courier?', timestamp: 'Just now' }
+    ],
     videoUrl: '/assets/videos/South%20African%20Baker%20Cupcake%20Live%20%282%29.mp4'
   },
   {
@@ -164,7 +172,11 @@ export const LIVE_SESSIONS: LiveSession[] = [
     featuredProductId: 'prod-marula-elixir',
     additionalProductIds: [],
     streamCategory: 'Beauty & Skincare',
-    initialComments: [],
+    initialComments: [
+      { id: 'c-glow-1', userName: 'Zandi K.', text: 'Does it feel lightweight on sensitive skin?', timestamp: '2m ago' },
+      { id: 'c-glow-2', userName: 'FakePromoBot', text: 'Get free crypto tokens at http://scam-promo.top ❌', timestamp: '1m ago' },
+      { id: 'c-glow-3', userName: 'Carla D.', text: 'Ordered! Can’t wait for The Courier Guy delivery.', timestamp: 'Just now' }
+    ],
     videoUrl: '/assets/videos/Skincare%20Livestream%20Demonstration%20%281%29.mp4'
   },
   {
@@ -180,7 +192,11 @@ export const LIVE_SESSIONS: LiveSession[] = [
     featuredProductId: 'prod-jozi-sneakers',
     additionalProductIds: [],
     streamCategory: 'Clothing & Fashion',
-    initialComments: [],
+    initialComments: [
+      { id: 'c-style-1', userName: 'Sipho B.', text: 'What sizes are left in the high-tops?', timestamp: '2m ago' },
+      { id: 'c-style-2', userName: 'SpamAd32', text: 'Luxury replica watches whatsapp: 0812345678 ⚠️', timestamp: '1m ago' },
+      { id: 'c-style-3', userName: 'Nthabi P.', text: 'The nubuck stitching is top tier.', timestamp: 'Just now' }
+    ],
     videoUrl: '/assets/videos/Boutique%20Live%20Shopping%20Stream%20%282%29.mp4'
   }
 ];

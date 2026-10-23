@@ -9,10 +9,19 @@ import {
   Share2, 
   Info,
   X,
-  Plus
+  Plus,
+  ShieldCheck
 } from 'lucide-react';
 import { LiveSession, Product, Seller, LiveComment } from '../types';
 import { ProductDetailDrawer } from './ProductDetailDrawer';
+import { db, auth } from '../lib/firebase';
+import { 
+  collection, 
+  query, 
+  onSnapshot, 
+  orderBy, 
+  doc
+} from 'firebase/firestore';
 
 interface LiveRoomViewProps {
   session: LiveSession;
@@ -27,6 +36,13 @@ interface LiveRoomViewProps {
   allLiveSessions: LiveSession[];
   onOpenHostMode?: (sessionId: string) => void;
   isActive?: boolean;
+  comments?: LiveComment[];
+  onAddComment?: (comment: LiveComment) => void;
+  onDeleteComment?: (commentId: string) => void;
+  moderatorSellerIds?: string[];
+  currentSellerId?: string;
+  userRole?: 'admin' | 'buyer' | 'seller';
+  allSellers?: Seller[];
 }
 
 interface FloatingHeart {
@@ -52,25 +68,90 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
   onSwitchSession,
   allLiveSessions,
   onOpenHostMode,
-  isActive = true
+  isActive = true,
+  comments,
+  onAddComment,
+  onDeleteComment,
+  moderatorSellerIds = [],
+  currentSellerId,
+  userRole,
+  allSellers = []
 }) => {
   const [isMuted, setIsMuted] = useState(true);
   const [isPlaying] = useState(true);
   const [videoError, setVideoError] = useState(false);
-  const [viewerCount, setViewerCount] = useState(session.viewerCount);
-  const [comments, setComments] = useState<LiveComment[]>(session.initialComments);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  
+  // Real-time metadata and comments from Firestore
+  const [sessionMetadata, setSessionMetadata] = useState<LiveSession>(session);
+  const [firestoreComments, setFirestoreComments] = useState<LiveComment[]>([]);
+  const activeComments = comments || firestoreComments;
+  
+  const [deletingCommentId, setDeletingCommentId] = useState<string | null>(null);
   const [commentInput, setCommentInput] = useState('');
+
+  // 1. Sync Session Metadata (Pinned Product, Moderator UIDs, etc.)
+  useEffect(() => {
+    const unsubscribe = onSnapshot(doc(db, 'live_sessions', session.id), (snapshot) => {
+      if (snapshot.exists()) {
+        setSessionMetadata(snapshot.data() as LiveSession);
+      }
+    });
+    return () => unsubscribe();
+  }, [session.id]);
+
+  // 2. Sync Comments
+  useEffect(() => {
+    const q = query(
+      collection(db, 'live_sessions', session.id, 'comments'),
+      orderBy('timestamp', 'asc')
+    );
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const list: LiveComment[] = [];
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        list.push({
+          ...data,
+          id: doc.id,
+          // Handle serverTimestamp proxy if needed, but for display 'Just now' or date is fine
+          timestamp: data.timestamp ? new Date(data.timestamp.seconds * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'
+        } as LiveComment);
+      });
+      setFirestoreComments(list);
+    });
+    return () => unsubscribe();
+  }, [session.id]);
+
+  // Derive permissions strictly from session metadata
+  const isHost = Boolean(currentSellerId && currentSellerId === sessionMetadata.sellerId);
+  const currentUserUid = (db as any).app?.name ? (auth as any).currentUser?.uid : null;
+  const isRealModerator = Boolean(currentUserUid && sessionMetadata.moderatorUids?.includes(currentUserUid));
+  const canModerate = isHost || isRealModerator || userRole === 'admin';
+
+  // UI State restored from previous truncation
   const [floatingHearts, setFloatingHearts] = useState<FloatingHeart[]>([]);
   const [heartCount, setHeartCount] = useState(842);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [viewerCount] = useState(session.viewerCount || Math.floor(Math.random() * 50) + 120);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastKey, setToastKey] = useState(0);
+  const toastTimeoutRef = useRef<number | null>(null);
+  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
+  const shareTimeoutRef = useRef<number | null>(null);
+  const nextHeartId = useRef(0);
+  const commentsContainerRef = useRef<HTMLDivElement>(null);
+
+  // Drawer State
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  const [selectedDrawerProduct, setSelectedDrawerProduct] = useState<Product | null>(null);
 
   // Active Pinned Product & Live Session Product Queue
   const sessionQueueProducts = useMemo(() => {
     const list: Product[] = [];
-    const featured = products.find(p => p.id === session.featuredProductId);
+    const featured = products.find(p => p.id === sessionMetadata.featuredProductId);
     if (featured) list.push(featured);
 
-    (session.additionalProductIds || []).forEach(id => {
+    (sessionMetadata.additionalProductIds || []).forEach(id => {
       const extra = products.find(p => p.id === id);
       if (extra && !list.some(p => p.id === extra.id)) {
         list.push(extra);
@@ -84,41 +165,40 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     }
 
     return list.length > 0 ? list : products;
-  }, [products, session, seller]);
+  }, [products, sessionMetadata, seller]);
 
   const [activeProductId, setActiveProductId] = useState<string>(
-    session.featuredProductId || products[0]?.id || ''
+    sessionMetadata.featuredProductId || products[0]?.id || ''
   );
 
   // Update active product whenever session's featuredProductId changes
   useEffect(() => {
-    if (session.featuredProductId) {
-      setActiveProductId(session.featuredProductId);
+    if (sessionMetadata.featuredProductId) {
+      setActiveProductId(sessionMetadata.featuredProductId);
     }
-  }, [session.featuredProductId, session.id]);
+  }, [sessionMetadata.featuredProductId, session.id]);
 
   const activePinnedProduct = useMemo(() => {
-    return products.find(p => p.id === activeProductId) || 
-           products.find(p => p.id === session.featuredProductId) || 
-           sessionQueueProducts[0] ||
-           products[0];
-  }, [products, activeProductId, session.featuredProductId, sessionQueueProducts]);
+    return products.find(p => p.id === activeProductId) || sessionQueueProducts[0];
+  }, [products, activeProductId, sessionQueueProducts]);
 
-  const isSoldOut = activePinnedProduct ? activePinnedProduct.stock <= 0 : false;
+  const isSoldOut = Boolean(activePinnedProduct && activePinnedProduct.stock <= 0);
 
-  // Confirmation Toast & Share State
-  const [toastVisible, setToastVisible] = useState(false);
-  const [toastKey, setToastKey] = useState(0);
-  const toastTimeoutRef = useRef<number | null>(null);
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    if (commentsContainerRef.current) {
+      commentsContainerRef.current.scrollTop = commentsContainerRef.current.scrollHeight;
+    }
+  }, [activeComments]);
 
-  const [shareFeedback, setShareFeedback] = useState<string | null>(null);
-  const shareTimeoutRef = useRef<number | null>(null);
+  // Restore video playback position
+  useEffect(() => {
+    if (videoRef.current && sessionPlaybackTimes[session.id]) {
+      videoRef.current.currentTime = sessionPlaybackTimes[session.id];
+    }
+  }, [session.id]);
 
-  // Product Detail Drawer for active pinned product
-  const [selectedDrawerProduct, setSelectedDrawerProduct] = useState<Product | null>(null);
-  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-
-  const openDrawer = (product: Product, e?: React.MouseEvent) => {
+  const openDrawer = (product: Product, e?: React.MouseEvent | React.TouchEvent) => {
     if (e) {
       e.stopPropagation();
       e.preventDefault();
@@ -127,119 +207,43 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
     setIsDrawerOpen(true);
   };
 
-  const nextHeartId = useRef(0);
-  const commentsContainerRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
-
-  // Preserve and restore video playback position so session never restarts when opening/returning from Cart
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    if (!isActive) {
-      sessionPlaybackTimes[session.id] = video.currentTime;
-      video.pause();
-    } else {
-      const savedTime = sessionPlaybackTimes[session.id];
-      if (savedTime && Math.abs(video.currentTime - savedTime) > 0.3) {
-        try {
-          video.currentTime = savedTime;
-        } catch {}
-      }
-      video.play().catch(err => {
-        if (err.name !== 'AbortError') console.error("Playback resume failed", err);
-      });
-    }
-  }, [isActive, session.id]);
-
-  // Restore saved playback time when mounting or switching sessions
-  useEffect(() => {
-    const video = videoRef.current;
-    const savedTime = sessionPlaybackTimes[session.id];
-    if (video && savedTime) {
-      try {
-        video.currentTime = savedTime;
-      } catch {}
-    }
-  }, [session.id]);
-
-  // Cleanup timeouts on unmount and save current playback time
-  useEffect(() => {
-    return () => {
-      if (videoRef.current) {
-        sessionPlaybackTimes[session.id] = videoRef.current.currentTime;
-      }
-      if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current);
-      if (shareTimeoutRef.current) window.clearTimeout(shareTimeoutRef.current);
-    };
-  }, [session.id]);
-
-  // Auto-scroll comments to bottom
-  useEffect(() => {
-    if (commentsContainerRef.current) {
-      commentsContainerRef.current.scrollTop = commentsContainerRef.current.scrollHeight;
-    }
-  }, [comments]);
-
-  // Simulate incoming live viewers & chat messages periodically
-  useEffect(() => {
-    const automatedComments = [
-      { userName: 'Zandi K.', text: 'Does it smell like natural fynbos?' },
-      { userName: 'Lungile M.', text: 'The packaging looks so premium! Adding to cart 🇿🇦' },
-      { userName: 'Kobus V.', text: 'Can this be shipped via Pargo locker?' },
-      { userName: 'Nthabi P.', text: 'Watching live, love your brand!' },
-      { userName: 'Sipho B.', text: 'Does it come with the authenticity certificate?' },
-      { userName: 'Carla D.', text: 'Ordered! Can’t wait for The Courier Guy delivery.' }
-    ];
-
-    let messageIndex = 0;
-    const interval = setInterval(() => {
-      if (messageIndex < automatedComments.length) {
-        const item = automatedComments[messageIndex];
-        setComments(prev => [
-          ...prev,
-          {
-            id: `auto-${Date.now()}`,
-            userName: item.userName,
-            text: item.text,
-            timestamp: 'Just now'
-          }
-        ]);
-        messageIndex = (messageIndex + 1) % automatedComments.length;
-        setViewerCount(v => v + Math.floor(Math.random() * 7) - 3);
-      }
-    }, 9000);
-
-    return () => clearInterval(interval);
-  }, []);
-
   const handleSendComment = (e: React.FormEvent) => {
     e.preventDefault();
     if (!commentInput.trim()) return;
 
+    let userName = 'You (Shopper)';
+    let isMod = false;
+
+    if (isHost) {
+      userName = `${session.sellerName} (Host)`;
+    } else if (canModerate && !isHost && userRole !== 'admin') {
+      const modSeller = (allSellers || []).find(s => s.id === currentSellerId);
+      userName = `${modSeller?.name || 'Showpreneur'} (MOD)`;
+      isMod = true;
+    }
+
     const newComment: LiveComment = {
-      id: `user-${Date.now()}`,
-      userName: 'You (Shopper)',
+      id: `chat-${session.id}-${Date.now()}`,
+      userName,
       text: commentInput.trim(),
       timestamp: 'Just now',
-      isCurrentUser: true
+      isCurrentUser: true,
+      isModerator: isMod,
+      isHost,
+      senderSellerId: currentSellerId
     };
 
-    setComments(prev => [...prev, newComment]);
+    if (onAddComment) {
+      onAddComment(newComment);
+    }
     setCommentInput('');
+  };
 
-    setTimeout(() => {
-      setComments(prev => [
-        ...prev,
-        {
-          id: `host-reply-${Date.now()}`,
-          userName: `${session.sellerName} (Host)`,
-          text: `Thanks for asking! That is 100% small-batch crafted in our studio.`,
-          timestamp: 'Just now',
-          isHost: true
-        }
-      ]);
-    }, 4000);
+  const handleConfirmDelete = (commentId: string) => {
+    if (onDeleteComment) {
+      onDeleteComment(commentId);
+    }
+    setDeletingCommentId(null);
   };
 
   // Floating hearts generator on tap & press-and-hold
@@ -588,20 +592,90 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
           {/* Scrollable Live Chat Feed (Semi-transparent) */}
           <div
             ref={commentsContainerRef}
-            className="h-28 overflow-y-auto space-y-1.5 scrollbar-none pr-12 text-left pointer-events-auto"
+            className="h-28 overflow-y-auto space-y-1.5 scrollbar-none pr-2 text-left pointer-events-auto"
           >
-            {comments.slice(-5).map((c) => (
+            {activeComments.slice(-6).map((c) => (
               <div
                 key={c.id}
-                className="inline-block max-w-full px-2.5 py-1 rounded-xl bg-black/40 backdrop-blur-sm text-xs text-white border border-white/10"
+                className="inline-block max-w-full px-2.5 py-1 rounded-xl bg-black/50 backdrop-blur-sm text-xs text-white border border-white/10 group relative"
               >
-                <span className={`font-bold mr-1.5 ${c.isHost ? 'text-[#19BFFF]' : c.isCurrentUser ? 'text-emerald-400' : 'text-slate-300'}`}>
-                  {c.userName}:
-                </span>
-                <span className="text-slate-100">{c.text}</span>
+                <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-1 flex-wrap">
+                    <span className={`font-bold inline-flex items-center gap-0.5 ${
+                      c.isHost
+                        ? 'text-[#19BFFF]'
+                        : c.isModerator
+                        ? 'text-emerald-400'
+                        : c.isCurrentUser
+                        ? 'text-emerald-300'
+                        : 'text-slate-300'
+                    }`}>
+                      {c.isModerator && <ShieldCheck className="w-3 h-3 text-emerald-400 shrink-0 inline" />}
+                      {c.userName}:
+                    </span>
+                    <span className="text-slate-100">{c.text}</span>
+                  </div>
+
+                  {canModerate && (
+                    <div className="shrink-0 ml-auto pl-1">
+                      {deletingCommentId !== c.id ? (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeletingCommentId(c.id);
+                          }}
+                          className="text-[10px] text-red-400 hover:text-red-300 underline opacity-75 group-hover:opacity-100 cursor-pointer"
+                          title="Delete message (Moderator)"
+                        >
+                          Delete
+                        </button>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 bg-red-950/80 border border-red-500/40 px-1.5 py-0.5 rounded text-[10px]">
+                          <span className="text-red-200">Remove?</span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleConfirmDelete(c.id);
+                            }}
+                            className="text-red-400 font-bold hover:underline cursor-pointer"
+                          >
+                            Yes
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeletingCommentId(null);
+                            }}
+                            className="text-slate-400 hover:text-white cursor-pointer ml-0.5"
+                          >
+                            No
+                          </button>
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
+
+          {/* Active Moderator Indicator Pill (Only visible to appointed moderators/host) */}
+          {canModerate && (
+            <div className="flex items-center justify-between px-2.5 py-1 rounded-lg bg-emerald-950/70 border border-emerald-500/30 text-[10px] text-emerald-300">
+              <span className="flex items-center gap-1.5 font-semibold">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span>
+                  {isHost 
+                    ? 'Host Moderation Active' 
+                    : `Moderator Active · ${(allSellers || []).find(s => s.id === currentSellerId)?.name || 'Showpreneur'} (Prototype Permissions)`}
+                </span>
+              </span>
+              <span className="text-[9px] text-emerald-400/80">Can delete spam comments</span>
+            </div>
+          )}
 
           {/* Quick Chat Input */}
           <form onSubmit={handleSendComment} className="flex items-center gap-2">
@@ -638,7 +712,6 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                     onClick={(e) => {
                       e.stopPropagation();
                       setActiveProductId(p.id);
-                      session.featuredProductId = p.id;
                     }}
                     className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-all whitespace-nowrap cursor-pointer shrink-0 ${
                       isSelected
