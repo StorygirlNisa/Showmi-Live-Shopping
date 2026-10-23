@@ -8,9 +8,18 @@ service cloud.firestore {
     function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
-    function getUserData() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
-    function isAdmin() { return isSignedIn() && getUserData().role == 'admin'; }
-    function isSeller() { return isSignedIn() && getUserData().role == 'seller'; }
+    function getUserData() { 
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return (userDoc != null) ? userDoc.data : null;
+    }
+    function isAdmin() { 
+      let data = getUserData();
+      return isSignedIn() && data != null && data.role == 'admin'; 
+    }
+    function isSeller() { 
+      let data = getUserData();
+      return isSignedIn() && data != null && data.role == 'seller'; 
+    }
     function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
 
     // --- Validation Helpers ---
@@ -68,7 +77,7 @@ service cloud.firestore {
 
     // --- Sellers Collection ---
     match /sellers/{sellerId} {
-      allow read: if true;
+      allow get, list: if true;
       allow create: if isAdmin() && isValidSeller(incoming());
       allow update: if isSignedIn() && (
         existing().ownerUid == request.auth.uid || isAdmin()
@@ -102,24 +111,28 @@ service cloud.firestore {
     }
 
     // --- Live Sessions ---
-    match /live_sessions/{sessionId} {
-      allow read: if true;
-      allow create: if isSignedIn() && (isAdmin() || (isSeller() && getUserData().sellerId == incoming().sellerId)) && isValidLiveSession(incoming());
-      allow update: if isSignedIn() && (
-        isAdmin() || 
-        getUserData().sellerId == existing().sellerId
-      ) && isValidLiveSession(incoming());
+    match /live_sessions {
+      allow list: if true;
 
-      // Comments Sub-collection
-      match /comments/{commentId} {
-        allow read: if true;
-        allow create: if isSignedIn() && incoming().senderUid == request.auth.uid && incoming().text.size() <= 500;
-        allow delete: if isSignedIn() && (
-          request.auth.uid == existing().senderUid ||
-          getUserData().sellerId == get(/databases/$(database)/documents/live_sessions/$(sessionId)).data.sellerId ||
-          request.auth.uid in get(/databases/$(database)/documents/live_sessions/$(sessionId)).data.moderatorUids ||
-          isAdmin()
-        );
+      match /{sessionId} {
+        allow get: if true;
+        allow create: if isSignedIn() && (isAdmin() || (isSeller() && getUserData().sellerId == incoming().sellerId)) && isValidLiveSession(incoming());
+        allow update: if isSignedIn() && (
+          isAdmin() || 
+          getUserData().sellerId == existing().sellerId
+        ) && isValidLiveSession(incoming());
+
+        // Comments Sub-collection
+        match /comments/{commentId} {
+          allow read: if true;
+          allow create: if isSignedIn() && incoming().senderUid == request.auth.uid && incoming().text.size() <= 500;
+          allow delete: if isSignedIn() && (
+            request.auth.uid == existing().senderUid ||
+            getUserData().sellerId == get(/databases/$(database)/documents/live_sessions/$(sessionId)).data.sellerId ||
+            request.auth.uid in get(/databases/$(database)/documents/live_sessions/$(sessionId)).data.moderatorUids ||
+            isAdmin()
+          );
+        }
       }
     }
   }

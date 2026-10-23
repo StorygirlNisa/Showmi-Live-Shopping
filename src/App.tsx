@@ -186,29 +186,37 @@ export default function App() {
 
   // 1. Sync Products from Firestore
   useEffect(() => {
+    if (isAuthLoading) return;
     const q = query(collection(db, 'products'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      setListenerErrors(prev => { const next = { ...prev }; delete next['products']; return next; });
       const list: Product[] = [];
       snapshot.forEach((doc) => {
         list.push(doc.data() as Product);
       });
       setFirestoreProducts(list);
+    }, (error) => {
+      setListenerErrors(prev => ({ ...prev, 'products': `${error.code} - ${error.message}` }));
     });
     return () => unsubscribe();
-  }, []);
+  }, [isAuthLoading]);
 
   // 2. Sync Sellers from Firestore
   useEffect(() => {
+    if (isAuthLoading) return;
     const q = query(collection(db, 'sellers'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      setListenerErrors(prev => { const next = { ...prev }; delete next['sellers']; return next; });
       const list: Seller[] = [];
       snapshot.forEach((doc) => {
         list.push(doc.data() as Seller);
       });
       setFirestoreSellers(list);
+    }, (error) => {
+      setListenerErrors(prev => ({ ...prev, 'sellers': `${error.code} - ${error.message}` }));
     });
     return () => unsubscribe();
-  }, []);
+  }, [isAuthLoading]);
 
   // Merge Firestore data with Mock data (Firestore takes precedence)
   const allProducts = useMemo(() => {
@@ -273,16 +281,20 @@ export default function App() {
 
   // 4. Sync Live Sessions from Firestore
   useEffect(() => {
+    if (isAuthLoading) return;
     const q = query(collection(db, 'live_sessions'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
+      setListenerErrors(prev => { const next = { ...prev }; delete next['live_sessions']; return next; });
       const list: LiveSession[] = [];
       snapshot.forEach((doc) => {
         list.push(doc.data() as LiveSession);
       });
       setFirestoreSessions(list);
+    }, (error) => {
+      setListenerErrors(prev => ({ ...prev, 'live_sessions': `${error.code} - ${error.message}` }));
     });
     return () => unsubscribe();
-  }, []);
+  }, [isAuthLoading]);
 
   const allSessions = useMemo(() => {
     if (firestoreSessions.length === 0) return LIVE_SESSIONS;
@@ -309,6 +321,7 @@ export default function App() {
   const [pendingHostSessionId, setPendingHostSessionId] = useState<string | null>(null);
   const [isLiveCountdownActive, setIsLiveCountdownActive] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
+  const [listenerErrors, setListenerErrors] = useState<Record<string, string>>({});
 
 
   // Basket State with initial item for demonstration, persisted to localStorage
@@ -1280,6 +1293,11 @@ export default function App() {
 
   const appContent = (
     <div className={`min-h-screen bg-[#0D1018] text-white flex flex-col selection:bg-[#19BFFF] selection:text-[#0D1018] ${viewportMode !== 'responsive' ? 'relative overflow-hidden' : ''}`}>
+      {Object.entries(listenerErrors).map(([key, error]) => (
+        <div key={key} className="fixed top-0 left-0 w-full p-4 bg-red-600 text-white z-[9999] text-sm font-bold border-b border-red-800">
+          DIAGNOSTIC ERROR ({key}): {error}
+        </div>
+      ))}
       
       {/* Admin Role Switcher (Hackathon Demo Only - Hidden on mobile during immersive LIVE feed or active stream) */}
       <div className={isImmersiveLive ? "hidden md:block" : "block"}>
