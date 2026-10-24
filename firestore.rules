@@ -131,7 +131,15 @@ service cloud.firestore {
       allow create: if isSignedIn() && isSellerFor(incoming().sellerId) && isValidProduct(incoming());
       allow update: if isSignedIn() && (
         isAdmin() || 
-        (isSellerFor(existing().sellerId) && incoming().sellerId == existing().sellerId)
+        (isSellerFor(existing().sellerId) && incoming().sellerId == existing().sellerId) ||
+        (
+          incoming().id == existing().id &&
+          incoming().sellerId == existing().sellerId &&
+          incoming().name == existing().name &&
+          incoming().priceZAR == existing().priceZAR &&
+          incoming().stock >= 0 &&
+          incoming().diff(existing()).affectedKeys().hasOnly(['stock'])
+        )
       ) && isValidProduct(incoming());
       allow delete: if isSignedIn() && (isAdmin() || isSellerFor(existing().sellerId));
     }

@@ -479,7 +479,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         </div>
 
         {/* Right-Side Engagement Floating Action Panel: Profile, Like, Product, Share */}
-        <div className="absolute right-3 bottom-60 md:bottom-36 z-30 flex flex-col items-center gap-4 pointer-events-auto">
+        <div className="absolute right-3 bottom-72 md:bottom-48 z-30 flex flex-col items-center gap-4 pointer-events-auto">
           {/* 1. Profile: Host / Seller Showroom Profile */}
           <button
             onClick={(e) => {
@@ -588,7 +588,7 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
         )}
 
         {/* Bottom Section: Live Chat Preview + Pinned Product Card & Action Buttons */}
-        <div className="relative z-30 px-3 pb-20 md:pb-3 space-y-2 safe-area-bottom">
+        <div className="relative z-30 px-3 pb-[88px] md:pb-[88px] space-y-2 safe-area-bottom">
           {/* Scrollable Live Chat Feed (Semi-transparent) */}
           <div
             ref={commentsContainerRef}

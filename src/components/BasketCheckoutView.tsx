@@ -1139,6 +1139,12 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
               </div>
             ) : (
               <div key="checkout-action-panel" className="space-y-2.5">
+                {checkoutStockError && (
+                  <div className="p-3 bg-red-950/40 border border-red-500/40 rounded-xl text-xs text-red-300 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                    <span>{checkoutStockError}</span>
+                  </div>
+                )}
                 <button
                   key="btn-place-order"
                   type="button"

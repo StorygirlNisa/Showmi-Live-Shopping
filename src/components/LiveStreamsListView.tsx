@@ -234,7 +234,7 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
         onScroll={(e) => {
           savedLiveScrollTop = e.currentTarget.scrollTop;
         }}
-        className="w-full h-[100dvh] md:h-[calc(100vh-64px)] overflow-y-auto scroll-smooth snap-y snap-mandatory scrollbar-none flex flex-col items-center"
+        className="w-full h-[calc(100dvh-72px)] md:h-[calc(100vh-64px)] pb-20 md:pb-0 overflow-y-auto scroll-smooth snap-y snap-mandatory scrollbar-none flex flex-col items-center"
         role="feed"
         aria-label="LIVE Shopping Stream Feed"
       >
@@ -250,7 +250,7 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
             <article
               key={session.id}
               onClick={() => onOpenLiveRoom(session.id)}
-              className="w-full h-[100dvh] md:h-[calc(100vh-64px)] snap-start snap-always shrink-0 relative overflow-hidden bg-black select-none max-w-full md:max-w-2xl lg:max-w-3xl mx-auto rounded-none md:rounded-2xl md:my-2 border-0 md:border md:border-[#212633] shadow-2xl cursor-pointer group"
+              className="w-full h-[calc(100dvh-72px)] md:h-[calc(100vh-64px)] snap-start snap-always shrink-0 relative overflow-hidden bg-black select-none max-w-full md:max-w-2xl lg:max-w-3xl mx-auto rounded-none md:rounded-2xl md:my-2 border-0 md:border md:border-[#212633] shadow-2xl cursor-pointer group"
               role="button"
               tabIndex={0}
               aria-label={`Open live stream: ${session.title}`}
@@ -294,7 +294,7 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
               )}
 
               {/* Red LIVE Label */}
-              <div className="absolute top-4 left-4 z-20 flex items-center gap-1.5 bg-rose-600 px-2 py-1 rounded-md text-[10px] font-bold text-white shadow-lg">
+              <div className="absolute top-4 left-4 z-30 flex items-center gap-1.5 bg-rose-600 px-2 py-1 rounded-md text-[10px] font-bold text-white shadow-lg pointer-events-none">
                 <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
                 LIVE
               </div>
@@ -302,69 +302,11 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
               {/* High-Contrast Gradient Overlay */}
               <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/35 via-50% to-black/30 pointer-events-none" />
 
-              {/* Labels - Visible over gradient */}
-              {/* LIVE Label - Top Right */}
-              <div className="absolute top-16 right-4 z-40 flex items-center gap-1.5 bg-rose-600 px-2 py-1 rounded-md text-[10px] font-bold text-white shadow-lg pointer-events-none">
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                LIVE
-              </div>
-
-              {/* DEMO Label - Top Right, below LIVE */}
-              <div className="absolute top-24 right-4 z-40 bg-black/40 backdrop-blur-md border border-white/10 px-2 py-1 rounded text-[9px] font-bold text-white tracking-wide uppercase pointer-events-none">
-                DEMO VIDEO
-              </div>
-
-              {/* Floating Top Bar: Translucent Search Bar & Stream Controls over video */}
+              {/* Stream Mute Control - Top Right */}
               <div 
-                className="absolute top-3 left-3 right-3 sm:top-4 sm:left-4 sm:right-4 z-30 pointer-events-none flex items-center gap-2 safe-area-top"
+                className="absolute top-4 right-4 z-30 pointer-events-none flex items-center gap-2 safe-area-top"
                 onClick={(e) => e.stopPropagation()}
               >
-                {/* Floating Translucent Search Bar over video */}
-                <div 
-                  className="relative flex-1 pointer-events-auto max-w-md mx-auto sm:mx-0"
-                  onClick={(e) => e.stopPropagation()}
-                  onTouchStart={(e) => e.stopPropagation()}
-                  onMouseDown={(e) => e.stopPropagation()}
-                >
-                  <form onSubmit={handleFormSubmit} className="relative w-full" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      type="submit"
-                      className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-[#19BFFF] p-1 cursor-pointer"
-                      title="Search"
-                      aria-label="Submit search"
-                    >
-                      <Search className="w-4 h-4" />
-                    </button>
-                    <input
-                      type="text"
-                      placeholder="Try leather handbags, birthday gifts..."
-                      value={localQuery}
-                      onChange={(e) => setLocalQuery(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      onTouchStart={(e) => e.stopPropagation()}
-                      onFocus={(e) => e.stopPropagation()}
-                      className="w-full min-h-[40px] bg-black/40 hover:bg-black/55 focus:bg-black/80 backdrop-blur-md border border-white/20 focus:border-[#19BFFF] rounded-full pl-10 pr-9 text-xs text-white placeholder-white/70 focus:outline-none transition-all shadow-xl"
-                    />
-                    {(localQuery || searchQuery) && onClearSearch && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setLocalQuery('');
-                          onClearSearch();
-                        }}
-                        className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-1 rounded-full cursor-pointer"
-                        title="Clear search"
-                        aria-label="Clear search"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    )}
-                  </form>
-                </div>
-
-
-                {/* Mute Toggle Button */}
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -385,7 +327,7 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
 
 
               {/* Right-Side Floating Actions */}
-              <aside className="absolute right-3 bottom-24 sm:bottom-28 z-20 flex flex-col items-center gap-3.5" onClick={(e) => e.stopPropagation()}>
+              <aside className="absolute right-3 bottom-40 sm:bottom-40 z-20 flex flex-col items-center gap-3.5" onClick={(e) => e.stopPropagation()}>
                 
                 {/* Profile Button */}
                 <button
@@ -500,42 +442,9 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
 
               </aside>
 
-              {/* Bottom Essential Overlay: Comments, Showroom Info & Pinned Product */}
-              <div className="absolute left-3.5 right-16 sm:right-20 bottom-20 sm:bottom-20 z-20 space-y-2">
+              {/* Bottom Essential Overlay: Showroom Info & Pinned Product (positioned clear of fixed footer) */}
+              <div className="absolute left-3.5 right-16 sm:right-20 bottom-[76px] z-20 space-y-2">
                 
-                {/* Live Comments / Chat Feed Preview with Synchronized Active Comments */}
-                {(() => {
-                  const cardComments = ((sessionComments && sessionComments[session.id]) || session.initialComments || [])
-                    .filter(c => !(deletedCommentIds || []).includes(c.id));
-                  const isAppointedMod = Boolean(currentSellerId && sessionModerators?.[session.id]?.includes(currentSellerId));
-                  return (
-                    <div className="space-y-1">
-                      {isAppointedMod && (
-                        <div className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-500/40 text-[10px] text-emerald-300 font-semibold backdrop-blur-sm pointer-events-auto shadow-sm">
-                          <ShieldCheck className="w-3 h-3 text-emerald-400 shrink-0" />
-                          <span>Appointed Moderator · Tap to Open & Moderate</span>
-                        </div>
-                      )}
-                      <div className="h-16 overflow-y-auto space-y-1 scrollbar-none pr-2 text-left pointer-events-auto">
-                        {cardComments.slice(-3).map((c) => (
-                          <div
-                            key={c.id}
-                            className="inline-block max-w-full px-2 py-0.5 rounded-lg bg-black/50 backdrop-blur-sm text-[11px] text-white border border-white/10"
-                          >
-                            <span className={`font-bold mr-1 inline-flex items-center gap-0.5 ${
-                              c.isHost ? 'text-[#19BFFF]' : c.isModerator ? 'text-emerald-400' : 'text-slate-300'
-                            }`}>
-                              {c.isModerator && <ShieldCheck className="w-2.5 h-2.5 text-emerald-400 inline" />}
-                              {c.userName}:
-                            </span>
-                            <span className="text-slate-100">{c.text}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
-
                 {/* Showroom Information Block: Immediately above pinned product block */}
                 <div className="space-y-0.5 text-left pointer-events-auto">
                   <h2 className="font-bold text-sm sm:text-base text-white drop-shadow leading-tight">
@@ -557,7 +466,7 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                   <div className="relative">
                     <div 
                       onClick={(e) => openDrawer(featured, e)}
-                      className="bg-[#12151d]/90 backdrop-blur-md border border-[#212633] hover:border-[#19BFFF]/60 rounded-xl p-2 sm:p-2.5 flex items-center justify-between gap-2.5 transition-all cursor-pointer shadow-xl active:scale-[0.99] pointer-events-auto"
+                      className="bg-[#12151d]/95 backdrop-blur-md border border-[#212633] hover:border-[#19BFFF]/60 rounded-xl p-2 sm:p-2.5 flex items-center justify-between gap-2.5 transition-all cursor-pointer shadow-2xl active:scale-[0.99] pointer-events-auto"
                     >
                       {/* Product details without thumbnail for maximum text readability */}
                       <div className="min-w-0 flex-1 pr-1 text-left">
@@ -588,7 +497,7 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                         </div>
                       </div>
 
-                      {/* Action buttons */}
+                      {/* Action buttons - Full target size & clear above fixed footer */}
                       <div className="flex items-stretch gap-1.5 shrink-0 relative" onClick={(e) => e.stopPropagation()}>
                         {/* Confirmation Toast: compact, dark charcoal, electric blue accent, directly above action buttons */}
                         {toastSessionId === session.id && (
@@ -612,7 +521,7 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                             type="button"
                             onClick={(e) => handleQuickAdd(featured, session.id, e)}
                             disabled={isSoldOut}
-                            className={`min-h-[42px] px-2.5 sm:px-3 py-1.5 rounded-lg flex flex-col items-center justify-center gap-0.5 transition-all cursor-pointer shadow active:scale-95 ${
+                            className={`min-h-[44px] px-2.5 sm:px-3.5 py-2 rounded-xl flex items-center justify-center gap-1 transition-all cursor-pointer shadow active:scale-95 ${
                               isSoldOut
                                 ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
                                 : 'bg-[#181c25] hover:bg-[#202534] text-white border border-[#2e3648]'
@@ -620,8 +529,8 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                             title={isSoldOut ? 'Sold out' : 'Add to basket'}
                             aria-label={`Add ${featured.name} to basket`}
                           >
-                            <Plus className="w-3.5 h-3.5 text-[#19BFFF] shrink-0" />
-                            <span className="text-[10px] sm:text-[11px] font-bold leading-tight text-center text-slate-100 whitespace-nowrap">
+                            <Plus className="w-4 h-4 text-[#19BFFF] shrink-0" />
+                            <span className="text-xs font-bold leading-none text-slate-100 whitespace-nowrap">
                               to Basket
                             </span>
                           </button>
@@ -635,7 +544,7 @@ export const LiveStreamsListView: React.FC<LiveStreamsListViewProps> = ({
                               if (!isSoldOut) onBuyNow(featured, 1);
                             }}
                             disabled={isSoldOut}
-                            className="min-h-[42px] px-3 sm:px-3.5 py-1.5 rounded-lg text-xs font-bold bg-[#19BFFF] hover:bg-[#00AEEF] text-[#0D1018] shadow-md shadow-[#19BFFF]/20 transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
+                            className="min-h-[44px] px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold bg-[#19BFFF] hover:bg-[#00AEEF] text-[#0D1018] shadow-md shadow-[#19BFFF]/20 transition-all cursor-pointer flex items-center justify-center gap-1 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
                             title="Buy now directly from feed"
                             aria-label={`Buy now ${featured.name}`}
                           >

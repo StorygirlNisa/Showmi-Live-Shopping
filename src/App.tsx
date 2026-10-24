@@ -743,13 +743,6 @@ export default function App() {
             transaction.update(productRefs[i], {
               stock: Math.max(0, currentStock - item.quantity)
             });
-          } else {
-            // Product doc does not exist yet in Firestore -> upsert product document
-            const initialStock = Math.max(0, item.product.stock - item.quantity);
-            transaction.set(productRefs[i], cleanFirestoreData({
-              ...item.product,
-              stock: initialStock
-            }));
           }
         }
 
