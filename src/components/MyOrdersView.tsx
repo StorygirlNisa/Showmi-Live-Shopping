@@ -211,7 +211,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
         return (
           <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 shrink-0">
             <Clock className="w-3.5 h-3.5 text-amber-400" />
-            <span>Awaiting Artisan Dispatch</span>
+            <span>Order Received</span>
           </span>
         );
       case 'in_transit':
@@ -228,6 +228,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
             <span>Delivered</span>
           </span>
         );
+      case 'pending_payment':
       case 'confirmed':
         return (
           <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-400/40 flex items-center gap-1.5 shrink-0">
@@ -246,7 +247,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
         return (
           <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 shrink-0">
             <Clock className="w-3.5 h-3.5 text-amber-400" />
-            <span>Awaiting Artisan Acceptance</span>
+            <span>Order Received (Processing)</span>
           </span>
         );
       default:
@@ -695,13 +696,13 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                                   )}
 
                                   {/* Confirm Receipt Button (Triggers Warning Dialog First) */}
-                                  {(item.status === 'in_transit' || item.status === 'delivered') && (
+                                  {(item.status !== 'confirmed' && item.status !== 'pending_payment' && item.status !== 'rejected') && (
                                     <button
                                       onClick={() => setConfirmWarningModal({ orderId: order.id, productId: item.productId, productName: item.name })}
                                       className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 cursor-pointer active:scale-95"
                                     >
                                       <CheckCircle2 className="w-3.5 h-3.5" />
-                                      <span>Confirm Receipt</span>
+                                      <span>Item Received</span>
                                     </button>
                                   )}
                                 </div>

@@ -111,7 +111,7 @@ export interface OrderItem {
   name: string;
   quantity: number;
   priceZAR: number;
-  status: 'pending_acceptance' | 'accepted' | 'rejected' | 'awaiting_dispatch' | 'in_transit' | 'delivered' | 'confirmed';
+  status: 'pending_acceptance' | 'accepted' | 'rejected' | 'awaiting_dispatch' | 'in_transit' | 'delivered' | 'confirmed' | 'pending_payment';
   rejectionReason?: string;
   rejectionNote?: string;
   rejectedAt?: string;

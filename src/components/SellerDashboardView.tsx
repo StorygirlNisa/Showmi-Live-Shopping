@@ -59,7 +59,7 @@ interface SellerDashboardViewProps {
     sellerId: string, 
     newStatus: OrderItem['status'], 
     tracking?: { courierPartner?: string; trackingNumber?: string }
-  ) => void;
+  ) => Promise<void>;
   onRespondToIssue?: (
     issueId: string, 
     response: { message: string; resolutionNote?: string; status?: 'seller_responded' | 'resolved' }
@@ -101,24 +101,6 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
   onAcceptOrderItem,
   onRejectOrderItem
 }) => {
-  const [rejectionModalState, setRejectionModalState] = useState<{orderId: string, productId: string} | null>(null);
-  const [rejectionReason, setRejectionReason] = useState<string>('out_of_stock');
-  const [rejectionNote, setRejectionNote] = useState<string>('');
-
-  const submitRejection = () => {
-    if (rejectionModalState && onRejectOrderItem) {
-      onRejectOrderItem(
-        rejectionModalState.orderId,
-        rejectionModalState.productId,
-        currentSeller.id,
-        rejectionReason,
-        rejectionNote
-      );
-      setRejectionModalState(null);
-      setRejectionNote('');
-    }
-  };
-
   const [isModeratorModalOpen, setIsModeratorModalOpen] = useState(false);
   const currentSeller = sellers.find(s => s.id === currentSellerId) || sellers[0];
 
@@ -138,13 +120,12 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
   const openIssuesCount = sellerIssues.filter(i => i.status !== 'resolved').length;
 
   const awaitingDispatchCount = sellerOrders.reduce((sum, o) => 
-    sum + o.items.filter(i => i.sellerId === currentSeller.id && i.status === 'awaiting_dispatch').length, 0
+    sum + o.items.filter(i => i.sellerId === currentSeller.id && ['awaiting_dispatch', 'accepted', 'pending_acceptance'].includes(i.status)).length, 0
   );
 
   const [activeTab, setActiveTab] = useState<'ai' | 'stock' | 'orders'>('ai');
 
-  // Tracking details form state per item
-  const [dispatchTracking, setDispatchTracking] = useState<Record<string, { courierPartner: string; trackingNumber: string }>>({});
+
 
   // Issue response form state per issue
   const [issueResponses, setIssueResponses] = useState<Record<string, { message: string; resolutionNote: string }>>({});
@@ -180,33 +161,9 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
     }
   };
 
-  const handleUpdateTrackingInput = (itemKey: string, field: 'courierPartner' | 'trackingNumber', val: string) => {
-    setDispatchTracking(prev => ({
-      ...prev,
-      [itemKey]: {
-        courierPartner: prev[itemKey]?.courierPartner || 'The Courier Guy',
-        trackingNumber: prev[itemKey]?.trackingNumber || '',
-        [field]: val
-      }
-    }));
-  };
 
-  const handleDispatchItem = (orderId: string, productId: string) => {
-    const itemKey = `${orderId}_${productId}`;
-    const trackingInfo = dispatchTracking[itemKey] || {
-      courierPartner: 'The Courier Guy',
-      trackingNumber: `TCG-ZA-${Math.floor(10000000 + Math.random() * 90000000)}`
-    };
-    if (onUpdateOrderItemStatus) {
-      onUpdateOrderItemStatus(orderId, productId, currentSeller.id, 'in_transit', trackingInfo);
-    }
-  };
 
-  const handleDeliverItem = (orderId: string, productId: string) => {
-    if (onUpdateOrderItemStatus) {
-      onUpdateOrderItemStatus(orderId, productId, currentSeller.id, 'delivered');
-    }
-  };
+
 
   // Selected entities for generation
   const [selectedProductId, setSelectedProductId] = useState<string>(
@@ -917,33 +874,6 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                 </div>
               )}
 
-              {/* Rejection Modal */}
-              {rejectionModalState && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                  <div className="bg-[#171A21] border border-[#242936] rounded-3xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
-                    <h3 className="text-lg font-bold text-white">Reject Order Item</h3>
-                    <select
-                      value={rejectionReason}
-                      onChange={(e) => setRejectionReason(e.target.value)}
-                      className="w-full bg-[#0D1018] border border-[#242936] rounded-lg p-2 text-white"
-                    >
-                      <option value="out_of_stock">Out of Stock</option>
-                      <option value="damaged">Damaged Item</option>
-                      <option value="other">Other</option>
-                    </select>
-                    <textarea
-                      value={rejectionNote}
-                      onChange={(e) => setRejectionNote(e.target.value)}
-                      placeholder="Enter note..."
-                      className="w-full bg-[#0D1018] border border-[#242936] rounded-lg p-2 text-white"
-                    />
-                    <div className="flex gap-2">
-                      <button onClick={() => setRejectionModalState(null)} className="flex-1 py-2 bg-[#242936] rounded-lg text-white">Cancel</button>
-                      <button onClick={submitRejection} className="flex-1 py-2 bg-red-600 rounded-lg text-white">Submit Rejection</button>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           );
         })()}
@@ -1022,6 +952,11 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
           >
             <Truck className="w-3.5 h-3.5" />
             <span>Orders ({sellerOrders.length})</span>
+            {awaitingDispatchCount > 0 ? (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-[#0066ff] text-white font-mono font-bold animate-pulse">
+                {awaitingDispatchCount}
+              </span>
+            ) : null}
             {openIssuesCount > 0 ? (
               <span className="px-1.5 py-0.5 rounded-full text-[10px] bg-red-500 text-white font-mono font-bold animate-pulse">
                 {openIssuesCount}
@@ -1409,24 +1344,24 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                                   )}
 
                                   <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 ${
-                                    item.status === 'confirmed' 
-                                      ? 'bg-emerald-950 text-emerald-300 border border-emerald-400/40' 
-                                      : item.status === 'delivered'
-                                      ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/30'
-                                      : item.status === 'in_transit'
-                                      ? 'bg-blue-950 text-blue-300 border border-blue-500/30'
-                                      : item.status === 'accepted'
-                                      ? 'bg-emerald-900 text-emerald-200 border border-emerald-500/30'
-                                      : item.status === 'rejected'
-                                      ? 'bg-red-950 text-red-300 border border-red-500/30'
-                                      : item.status === 'pending_acceptance'
-                                      ? 'bg-amber-950 text-amber-300 border border-amber-500/30'
-                                      : 'bg-slate-900 text-slate-300 border border-slate-700/30'
+                                      item.status === 'confirmed' || item.status === 'pending_payment'
+                                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-400/40' 
+                                        : item.status === 'delivered'
+                                        ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/30'
+                                        : item.status === 'in_transit'
+                                        ? 'bg-blue-950 text-blue-300 border border-blue-500/30'
+                                        : item.status === 'accepted'
+                                        ? 'bg-emerald-900 text-emerald-200 border border-emerald-500/30'
+                                        : item.status === 'rejected'
+                                        ? 'bg-red-950 text-red-300 border border-red-500/30'
+                                        : item.status === 'pending_acceptance'
+                                        ? 'bg-amber-950 text-amber-300 border border-amber-500/30'
+                                        : 'bg-slate-900 text-slate-300 border border-slate-700/30'
                                   }`}>
-                                    {item.status === 'confirmed' ? (
+                                    {item.status === 'confirmed' || item.status === 'pending_payment' ? (
                                       <>
                                         <CheckCircle2 className="w-3.5 h-3.5" />
-                                        <span>Receipt Confirmed by Buyer</span>
+                                        <span>Pending Payment</span>
                                       </>
                                     ) : item.status === 'delivered' ? (
                                       <>
@@ -1446,7 +1381,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                                     ) : item.status === 'pending_acceptance' ? (
                                       <>
                                         <Clock className="w-3.5 h-3.5" />
-                                        <span>Pending Acceptance</span>
+                                        <span>Order Received (Pending Approval)</span>
                                       </>
                                     ) : item.status === 'rejected' ? (
                                       <>
@@ -1456,92 +1391,21 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                                     ) : (
                                       <>
                                         <Clock className="w-3.5 h-3.5" />
-                                        <span>Awaiting Dispatch</span>
+                                        <span>Order Received</span>
                                       </>
                                     )}
                                   </span>
                                 </div>
                               </div>
 
-                              {/* Pending Acceptance Controls */}
-                              {item.status === 'pending_acceptance' && (
-                                <div className="flex gap-2 pt-2">
-                                  <button
-                                    onClick={() => onAcceptOrderItem && onAcceptOrderItem(order.id, item.productId, currentSeller.id)}
-                                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer transition-colors"
-                                  >
-                                    Accept
-                                  </button>
-                                  <button
-                                    onClick={() => setRejectionModalState({orderId: order.id, productId: item.productId})}
-                                    className="px-4 py-2 rounded-xl bg-red-900 hover:bg-red-800 text-white text-xs font-bold cursor-pointer transition-colors"
-                                  >
-                                    Reject
-                                  </button>
-                                </div>
-                              )}
 
-                              {/* Dispatch controls */}
-                              {(item.status === 'awaiting_dispatch' || item.status === 'accepted') && (
-                                <div className="p-3 bg-[#141720] rounded-xl border border-[#212633] space-y-2.5">
-                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                                    <div>
-                                      <label className="text-[10px] text-slate-400 block mb-1">Courier Partner:</label>
-                                      <input 
-                                        type="text"
-                                        value={currentTracking.courierPartner}
-                                        onChange={(e) => handleUpdateTrackingInput(itemKey, 'courierPartner', e.target.value)}
-                                        className="w-full bg-[#0c0e12] border border-[#212633] rounded-lg px-2.5 py-1.5 text-white text-xs"
-                                        placeholder="The Courier Guy / Fastway"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="text-[10px] text-slate-400 block mb-1">Tracking Waybill #:</label>
-                                      <input 
-                                        type="text"
-                                        value={currentTracking.trackingNumber}
-                                        onChange={(e) => handleUpdateTrackingInput(itemKey, 'trackingNumber', e.target.value)}
-                                        className="w-full bg-[#0c0e12] border border-[#212633] rounded-lg px-2.5 py-1.5 text-white text-xs font-mono"
-                                        placeholder="TCG-ZA-XXXXXXXX"
-                                      />
-                                    </div>
-                                  </div>
 
-                                  <button
-                                    onClick={() => handleDispatchItem(order.id, item.productId)}
-                                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition-colors"
-                                  >
-                                    <Truck className="w-3.5 h-3.5" />
-                                    <span>Dispatch Parcel & Record Waybill</span>
-                                  </button>
-                                </div>
-                              )}
 
-                              {item.status === 'in_transit' && (
-                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-3 bg-[#141720] rounded-xl border border-[#212633] text-xs">
-                                  <div className="text-slate-300">
-                                    <p className="font-mono text-[11px] text-blue-400">
-                                      Waybill #{item.trackingNumber} · {item.courierPartner || 'The Courier Guy'}
-                                    </p>
-                                    <p className="text-[10px] text-slate-400 mt-0.5">
-                                      Buyer can track delivery. You may mark as delivered when the courier completes handover.
-                                    </p>
-                                  </div>
-
-                                  <button
-                                    onClick={() => handleDeliverItem(order.id, item.productId)}
-                                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors"
-                                  >
-                                    <CheckCircle2 className="w-3.5 h-3.5" />
-                                    <span>Mark as Delivered</span>
-                                  </button>
-                                </div>
-                              )}
 
                               {item.status === 'delivered' && (
                                 <div className="p-2.5 bg-emerald-950/20 border border-emerald-500/20 rounded-xl text-xs text-slate-300 flex items-center gap-2">
                                   <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                                  <span>Package marked as delivered. Awaiting buyer receipt confirmation or automatic protection completion.</span>
+                                  <span>Package delivered. Awaiting buyer receipt confirmation or automatic protection completion.</span>
                                 </div>
                               )}
 

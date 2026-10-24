@@ -712,7 +712,7 @@ export default function App() {
           name: ci.product.name,
           quantity: ci.quantity,
           priceZAR: ci.product.priceZAR,
-          status: 'pending_acceptance' as const,
+          status: 'awaiting_dispatch' as const,
           paymentStatus: 'escrow_held' as const
         })),
         subtotalZAR: orderPayload.subtotalZAR,
@@ -771,7 +771,7 @@ export default function App() {
   
   function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null, context: any) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    showNotification(`Action failed: ${context.action}. Please try again.`);
+    showNotification(`Error: ${errorMessage}`);
     console.error('Firestore Error Details: ', { error, operationType, path, context });
   }
 
@@ -802,7 +802,7 @@ export default function App() {
           status: newStatus,
           courierPartner: tracking?.courierPartner || item.courierPartner || 'The Courier Guy',
           trackingNumber: tracking?.trackingNumber || item.trackingNumber || `TCG-ZA-${Math.floor(10000000 + Math.random() * 90000000)}`,
-          dispatchedAt: newStatus === 'in_transit' ? (item.dispatchedAt || new Date().toISOString()) : item.dispatchedAt,
+          dispatchedAt: (newStatus === 'in_transit' || newStatus === 'delivered') ? (item.dispatchedAt || new Date().toISOString()) : item.dispatchedAt,
           deliveredAt: newStatus === 'delivered' ? (item.deliveredAt || new Date().toISOString()) : item.deliveredAt,
         };
       }
@@ -813,17 +813,10 @@ export default function App() {
       const orderRef = doc(db, 'orders', orderId);
       const updatePayload = { items: updatedItems };
       
-      console.log('Dispatch Order Update:', { orderId, updatePayload });
+      const cleanedPayload = cleanFirestoreData(updatePayload);
+      console.log('Dispatch Order Update (Cleaned):', { orderId, cleanedPayload, keys: Object.keys(cleanedPayload) });
       
-      try {
-        await updateDoc(orderRef, cleanFirestoreData(updatePayload));
-      } catch (err: any) {
-        if (err?.code === 'not-found' || err?.message?.includes('No document to update') || err?.message?.includes('not-found')) {
-          await setDoc(orderRef, cleanFirestoreData({ ...order, items: updatedItems }));
-        } else {
-          throw err;
-        }
-      }
+      await updateDoc(orderRef, cleanedPayload);
 
       setOrdersList(prev => {
         const exists = prev.some(o => o.id === orderId);
@@ -838,6 +831,7 @@ export default function App() {
       showNotification(`Order status updated: ${newStatus.replace('_', ' ')}`);
     } catch (error: any) {
       handleFirestoreError(error, OperationType.UPDATE, `orders/${orderId}`, { action: 'dispatch', orderId });
+      throw error;
     }
   };
 
@@ -872,15 +866,7 @@ export default function App() {
       
       console.log('Accept Order Update:', { orderId, updatePayload });
       
-      try {
-        await updateDoc(orderRef, cleanFirestoreData(updatePayload));
-      } catch (err: any) {
-        if (err?.code === 'not-found' || err?.message?.includes('No document to update') || err?.message?.includes('not-found')) {
-          await setDoc(orderRef, cleanFirestoreData({ ...order, items: updatedItems }));
-        } else {
-          throw err;
-        }
-      }
+      await updateDoc(orderRef, cleanFirestoreData(updatePayload));
 
       setOrdersList(prev => {
         const exists = prev.some(o => o.id === orderId);
@@ -981,10 +967,12 @@ export default function App() {
       if (item.productId === productId) {
         return {
           ...item,
-          status: 'confirmed' as const,
+          status: 'pending_payment' as const,
           confirmedAt: now,
           paymentReleased: true,
-          paymentReleasedAt: now
+          paymentReleasedAt: now,
+          dispatchedAt: item.dispatchedAt || now,
+          deliveredAt: item.deliveredAt || now
         };
       }
       return item;
@@ -1000,7 +988,7 @@ export default function App() {
 
     try {
       await updateDoc(doc(db, 'orders', orderId), cleanFirestoreData(updateData));
-      showNotification('Delivery confirmed! Simulated payment released to seller.');
+      showNotification('Receipt confirmed! Order status updated to Pending Payment for seller.');
     } catch (error) {
       console.error("Failed to confirm receipt:", error);
       showNotification("Confirmation failed. Permission denied?");

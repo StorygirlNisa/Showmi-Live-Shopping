@@ -36,22 +36,24 @@ service cloud.firestore {
              );
     }
 
-    function isSellerFor(sellerId) {
-      let data = getUserData();
+    function isSellerOfOrder(sellerIds) {
+      let user = getUserData();
       return isSignedIn() && (
-        isAdmin() || 
-        (data != null && 'sellerId' in data && data.sellerId == sellerId) || 
-        (data != null && data.role == 'seller' && ('sellerId' in data ? data.sellerId == sellerId : true)) ||
-        isOwnerOfSeller(sellerId) ||
-        request.auth.uid == sellerId
+        isAdmin() ||
+        (user != null && 'sellerId' in user && user.sellerId in sellerIds) ||
+        (user != null && user.role == 'seller') ||
+        sellerIds.hasAny([request.auth.uid])
       );
     }
 
-    function isSellerOfOrder(sellerIds) {
-      let data = getUserData();
+    function isSellerFor(sellerId) {
+      let user = getUserData();
       return isSignedIn() && (
-        isAdmin() ||
-        (data != null && 'sellerId' in data && data.sellerId in sellerIds)
+        isAdmin() || 
+        (user != null && 'sellerId' in user && user.sellerId == sellerId) || 
+        (user != null && user.role == 'seller') ||
+        request.auth.uid == sellerId ||
+        isOwnerOfSeller(sellerId)
       );
     }
 
@@ -151,17 +153,13 @@ service cloud.firestore {
       );
       allow create: if isSignedIn() && isValidOrder(incoming());
       allow update: if isSignedIn() && (
-        // Buyer confirmation flow: cannot alter buyerId, sellerIds, or totalZAR
-        (resource.data.buyerId == request.auth.uid && 
-         (!('buyerId' in incoming()) || incoming().buyerId == existing().buyerId) &&
-         (!('sellerIds' in incoming()) || incoming().sellerIds == existing().sellerIds) &&
-         (!('totalZAR' in incoming()) || incoming().totalZAR == existing().totalZAR)) ||
-        // Seller fulfillment update: cannot alter buyerId, sellerIds, or totalZAR
+        isAdmin() ||
         (isSellerOfOrder(resource.data.sellerIds) && 
-         (!('buyerId' in incoming()) || incoming().buyerId == existing().buyerId) &&
-         (!('sellerIds' in incoming()) || incoming().sellerIds == existing().sellerIds) &&
-         (!('totalZAR' in incoming()) || incoming().totalZAR == existing().totalZAR)) ||
-        isAdmin()
+         incoming().id == existing().id &&
+         incoming().buyerId == existing().buyerId) ||
+        (resource.data.buyerId == request.auth.uid && 
+         incoming().id == existing().id &&
+         incoming().buyerId == existing().buyerId)
       );
     }
 
