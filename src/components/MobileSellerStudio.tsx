@@ -37,6 +37,14 @@ interface MobileSellerStudioProps {
     issueId: string, 
     response: { message: string; resolutionNote?: string; status?: 'seller_responded' | 'resolved' }
   ) => void;
+  onAcceptOrderItem?: (orderId: string, productId: string, sellerId: string) => void;
+  onRejectOrderItem?: (
+    orderId: string, 
+    productId: string, 
+    sellerId: string, 
+    rejectionReason: string, 
+    rejectionNote?: string
+  ) => void;
 
   // AI Generation Props from parent
   onGeneratePrep?: () => Promise<void>;
@@ -103,7 +111,9 @@ export const MobileSellerStudio: React.FC<MobileSellerStudioProps> = ({
   liveSessions = [],
   sellers = [],
   onAppointModerator,
-  onRevokeModerator
+  onRevokeModerator,
+  onAcceptOrderItem,
+  onRejectOrderItem
 }) => {
   const [activeTab, setActiveTab] = useState<'ai' | 'stock' | 'orders'>('ai');
   const [isModeratorModalOpen, setIsModeratorModalOpen] = useState(false);
@@ -111,6 +121,37 @@ export const MobileSellerStudio: React.FC<MobileSellerStudioProps> = ({
   const [issueResponses, setIssueResponses] = useState<Record<string, { message: string; resolutionNote: string }>>({});
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [appliedCopyFeedback, setAppliedCopyFeedback] = useState(false);
+
+  // Rejection modal state for Mobile Studio
+  const [rejectModalItem, setRejectModalItem] = useState<{
+    orderId: string;
+    productId: string;
+    productName: string;
+    sellerId: string;
+  } | null>(null);
+  const [rejectionReasonOption, setRejectionReasonOption] = useState<string>('Out of Stock');
+  const [customRejectionReason, setCustomRejectionReason] = useState<string>('');
+  const [rejectionNote, setRejectionNote] = useState<string>('');
+
+  const handleConfirmReject = () => {
+    if (!rejectModalItem) return;
+    const finalReason = rejectionReasonOption === 'Other Reason' 
+      ? (customRejectionReason.trim() || 'Unable to Fulfil') 
+      : rejectionReasonOption;
+    
+    if (onRejectOrderItem) {
+      onRejectOrderItem(
+        rejectModalItem.orderId,
+        rejectModalItem.productId,
+        rejectModalItem.sellerId,
+        finalReason,
+        rejectionNote.trim() || undefined
+      );
+    }
+    setRejectModalItem(null);
+    setCustomRejectionReason('');
+    setRejectionNote('');
+  };
 
   // Filter orders that contain items from this seller
   const sellerOrders = orders.filter(o => 
@@ -580,11 +621,15 @@ export const MobileSellerStudio: React.FC<MobileSellerStudioProps> = ({
                             item.status === 'confirmed' ? 'bg-emerald-950 text-emerald-300' :
                             item.status === 'delivered' ? 'bg-emerald-950/60 text-emerald-400' :
                             item.status === 'in_transit' ? 'bg-blue-950 text-blue-300' :
+                            item.status === 'accepted' || item.status === 'awaiting_dispatch' ? 'bg-indigo-950 text-indigo-300 border border-indigo-500/30' :
+                            item.status === 'rejected' ? 'bg-red-950 text-red-300 border border-red-500/30' :
                             'bg-amber-950 text-amber-300'
                           }`}>
                             {item.status === 'confirmed' ? 'Receipt Confirmed' :
                              item.status === 'delivered' ? 'Delivered' :
-                             item.status === 'in_transit' ? 'In Transit' : 'Awaiting Dispatch'}
+                             item.status === 'in_transit' ? 'In Transit' :
+                             item.status === 'accepted' || item.status === 'awaiting_dispatch' ? 'Accepted' :
+                             item.status === 'rejected' ? 'Rejected' : 'Awaiting Confirmation'}
                           </span>
                         </div>
 
@@ -594,8 +639,33 @@ export const MobileSellerStudio: React.FC<MobileSellerStudioProps> = ({
                           </p>
                         )}
 
-                        <div className="pt-1 flex gap-2">
-                          {item.status === 'awaiting_dispatch' && (
+                        {/* Action buttons */}
+                        <div className="pt-1 space-y-2">
+                          {(!item.status || item.status === 'pending_acceptance') && (
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => onAcceptOrderItem && onAcceptOrderItem(order.id, item.productId, seller.id)}
+                                className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-lg flex items-center justify-center gap-1 cursor-pointer"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                                <span>Accept</span>
+                              </button>
+                              <button
+                                onClick={() => setRejectModalItem({
+                                  orderId: order.id,
+                                  productId: item.productId,
+                                  productName: item.name,
+                                  sellerId: seller.id
+                                })}
+                                className="flex-1 py-2 bg-red-950 text-red-200 border border-red-600/40 text-xs font-bold rounded-lg flex items-center justify-center gap-1 cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5 text-red-400" />
+                                <span>Reject...</span>
+                              </button>
+                            </div>
+                          )}
+
+                          {(item.status === 'accepted' || item.status === 'awaiting_dispatch') && (
                             <button
                               onClick={() => handleDispatchItem(order.id, item.productId)}
                               className="w-full py-2 bg-[#19BFFF] text-[#0D1018] text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 cursor-pointer"
@@ -604,6 +674,7 @@ export const MobileSellerStudio: React.FC<MobileSellerStudioProps> = ({
                               <span>Mark Dispatched</span>
                             </button>
                           )}
+
                           {item.status === 'in_transit' && (
                             <button
                               onClick={() => handleDeliverItem(order.id, item.productId)}
@@ -613,6 +684,14 @@ export const MobileSellerStudio: React.FC<MobileSellerStudioProps> = ({
                               <span>Mark Delivered</span>
                             </button>
                           )}
+
+                          {item.status === 'rejected' && (
+                            <div className="p-2.5 bg-red-950/40 border border-red-500/30 rounded-lg text-[11px] text-red-200 space-y-1">
+                              <p className="font-bold text-red-300">Order Rejected ({item.rejectionReason || 'Unable to Fulfil'})</p>
+                              {item.rejectionNote && <p className="italic text-slate-300 text-[10px]">"{item.rejectionNote}"</p>}
+                              <p className="text-[10px] text-slate-400">Stock restored. Payment flagged for refund review.</p>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -621,6 +700,88 @@ export const MobileSellerStudio: React.FC<MobileSellerStudioProps> = ({
               );
             })
           )}
+        </div>
+      )}
+
+      {/* Reject Order Item Confirmation Modal for Mobile */}
+      {rejectModalItem && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#14171f] border border-[#212633] rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl relative animate-fade-in text-left">
+            <div className="flex items-center justify-between pb-2 border-b border-[#212633]">
+              <div className="flex items-center gap-2">
+                <X className="w-4 h-4 text-red-400" />
+                <h3 className="text-xs font-bold text-white">Reject Order Item</h3>
+              </div>
+              <button
+                onClick={() => setRejectModalItem(null)}
+                className="w-6 h-6 rounded-full bg-[#1e2330] text-slate-300 flex items-center justify-center cursor-pointer text-xs"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <p className="text-slate-300 leading-relaxed text-[11px]">
+                Rejecting <strong className="text-white">{rejectModalItem.productName}</strong> will restore inventory stock and flag payment for refund processing.
+              </p>
+
+              <div className="space-y-1">
+                <label className="font-bold text-slate-200 block text-[11px]">Rejection Reason *</label>
+                <select
+                  value={rejectionReasonOption}
+                  onChange={(e) => setRejectionReasonOption(e.target.value)}
+                  className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-2 text-white focus:outline-none focus:border-[#0066ff] text-xs"
+                >
+                  <option value="Out of Stock">Out of Stock</option>
+                  <option value="Unable to Fulfil Order">Unable to Fulfil Order</option>
+                  <option value="Inventory Count Inaccurate">Inventory Count Inaccurate</option>
+                  <option value="Item Damaged or Unavailable">Item Damaged or Unavailable</option>
+                  <option value="Other Reason">Other Reason</option>
+                </select>
+              </div>
+
+              {rejectionReasonOption === 'Other Reason' && (
+                <div className="space-y-1">
+                  <input
+                    type="text"
+                    required
+                    placeholder="Enter reason..."
+                    value={customRejectionReason}
+                    onChange={(e) => setCustomRejectionReason(e.target.value)}
+                    className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-2 text-white text-xs"
+                  />
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="font-bold text-slate-200 block text-[11px]">Message for Buyer (Optional)</label>
+                <textarea
+                  rows={2}
+                  placeholder="e.g. Apologies for the inconvenience."
+                  value={rejectionNote}
+                  onChange={(e) => setRejectionNote(e.target.value)}
+                  className="w-full bg-[#0c0e12] border border-[#212633] rounded-xl p-2 text-white text-xs"
+                />
+              </div>
+
+              <div className="pt-2 border-t border-[#212633] flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRejectModalItem(null)}
+                  className="flex-1 py-2 rounded-xl bg-[#1e2330] text-slate-300 font-bold text-xs"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleConfirmReject}
+                  className="flex-1 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white font-bold text-xs shadow-md shadow-red-600/30"
+                >
+                  Confirm
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

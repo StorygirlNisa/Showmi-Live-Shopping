@@ -320,8 +320,11 @@ export const SellerHostModeView: React.FC<SellerHostModeViewProps> = ({
   const handlePinProduct = async (productId: string) => {
     setSelectedProductId(productId);
     try {
+      const currentAdditional = sessionMetadata.additionalProductIds || [];
+      const updatedAdditional = Array.from(new Set([...currentAdditional, productId]));
       await updateDoc(doc(db, 'live_sessions', session.id), {
-        featuredProductId: productId
+        featuredProductId: productId,
+        additionalProductIds: updatedAdditional
       });
     } catch (error) {
       console.error("Failed to pin product:", error);

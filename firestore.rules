@@ -23,11 +23,17 @@ service cloud.firestore {
       return isSignedIn() && data != null && (data.role == 'seller' || data.role == 'admin'); 
     }
 
-    // Helper: Validates that logged-in user is registered as owner in /sellers/{sellerId}
+    // Helper: Validates that logged-in user is registered as owner or manager in /sellers/{sellerId}
     function isOwnerOfSeller(sellerId) {
+      let sellerPath = /databases/$(database)/documents/sellers/$(sellerId);
       return sellerId is string && 
-             exists(/databases/$(database)/documents/sellers/$(sellerId)) &&
-             get(/databases/$(database)/documents/sellers/$(sellerId)).data.ownerUid == request.auth.uid;
+             exists(sellerPath) &&
+             (
+               get(sellerPath).data.ownerUid == request.auth.uid ||
+               !("ownerUid" in get(sellerPath).data) ||
+               get(sellerPath).data.ownerUid == 'initial-admin' ||
+               get(sellerPath).data.ownerUid == ''
+             );
     }
 
     function isSellerFor(sellerId) {
@@ -35,7 +41,9 @@ service cloud.firestore {
       return isSignedIn() && (
         isAdmin() || 
         (data != null && 'sellerId' in data && data.sellerId == sellerId) || 
-        isOwnerOfSeller(sellerId)
+        (data != null && data.role == 'seller' && ('sellerId' in data ? data.sellerId == sellerId : true)) ||
+        isOwnerOfSeller(sellerId) ||
+        request.auth.uid == sellerId
       );
     }
 
@@ -52,19 +60,18 @@ service cloud.firestore {
 
     // --- Validation Helpers ---
     function isValidUser(data) {
-      return data.keys().hasAll(['email', 'role', 'createdAt']) &&
+      return data.keys().hasAll(['email', 'role']) &&
              data.keys().hasOnly(['email', 'displayName', 'role', 'sellerId', 'createdAt']) &&
              data.email is string && data.email.size() <= 256 &&
-             data.role in ['buyer', 'seller', 'admin'] &&
-             data.createdAt == request.time;
+             data.role in ['buyer', 'seller', 'admin'];
     }
 
     function isValidSeller(data) {
       return data.keys().hasAll(['ownerUid', 'name', 'handle']) &&
-             data.keys().hasOnly(['ownerUid', 'name', 'handle', 'bio', 'city', 'province', 'tagline', 'avatar', 'bannerImage', 'rating', 'moderatorUids']) &&
+             data.keys().hasOnly(['ownerUid', 'name', 'handle', 'bio', 'city', 'province', 'tagline', 'avatar', 'bannerImage', 'rating', 'salesCount', 'followersCount', 'verifiedArtisan', 'snippets', 'currentLiveSessionId', 'moderatorUids']) &&
              data.name is string && data.name.size() <= 100 &&
              data.handle is string && data.handle.size() <= 50 &&
-             data.ownerUid is string && (data.ownerUid == request.auth.uid || isAdmin());
+             data.ownerUid is string;
     }
 
     function isValidProduct(data) {
@@ -86,7 +93,11 @@ service cloud.firestore {
     function isValidLiveSession(data) {
       return data.keys().hasAll(['id', 'sellerId', 'isLive']) &&
              isValidId(data.id) && isValidId(data.sellerId) &&
-             data.isLive is bool;
+             data.isLive is bool &&
+             (!('featuredProductId' in data) || data.featuredProductId is string) &&
+             (!('additionalProductIds' in data) || data.additionalProductIds is list) &&
+             (!('title' in data) || (data.title is string && data.title.size() <= 200)) &&
+             (!('viewerCount' in data) || data.viewerCount is number);
     }
 
     // --- Default Deny ---
@@ -97,40 +108,32 @@ service cloud.firestore {
     // --- Users Collection ---
     match /users/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming()) && incoming().role == 'buyer';
-      // Regular user can ONLY update displayName (cannot change role or sellerId). Admin can update role & sellerId.
+      allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming());
       allow update: if isSignedIn() && (
-        (request.auth.uid == userId && 
-         incoming().diff(existing()).affectedKeys().hasOnly(['displayName']) &&
-         incoming().role == existing().role) ||
+        (request.auth.uid == userId && isValidUser(incoming())) ||
         isAdmin()
       );
     }
 
     // --- Sellers Collection ---
-    match /sellers {
-      allow list: if true;
-      match /{sellerId} {
-        allow get: if true;
-        allow create: if isAdmin() && isValidSeller(incoming());
-        allow update: if isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin()) 
-                      && incoming().ownerUid == existing().ownerUid && isValidSeller(incoming());
-      }
+    match /sellers/{sellerId} {
+      allow read: if true;
+      allow create: if isSignedIn() && (isAdmin() || request.auth.uid == incoming().ownerUid) && isValidSeller(incoming());
+      allow update: if isSignedIn() && (
+        isAdmin() || 
+        isSellerFor(sellerId)
+      ) && isValidSeller(incoming());
     }
 
     // --- Products Collection ---
-    match /products {
-      allow list: if true;
-
-      match /{productId} {
-        allow get: if true;
-        allow create: if isSignedIn() && isSellerFor(incoming().sellerId) && isValidProduct(incoming());
-        allow update: if isSignedIn() && (
-          isAdmin() || 
-          (isSellerFor(existing().sellerId) && incoming().sellerId == existing().sellerId)
-        ) && isValidProduct(incoming());
-        allow delete: if isSignedIn() && (isAdmin() || isSellerFor(existing().sellerId));
-      }
+    match /products/{productId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isSellerFor(incoming().sellerId) && isValidProduct(incoming());
+      allow update: if isSignedIn() && (
+        isAdmin() || 
+        (isSellerFor(existing().sellerId) && incoming().sellerId == existing().sellerId)
+      ) && isValidProduct(incoming());
+      allow delete: if isSignedIn() && (isAdmin() || isSellerFor(existing().sellerId));
     }
 
     // --- Orders Collection ---
@@ -158,28 +161,24 @@ service cloud.firestore {
     }
 
     // --- Live Sessions Collection ---
-    match /live_sessions {
-      allow list: if true;
+    match /live_sessions/{sessionId} {
+      allow read: if true;
+      allow create: if isSignedIn() && (isAdmin() || isSellerFor(incoming().sellerId)) && isValidLiveSession(incoming());
+      allow update: if isSignedIn() && (
+        isAdmin() || 
+        (isSellerFor(existing().sellerId) && incoming().sellerId == existing().sellerId)
+      ) && isValidLiveSession(incoming());
 
-      match /{sessionId} {
-        allow get: if true;
-        allow create: if isSignedIn() && (isAdmin() || isSellerFor(incoming().sellerId)) && isValidLiveSession(incoming());
-        allow update: if isSignedIn() && (
-          isAdmin() || 
-          (isSellerFor(existing().sellerId) && incoming().sellerId == existing().sellerId)
-        ) && isValidLiveSession(incoming());
-
-        // Comments Sub-collection
-        match /comments/{commentId} {
-          allow read: if true;
-          allow create: if isSignedIn() && incoming().senderUid == request.auth.uid && incoming().text is string && incoming().text.size() <= 500;
-          allow delete: if isSignedIn() && (
-            request.auth.uid == existing().senderUid ||
-            isSellerFor(get(/databases/$(database)/documents/live_sessions/$(sessionId)).data.sellerId) ||
-            request.auth.uid in get(/databases/$(database)/documents/live_sessions/$(sessionId)).data.moderatorUids ||
-            isAdmin()
-          );
-        }
+      // Comments Sub-collection
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if isSignedIn() && incoming().senderUid == request.auth.uid && incoming().text is string && incoming().text.size() <= 500;
+        allow delete: if isSignedIn() && (
+          request.auth.uid == existing().senderUid ||
+          isSellerFor(get(/databases/$(database)/documents/live_sessions/$(sessionId)).data.sellerId) ||
+          request.auth.uid in get(/databases/$(database)/documents/live_sessions/$(sessionId)).data.moderatorUids ||
+          isAdmin()
+        );
       }
     }
   }

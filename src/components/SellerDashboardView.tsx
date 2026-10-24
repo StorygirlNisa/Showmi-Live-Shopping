@@ -68,6 +68,8 @@ interface SellerDashboardViewProps {
   liveSessions?: LiveSession[];
   onAppointModerator?: (sessionId: string, sellerId: string) => void;
   onRevokeModerator?: (sessionId: string, sellerId: string) => void;
+  onAcceptOrderItem?: (orderId: string, productId: string, sellerId: string) => void;
+  onRejectOrderItem?: (orderId: string, productId: string, sellerId: string, rejectionReason: string, rejectionNote?: string) => void;
 }
 
 export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
@@ -684,8 +686,9 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
       }
     } else {
       if (onAddProduct) {
+        const uniqueId = `prod-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
         const newProd: Product = {
-          id: `prod-${Date.now()}`,
+          id: uniqueId,
           sellerId: currentSeller.id,
           sellerName: currentSeller.name,
           sellerLocation: `${currentSeller.city}, ${currentSeller.province}`,

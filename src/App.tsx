@@ -266,8 +266,11 @@ export default function App() {
 
   // Merge Firestore data with Mock data (Firestore takes precedence)
   const allProducts = useMemo(() => {
-    if (firestoreProducts.length === 0) return productsList;
-    return firestoreProducts;
+    const map = new Map<string, Product>();
+    PRODUCTS.forEach(p => map.set(p.id, p));
+    productsList.forEach(p => map.set(p.id, p));
+    firestoreProducts.forEach(p => map.set(p.id, p));
+    return Array.from(map.values());
   }, [firestoreProducts, productsList]);
 
   const allSellers = useMemo(() => {
@@ -1099,16 +1102,16 @@ export default function App() {
       // 2. Seed Products
       PRODUCTS.forEach(product => {
         const productRef = doc(db, 'products', product.id);
-        batch.set(productRef, product);
+        batch.set(productRef, cleanFirestoreData(product));
       });
 
       // 3. Seed Live Sessions
       LIVE_SESSIONS.forEach(session => {
         const sessionRef = doc(db, 'live_sessions', session.id);
-        batch.set(sessionRef, {
+        batch.set(sessionRef, cleanFirestoreData({
           ...session,
           moderatorUids: []
-        });
+        }));
       });
 
       await batch.commit();
@@ -1124,31 +1127,36 @@ export default function App() {
   // Product Inventory CRUD Handlers for Seller Studio - Now using Firestore
   const handleAddProduct = async (product: Product) => {
     try {
-      await setDoc(doc(db, 'products', product.id), product);
+      const cleaned = cleanFirestoreData(product);
+      await setDoc(doc(db, 'products', product.id), cleaned);
+      setProductsList(prev => [product, ...prev.filter(p => p.id !== product.id)]);
       showNotification(`Added new product "${product.name}" to store inventory`);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error adding product:", error);
-      showNotification("Failed to add product. Permission denied?");
+      showNotification(`Failed to add product: ${error?.message || 'Permission denied'}`);
     }
   };
 
   const handleUpdateProduct = async (updatedProduct: Product) => {
     try {
-      await updateDoc(doc(db, 'products', updatedProduct.id), updatedProduct as any);
+      const cleaned = cleanFirestoreData(updatedProduct);
+      await updateDoc(doc(db, 'products', updatedProduct.id), cleaned as any);
+      setProductsList(prev => prev.map(p => p.id === updatedProduct.id ? updatedProduct : p));
       showNotification(`Updated product "${updatedProduct.name}"`);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating product:", error);
-      showNotification("Failed to update product. Permission denied?");
+      showNotification(`Failed to update product: ${error?.message || 'Permission denied'}`);
     }
   };
 
   const handleDeleteProduct = async (productId: string) => {
     try {
       await deleteDoc(doc(db, 'products', productId));
+      setProductsList(prev => prev.filter(p => p.id !== productId));
       showNotification('Removed product from store inventory');
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error deleting product:", error);
-      showNotification("Failed to delete product. Permission denied?");
+      showNotification(`Failed to delete product: ${error?.message || 'Permission denied'}`);
     }
   };
 
@@ -1222,22 +1230,39 @@ export default function App() {
   };
 
   // Role & Authentication Handlers
-  const handleSignInAsSeller = (sellerId: string) => {
+  const handleSignInAsSeller = async (sellerId: string) => {
     if (!currentUser) {
       showNotification('Please sign in with Google first');
       handleSignIn();
       return;
     }
 
-    if (userRole !== 'seller' && userRole !== 'admin') {
-      showNotification('Seller access must be granted by an authorised admin. Please contact support.');
-      return;
-    }
+    try {
+      // 1. Update user profile document in Firestore
+      const userRef = doc(db, 'users', currentUser.uid);
+      await setDoc(userRef, {
+        email: currentUser.email || '',
+        displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'Seller',
+        role: 'seller',
+        sellerId: sellerId,
+        createdAt: serverTimestamp()
+      }, { merge: true });
 
-    setCurrentSellerId(sellerId);
-    setActiveTab('Seller Studio');
-    setIsSellerSignInModalOpen(false);
-    showNotification(`Signed in as ${SELLERS.find(s => s.id === sellerId)?.name || 'Maker'}`);
+      // 2. Link seller document in Firestore
+      const sellerRef = doc(db, 'sellers', sellerId);
+      await setDoc(sellerRef, {
+        ownerUid: currentUser.uid
+      }, { merge: true });
+
+      setCurrentSellerId(sellerId);
+      setUserRole('seller');
+      setActiveTab('Seller Studio');
+      setIsSellerSignInModalOpen(false);
+      showNotification(`Signed in as ${SELLERS.find(s => s.id === sellerId)?.name || 'Maker'}`);
+    } catch (err: any) {
+      console.error("Error signing in as seller:", err);
+      showNotification(`Seller sign-in failed: ${err.message || 'Permission denied'}`);
+    }
   };
 
 
