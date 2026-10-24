@@ -47,12 +47,11 @@ service cloud.firestore {
       );
     }
 
-    function isSellerInOrder(sellerIds) {
+    function isSellerOfOrder(sellerIds) {
       let data = getUserData();
       return isSignedIn() && (
         isAdmin() ||
-        (data != null && 'sellerId' in data && data.sellerId in sellerIds) ||
-        request.auth.uid in sellerIds
+        (data != null && 'sellerId' in data && data.sellerId in sellerIds)
       );
     }
 
@@ -148,7 +147,7 @@ service cloud.firestore {
     match /orders/{orderId} {
       allow read: if isSignedIn() && (
         resource.data.buyerId == request.auth.uid || 
-        isSellerInOrder(resource.data.sellerIds)
+        isSellerOfOrder(resource.data.sellerIds)
       );
       allow create: if isSignedIn() && isValidOrder(incoming());
       allow update: if isSignedIn() && (
@@ -158,7 +157,7 @@ service cloud.firestore {
          (!('sellerIds' in incoming()) || incoming().sellerIds == existing().sellerIds) &&
          (!('totalZAR' in incoming()) || incoming().totalZAR == existing().totalZAR)) ||
         // Seller fulfillment update: cannot alter buyerId, sellerIds, or totalZAR
-        (isSellerInOrder(resource.data.sellerIds) && 
+        (isSellerOfOrder(resource.data.sellerIds) && 
          (!('buyerId' in incoming()) || incoming().buyerId == existing().buyerId) &&
          (!('sellerIds' in incoming()) || incoming().sellerIds == existing().sellerIds) &&
          (!('totalZAR' in incoming()) || incoming().totalZAR == existing().totalZAR)) ||

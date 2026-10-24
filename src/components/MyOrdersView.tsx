@@ -235,6 +235,20 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
             <span>Receipt Confirmed by You</span>
           </span>
         );
+      case 'rejected':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-red-950/80 text-red-300 border border-red-500/30 flex items-center gap-1.5 shrink-0">
+            <X className="w-3.5 h-3.5 text-red-400" />
+            <span>Rejected by Artisan</span>
+          </span>
+        );
+      case 'pending_acceptance':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 shrink-0">
+            <Clock className="w-3.5 h-3.5 text-amber-400" />
+            <span>Awaiting Artisan Acceptance</span>
+          </span>
+        );
       default:
         return null;
     }

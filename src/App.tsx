@@ -789,6 +789,12 @@ export default function App() {
       return;
     }
 
+    const targetItem = order.items.find(i => i.productId === productId);
+    if (targetItem?.status === 'rejected') {
+      showNotification("Cannot update status of a rejected item.");
+      return;
+    }
+
     const updatedItems = order.items.map(item => {
       if (item.productId === productId && (item.sellerId === sellerId || !item.sellerId || item.sellerId === currentSellerId)) {
         return {
@@ -839,6 +845,12 @@ export default function App() {
     const order = allOrders.find(o => o.id === orderId);
     if (!order) {
       showNotification("Order record not found.");
+      return;
+    }
+
+    const targetItem = order.items.find(i => i.productId === productId);
+    if (targetItem?.status === 'rejected') {
+      showNotification("Cannot accept a rejected item.");
       return;
     }
 

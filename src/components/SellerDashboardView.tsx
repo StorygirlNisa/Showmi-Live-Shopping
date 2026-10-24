@@ -97,10 +97,32 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
   sessionModerators = {},
   liveSessions = [],
   onAppointModerator,
-  onRevokeModerator
+  onRevokeModerator,
+  onAcceptOrderItem,
+  onRejectOrderItem
 }) => {
+  const [rejectionModalState, setRejectionModalState] = useState<{orderId: string, productId: string} | null>(null);
+  const [rejectionReason, setRejectionReason] = useState<string>('out_of_stock');
+  const [rejectionNote, setRejectionNote] = useState<string>('');
+
+  const submitRejection = () => {
+    if (rejectionModalState && onRejectOrderItem) {
+      onRejectOrderItem(
+        rejectionModalState.orderId,
+        rejectionModalState.productId,
+        currentSeller.id,
+        rejectionReason,
+        rejectionNote
+      );
+      setRejectionModalState(null);
+      setRejectionNote('');
+    }
+  };
+
   const [isModeratorModalOpen, setIsModeratorModalOpen] = useState(false);
   const currentSeller = sellers.find(s => s.id === currentSellerId) || sellers[0];
+
+  // ... (rest of the component)
   const sellerProducts = products.filter(p => p.sellerId === currentSeller.id);
   const sellerSnippets = snippets.filter(s => s.sellerId === currentSeller.id);
   const activeSellerSnippets = sellerSnippets.filter(s => !s.isArchived && new Date(s.expiresAt).getTime() > Date.now());
@@ -894,6 +916,34 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* Rejection Modal */}
+              {rejectionModalState && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                  <div className="bg-[#171A21] border border-[#242936] rounded-3xl w-full max-w-sm p-6 space-y-4 shadow-2xl">
+                    <h3 className="text-lg font-bold text-white">Reject Order Item</h3>
+                    <select
+                      value={rejectionReason}
+                      onChange={(e) => setRejectionReason(e.target.value)}
+                      className="w-full bg-[#0D1018] border border-[#242936] rounded-lg p-2 text-white"
+                    >
+                      <option value="out_of_stock">Out of Stock</option>
+                      <option value="damaged">Damaged Item</option>
+                      <option value="other">Other</option>
+                    </select>
+                    <textarea
+                      value={rejectionNote}
+                      onChange={(e) => setRejectionNote(e.target.value)}
+                      placeholder="Enter note..."
+                      className="w-full bg-[#0D1018] border border-[#242936] rounded-lg p-2 text-white"
+                    />
+                    <div className="flex gap-2">
+                      <button onClick={() => setRejectionModalState(null)} className="flex-1 py-2 bg-[#242936] rounded-lg text-white">Cancel</button>
+                      <button onClick={submitRejection} className="flex-1 py-2 bg-red-600 rounded-lg text-white">Submit Rejection</button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })()}
@@ -1365,7 +1415,13 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                                       ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/30'
                                       : item.status === 'in_transit'
                                       ? 'bg-blue-950 text-blue-300 border border-blue-500/30'
-                                      : 'bg-amber-950 text-amber-300 border border-amber-500/30'
+                                      : item.status === 'accepted'
+                                      ? 'bg-emerald-900 text-emerald-200 border border-emerald-500/30'
+                                      : item.status === 'rejected'
+                                      ? 'bg-red-950 text-red-300 border border-red-500/30'
+                                      : item.status === 'pending_acceptance'
+                                      ? 'bg-amber-950 text-amber-300 border border-amber-500/30'
+                                      : 'bg-slate-900 text-slate-300 border border-slate-700/30'
                                   }`}>
                                     {item.status === 'confirmed' ? (
                                       <>
@@ -1382,6 +1438,21 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                                         <Truck className="w-3.5 h-3.5" />
                                         <span>In Transit ({item.courierPartner || 'The Courier Guy'})</span>
                                       </>
+                                    ) : item.status === 'accepted' ? (
+                                      <>
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        <span>Accepted</span>
+                                      </>
+                                    ) : item.status === 'pending_acceptance' ? (
+                                      <>
+                                        <Clock className="w-3.5 h-3.5" />
+                                        <span>Pending Acceptance</span>
+                                      </>
+                                    ) : item.status === 'rejected' ? (
+                                      <>
+                                        <X className="w-3.5 h-3.5" />
+                                        <span>Rejected</span>
+                                      </>
                                     ) : (
                                       <>
                                         <Clock className="w-3.5 h-3.5" />
@@ -1392,8 +1463,26 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                                 </div>
                               </div>
 
+                              {/* Pending Acceptance Controls */}
+                              {item.status === 'pending_acceptance' && (
+                                <div className="flex gap-2 pt-2">
+                                  <button
+                                    onClick={() => onAcceptOrderItem && onAcceptOrderItem(order.id, item.productId, currentSeller.id)}
+                                    className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold cursor-pointer transition-colors"
+                                  >
+                                    Accept
+                                  </button>
+                                  <button
+                                    onClick={() => setRejectionModalState({orderId: order.id, productId: item.productId})}
+                                    className="px-4 py-2 rounded-xl bg-red-900 hover:bg-red-800 text-white text-xs font-bold cursor-pointer transition-colors"
+                                  >
+                                    Reject
+                                  </button>
+                                </div>
+                              )}
+
                               {/* Dispatch controls */}
-                              {item.status === 'awaiting_dispatch' && (
+                              {(item.status === 'awaiting_dispatch' || item.status === 'accepted') && (
                                 <div className="p-3 bg-[#141720] rounded-xl border border-[#212633] space-y-2.5">
                                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                                     <div>
@@ -1460,6 +1549,25 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                                 <div className="p-2.5 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 flex items-center gap-2">
                                   <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                                   <span>Customer verified delivery receipt! Payment has been simulated as released to your business.</span>
+                                </div>
+                              )}
+
+                              {item.status === 'rejected' && (
+                                <div className="p-3 bg-red-950/30 border border-red-500/30 rounded-xl space-y-1.5">
+                                  <div className="flex items-center gap-2">
+                                    <X className="w-4 h-4 text-red-400 shrink-0" />
+                                    <span className="text-xs font-bold text-red-300">
+                                      Order Rejected: {item.rejectionReason?.replace('_', ' ') || 'Unable to Fulfil'}
+                                    </span>
+                                  </div>
+                                  {item.rejectionNote && (
+                                    <p className="text-[11px] text-slate-300 italic pl-6">
+                                      "{item.rejectionNote}"
+                                    </p>
+                                  )}
+                                  <p className="text-[10px] text-slate-400 pl-6">
+                                    Stock has been restored to inventory. Payment flagged for refund review.
+                                  </p>
                                 </div>
                               )}
 
