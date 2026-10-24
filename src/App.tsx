@@ -759,6 +759,30 @@ export default function App() {
     }
   };
 
+  // Diagnostic and Error Handling
+  enum OperationType {
+    CREATE = 'create',
+    UPDATE = 'update',
+    DELETE = 'delete',
+    LIST = 'list',
+    GET = 'get',
+    WRITE = 'write',
+  }
+  
+  function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null, context: any) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorCode = (error as any).code || 'unknown-code';
+    
+    setDispatchError({
+      orderId: context.orderId || 'N/A',
+      code: errorCode,
+      message: `${context.action} action failed at ${path}: ${errorMessage}`,
+      timestamp: new Date().toLocaleTimeString()
+    });
+    
+    console.error('Firestore Error Details: ', { error, operationType, path, context });
+  }
+
   // Seller dispatch & fulfillment status updates (scoped by seller ID)
   const handleUpdateOrderItemStatus = async (
     orderId: string, 
@@ -789,10 +813,13 @@ export default function App() {
 
     try {
       const orderRef = doc(db, 'orders', orderId);
+      const updatePayload = { items: updatedItems };
+      
+      console.log('Dispatch Order Update:', { orderId, updatePayload });
+      
       try {
-        await updateDoc(orderRef, cleanFirestoreData({ items: updatedItems }));
+        await updateDoc(orderRef, cleanFirestoreData(updatePayload));
       } catch (err: any) {
-        // If document doesn't exist in Firestore yet (e.g. seeded or local mock order), create it in Firestore
         if (err?.code === 'not-found' || err?.message?.includes('No document to update') || err?.message?.includes('not-found')) {
           await setDoc(orderRef, cleanFirestoreData({ ...order, items: updatedItems }));
         } else {
@@ -800,7 +827,6 @@ export default function App() {
         }
       }
 
-      // Update local state and safeStorage so UI refreshes immediately
       setOrdersList(prev => {
         const exists = prev.some(o => o.id === orderId);
         const next = exists 
@@ -813,16 +839,7 @@ export default function App() {
       setDispatchError(null);
       showNotification(`Order status updated: ${newStatus.replace('_', ' ')}`);
     } catch (error: any) {
-      console.error("Failed to update order status:", error);
-      const errorCode = error?.code || 'unknown-code';
-      const errorMessage = error?.message || 'Permission denied or update failed';
-      setDispatchError({
-        orderId,
-        code: errorCode,
-        message: errorMessage,
-        timestamp: new Date().toLocaleTimeString()
-      });
-      showNotification(`Failed to update order status. See error panel.`);
+      handleFirestoreError(error, OperationType.UPDATE, `orders/${orderId}`, { action: 'dispatch', orderId });
     }
   };
 
@@ -847,8 +864,12 @@ export default function App() {
 
     try {
       const orderRef = doc(db, 'orders', orderId);
+      const updatePayload = { items: updatedItems };
+      
+      console.log('Accept Order Update:', { orderId, updatePayload });
+      
       try {
-        await updateDoc(orderRef, cleanFirestoreData({ items: updatedItems }));
+        await updateDoc(orderRef, cleanFirestoreData(updatePayload));
       } catch (err: any) {
         if (err?.code === 'not-found' || err?.message?.includes('No document to update') || err?.message?.includes('not-found')) {
           await setDoc(orderRef, cleanFirestoreData({ ...order, items: updatedItems }));
@@ -868,8 +889,7 @@ export default function App() {
 
       showNotification("Order accepted! Ready for packaging & dispatch.");
     } catch (error: any) {
-      console.error("Failed to accept order:", error);
-      showNotification(`Failed to accept order: ${error.message || 'Permission denied'}`);
+      handleFirestoreError(error, OperationType.UPDATE, `orders/${orderId}`, { action: 'accept', orderId });
     }
   };
 
@@ -913,6 +933,8 @@ export default function App() {
     });
 
     try {
+      console.log('Reject Order Transaction:', { orderId, updatedItems });
+      
       await runTransaction(db, async (transaction) => {
         const productRef = doc(db, 'products', productId);
         const productDoc = await transaction.get(productRef);
@@ -943,8 +965,7 @@ export default function App() {
 
       showNotification(`Order item rejected and stock restored (${rejectionReason}). Payment flagged for refund review.`);
     } catch (error: any) {
-      console.error("Failed to reject order item:", error);
-      showNotification(`Failed to reject order: ${error.message || 'Permission denied'}`);
+      handleFirestoreError(error, OperationType.WRITE, `orders/${orderId}`, { action: 'reject', orderId });
     }
   };
 

@@ -154,15 +154,15 @@ service cloud.firestore {
       allow update: if isSignedIn() && (
         // Buyer confirmation flow: cannot alter buyerId, sellerIds, or totalZAR
         (resource.data.buyerId == request.auth.uid && 
-         incoming().buyerId == existing().buyerId &&
-         incoming().sellerIds == existing().sellerIds &&
-         incoming().totalZAR == existing().totalZAR &&
+         (!('buyerId' in incoming()) || incoming().buyerId == existing().buyerId) &&
+         (!('sellerIds' in incoming()) || incoming().sellerIds == existing().sellerIds) &&
+         (!('totalZAR' in incoming()) || incoming().totalZAR == existing().totalZAR) &&
          incoming().diff(existing()).affectedKeys().hasOnly(['items', 'confirmedAt', 'paymentReleased', 'paymentReleasedAt'])) ||
         // Seller fulfillment update: cannot alter buyerId, sellerIds, or totalZAR
         (isSellerInOrder(resource.data.sellerIds) && 
-         incoming().buyerId == existing().buyerId &&
-         incoming().sellerIds == existing().sellerIds &&
-         incoming().totalZAR == existing().totalZAR &&
+         (!('buyerId' in incoming()) || incoming().buyerId == existing().buyerId) &&
+         (!('sellerIds' in incoming()) || incoming().sellerIds == existing().sellerIds) &&
+         (!('totalZAR' in incoming()) || incoming().totalZAR == existing().totalZAR) &&
          incoming().diff(existing()).affectedKeys().hasOnly(['items'])) ||
         isAdmin()
       );
