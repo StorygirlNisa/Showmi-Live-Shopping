@@ -508,10 +508,10 @@ export const SellerHostModeView: React.FC<SellerHostModeViewProps> = ({
                   type="button"
                   onClick={() => setIsModeratorModalOpen(true)}
                   className="px-2.5 py-1 rounded-lg bg-[#19BFFF]/15 hover:bg-[#19BFFF]/25 text-[#19BFFF] border border-[#19BFFF]/30 text-[11px] font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
-                  title="Appoint Showpreneurs as chat moderators"
+                  title="Assign Showpreneurs as chat moderators"
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Moderators ({moderatorSellerIds.length})</span>
+                  <span>Assign Moderator ({moderatorSellerIds.length})</span>
                 </button>
                 <span className="text-[10px] text-slate-400 font-mono">
                   {activeComments.length} comments

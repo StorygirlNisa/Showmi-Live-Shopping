@@ -7,7 +7,6 @@ interface ProfileModalProps {
   isOpen: boolean;
   onClose: () => void;
   userRole: 'buyer' | 'seller' | 'admin';
-  setUserRole: (role: 'admin' | 'seller' | 'buyer') => void;
   currentSeller?: Seller;
   sellers: Seller[];
   onSelectSeller: (sellerId: string) => void;
@@ -23,7 +22,6 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   isOpen,
   onClose,
   userRole,
-  setUserRole,
   currentSeller,
   sellers,
   onSelectSeller,

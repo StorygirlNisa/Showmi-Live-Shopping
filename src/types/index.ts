@@ -111,7 +111,12 @@ export interface OrderItem {
   name: string;
   quantity: number;
   priceZAR: number;
-  status: 'awaiting_dispatch' | 'in_transit' | 'delivered' | 'confirmed';
+  status: 'pending_acceptance' | 'accepted' | 'rejected' | 'awaiting_dispatch' | 'in_transit' | 'delivered' | 'confirmed';
+  rejectionReason?: string;
+  rejectionNote?: string;
+  rejectedAt?: string;
+  acceptedAt?: string;
+  paymentStatus?: 'escrow_held' | 'refund_pending' | 'refunded';
   courierPartner?: string;
   trackingNumber?: string;
   dispatchedAt?: string;

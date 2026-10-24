@@ -673,7 +673,20 @@ export const LiveRoomView: React.FC<LiveRoomViewProps> = ({
                     : `Moderator Active · ${(allSellers || []).find(s => s.id === currentSellerId)?.name || 'Showpreneur'} (Prototype Permissions)`}
                 </span>
               </span>
-              <span className="text-[9px] text-emerald-400/80">Can delete spam comments</span>
+              <div className="flex items-center gap-2">
+                {isHost && onOpenHostMode && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenHostMode(session.id)}
+                    className="px-2 py-0.5 rounded bg-[#19BFFF] text-[#0D1018] hover:bg-[#00AEEF] font-bold text-[10px] cursor-pointer transition-colors"
+                    title="Assign Moderator"
+                    aria-label="Assign Moderator"
+                  >
+                    Assign Moderator
+                  </button>
+                )}
+                <span className="text-[9px] text-emerald-400/80 hidden sm:inline">Can delete spam comments</span>
+              </div>
             </div>
           )}
 

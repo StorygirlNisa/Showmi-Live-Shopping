@@ -115,11 +115,12 @@ export const Navigation: React.FC<NavigationProps> = ({
                 <img 
                   src={currentUser.photoURL || `https://ui-avatars.com/api/?name=${currentUser.displayName || 'User'}&background=random`} 
                   alt="Profile" 
-                  className="w-8 h-8 rounded-full border border-[#242936]"
+                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-full border border-[#242936]"
                 />
                 <button 
                   onClick={onSignOut}
-                  className="hidden md:block text-[11px] font-bold text-slate-400 hover:text-white transition-colors cursor-pointer"
+                  className="px-2 py-1 rounded-lg bg-red-950/40 hover:bg-red-900/60 border border-red-800/40 text-red-300 hover:text-white text-[11px] font-bold transition-all cursor-pointer"
+                  title="Sign out of account"
                 >
                   Sign Out
                 </button>
@@ -128,7 +129,7 @@ export const Navigation: React.FC<NavigationProps> = ({
           ) : (
             <button
               onClick={onSignIn}
-              className="px-4 py-2 rounded-xl bg-[#19BFFF] hover:bg-[#00AEEF] text-[#0D1018] text-xs font-bold transition-all shadow-lg shadow-[#19BFFF]/20 active:scale-95 cursor-pointer"
+              className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-[#19BFFF] hover:bg-[#00AEEF] text-[#0D1018] text-xs font-bold transition-all shadow-lg shadow-[#19BFFF]/20 active:scale-95 cursor-pointer shrink-0"
             >
               Sign In
             </button>

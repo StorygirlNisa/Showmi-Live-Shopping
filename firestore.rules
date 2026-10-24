@@ -5,21 +5,49 @@ service cloud.firestore {
     
     // --- Global Helpers ---
     function isSignedIn() { return request.auth != null; }
-    function isVerified() { return isSignedIn() && request.auth.token.email_verified == true; }
     function incoming() { return request.resource.data; }
     function existing() { return resource.data; }
+    
     function getUserData() { 
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
-      return (userDoc != null) ? userDoc.data : null;
+      let userPath = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(userPath) ? get(userPath).data : null;
     }
+    
     function isAdmin() { 
       let data = getUserData();
       return isSignedIn() && data != null && data.role == 'admin'; 
     }
+    
     function isSeller() { 
       let data = getUserData();
-      return isSignedIn() && data != null && data.role == 'seller'; 
+      return isSignedIn() && data != null && (data.role == 'seller' || data.role == 'admin'); 
     }
+
+    // Helper: Validates that logged-in user is registered as owner in /sellers/{sellerId}
+    function isOwnerOfSeller(sellerId) {
+      return sellerId is string && 
+             exists(/databases/$(database)/documents/sellers/$(sellerId)) &&
+             get(/databases/$(database)/documents/sellers/$(sellerId)).data.ownerUid == request.auth.uid;
+    }
+
+    function isSellerFor(sellerId) {
+      let data = getUserData();
+      return isSignedIn() && (
+        isAdmin() || 
+        (data != null && 'sellerId' in data && data.sellerId == sellerId) || 
+        isOwnerOfSeller(sellerId)
+      );
+    }
+
+    function isSellerInOrder(sellerIds) {
+      let data = getUserData();
+      return isSignedIn() && (
+        isAdmin() ||
+        (data != null && 'sellerId' in data && data.sellerId in sellerIds) ||
+        (sellerIds.size() > 0 && isOwnerOfSeller(sellerIds[0]))
+      );
+    }
+
     function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
 
     // --- Validation Helpers ---
@@ -70,65 +98,84 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow create: if isSignedIn() && request.auth.uid == userId && isValidUser(incoming()) && incoming().role == 'buyer';
-      allow update: if isSignedIn() && request.auth.uid == userId && 
-                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'sellerId']) &&
-                    incoming().role == existing().role;
+      // Regular user can ONLY update displayName (cannot change role or sellerId). Admin can update role & sellerId.
+      allow update: if isSignedIn() && (
+        (request.auth.uid == userId && 
+         incoming().diff(existing()).affectedKeys().hasOnly(['displayName']) &&
+         incoming().role == existing().role) ||
+        isAdmin()
+      );
     }
 
     // --- Sellers Collection ---
-    match /sellers/{sellerId} {
-      allow get, list: if true;
-      allow create: if isAdmin() && isValidSeller(incoming());
-      allow update: if isSignedIn() && (
-        existing().ownerUid == request.auth.uid || isAdmin()
-      ) && isValidSeller(incoming()) && incoming().ownerUid == existing().ownerUid;
+    match /sellers {
+      allow list: if true;
+      match /{sellerId} {
+        allow get: if true;
+        allow create: if isAdmin() && isValidSeller(incoming());
+        allow update: if isSignedIn() && (existing().ownerUid == request.auth.uid || isAdmin()) 
+                      && incoming().ownerUid == existing().ownerUid && isValidSeller(incoming());
+      }
     }
 
     // --- Products Collection ---
-    match /products/{productId} {
-      allow read: if true;
-      allow write: if isSignedIn() && (
-        isAdmin() || (
-          isSeller() && 
-          getUserData().sellerId == incoming().sellerId
-        )
-      ) && isValidProduct(incoming());
+    match /products {
+      allow list: if true;
+
+      match /{productId} {
+        allow get: if true;
+        allow create: if isSignedIn() && isSellerFor(incoming().sellerId) && isValidProduct(incoming());
+        allow update: if isSignedIn() && (
+          isAdmin() || 
+          (isSellerFor(existing().sellerId) && incoming().sellerId == existing().sellerId)
+        ) && isValidProduct(incoming());
+        allow delete: if isSignedIn() && (isAdmin() || isSellerFor(existing().sellerId));
+      }
     }
 
     // --- Orders Collection ---
     match /orders/{orderId} {
       allow read: if isSignedIn() && (
         resource.data.buyerId == request.auth.uid || 
-        (isSeller() && getUserData().sellerId in resource.data.sellerIds) ||
-        isAdmin()
+        isSellerInOrder(resource.data.sellerIds)
       );
       allow create: if isSignedIn() && isValidOrder(incoming());
       allow update: if isSignedIn() && (
-        (resource.data.buyerId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['items', 'confirmedAt', 'paymentReleased', 'paymentReleasedAt'])) ||
-        (isSeller() && getUserData().sellerId in resource.data.sellerIds && incoming().diff(existing()).affectedKeys().hasOnly(['items'])) ||
+        // Buyer confirmation flow: cannot alter buyerId, sellerIds, or totalZAR
+        (resource.data.buyerId == request.auth.uid && 
+         incoming().buyerId == existing().buyerId &&
+         incoming().sellerIds == existing().sellerIds &&
+         incoming().totalZAR == existing().totalZAR &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['items', 'confirmedAt', 'paymentReleased', 'paymentReleasedAt'])) ||
+        // Seller fulfillment update: cannot alter buyerId, sellerIds, or totalZAR
+        (isSellerInOrder(resource.data.sellerIds) && 
+         incoming().buyerId == existing().buyerId &&
+         incoming().sellerIds == existing().sellerIds &&
+         incoming().totalZAR == existing().totalZAR &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['items'])) ||
         isAdmin()
       );
     }
 
-    // --- Live Sessions ---
+    // --- Live Sessions Collection ---
     match /live_sessions {
       allow list: if true;
 
       match /{sessionId} {
         allow get: if true;
-        allow create: if isSignedIn() && (isAdmin() || (isSeller() && getUserData().sellerId == incoming().sellerId)) && isValidLiveSession(incoming());
+        allow create: if isSignedIn() && (isAdmin() || isSellerFor(incoming().sellerId)) && isValidLiveSession(incoming());
         allow update: if isSignedIn() && (
           isAdmin() || 
-          getUserData().sellerId == existing().sellerId
+          (isSellerFor(existing().sellerId) && incoming().sellerId == existing().sellerId)
         ) && isValidLiveSession(incoming());
 
         // Comments Sub-collection
         match /comments/{commentId} {
           allow read: if true;
-          allow create: if isSignedIn() && incoming().senderUid == request.auth.uid && incoming().text.size() <= 500;
+          allow create: if isSignedIn() && incoming().senderUid == request.auth.uid && incoming().text is string && incoming().text.size() <= 500;
           allow delete: if isSignedIn() && (
             request.auth.uid == existing().senderUid ||
-            getUserData().sellerId == get(/databases/$(database)/documents/live_sessions/$(sessionId)).data.sellerId ||
+            isSellerFor(get(/databases/$(database)/documents/live_sessions/$(sessionId)).data.sellerId) ||
             request.auth.uid in get(/databases/$(database)/documents/live_sessions/$(sessionId)).data.moderatorUids ||
             isAdmin()
           );

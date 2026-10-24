@@ -11,9 +11,11 @@ import {
   AlertTriangle, 
   MessageSquare, 
   Send,
-  FileText
+  FileText,
+  ShieldCheck,
+  X
 } from 'lucide-react';
-import { Seller, Product, StreamSnippet, Order, OrderItem, OrderIssue } from '../types';
+import { Seller, Product, StreamSnippet, Order, OrderItem, OrderIssue, LiveSession } from '../types';
 
 interface MobileSellerStudioProps {
   seller: Seller;
@@ -68,6 +70,11 @@ interface MobileSellerStudioProps {
   onSelectProduct?: (id: string) => void;
   onApplyDescription?: () => void;
   onOpenAddProductModal?: () => void;
+  sessionModerators?: Record<string, string[]>;
+  liveSessions?: LiveSession[];
+  sellers?: Seller[];
+  onAppointModerator?: (sessionId: string, sellerId: string) => void;
+  onRevokeModerator?: (sessionId: string, sellerId: string) => void;
 }
 
 export const MobileSellerStudio: React.FC<MobileSellerStudioProps> = ({ 
@@ -91,9 +98,15 @@ export const MobileSellerStudio: React.FC<MobileSellerStudioProps> = ({
   selectedProductId,
   onSelectProduct,
   onApplyDescription,
-  onOpenAddProductModal
+  onOpenAddProductModal,
+  sessionModerators = {},
+  liveSessions = [],
+  sellers = [],
+  onAppointModerator,
+  onRevokeModerator
 }) => {
   const [activeTab, setActiveTab] = useState<'ai' | 'stock' | 'orders'>('ai');
+  const [isModeratorModalOpen, setIsModeratorModalOpen] = useState(false);
   const [trackingWaybills, setTrackingWaybills] = useState<Record<string, string>>({});
   const [issueResponses, setIssueResponses] = useState<Record<string, { message: string; resolutionNote: string }>>({});
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -211,6 +224,111 @@ export const MobileSellerStudio: React.FC<MobileSellerStudioProps> = ({
               <span>Launch Live / Host Mode</span>
             </button>
           </div>
+
+          {/* Assign Moderator Card & Modal */}
+          {(() => {
+            const sellerSessionId = seller.currentLiveSessionId || (liveSessions.find(s => s.sellerId === seller.id)?.id) || `live-${seller.id}`;
+            const appointedModsForThisSeller = Array.from(new Set([
+              ...(sessionModerators[sellerSessionId] || []),
+              ...(sessionModerators[seller.id] || [])
+            ]));
+
+            return (
+              <div className="p-4 bg-[#171A21] rounded-2xl border border-[#242936] space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2 font-heading">
+                    <ShieldCheck className="w-4 h-4 text-[#19BFFF]" />
+                    Live Stream Chat Moderators
+                  </h3>
+                  <span className="text-[10px] text-slate-400 font-mono">
+                    {appointedModsForThisSeller.length} assigned
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400">
+                  {appointedModsForThisSeller.length > 0
+                    ? `Appointed: ${appointedModsForThisSeller.map(id => sellers.find(s => s.id === id)?.name || id).join(', ')}`
+                    : 'No moderators assigned yet.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsModeratorModalOpen(true)}
+                  className="w-full py-3 bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs font-bold rounded-xl flex items-center justify-center gap-2 cursor-pointer transition-all shadow-md shadow-[#0066ff]/20 active:scale-95"
+                >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span>Assign Moderator ({appointedModsForThisSeller.length})</span>
+                </button>
+
+                {/* Moderator Selection Modal */}
+                {isModeratorModalOpen && (
+                  <div
+                    className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in"
+                    role="dialog"
+                    aria-modal="true"
+                  >
+                    <div className="bg-[#171A21] border border-[#242936] rounded-3xl w-full max-w-sm p-6 space-y-4 shadow-2xl relative">
+                      <button
+                        onClick={() => setIsModeratorModalOpen(false)}
+                        className="absolute top-4 right-4 text-slate-400 hover:text-white p-1 rounded-lg cursor-pointer"
+                      >
+                        <X className="w-5 h-5" />
+                      </button>
+
+                      <div className="space-y-1">
+                        <h3 className="text-lg font-bold text-white flex items-center gap-2">
+                          <ShieldCheck className="w-5 h-5 text-[#19BFFF]" />
+                          Assign Moderators
+                        </h3>
+                        <p className="text-xs text-slate-400">
+                          Appoint fellow makers to moderate your chat and keep the stream safe.
+                        </p>
+                      </div>
+
+                      <div className="space-y-3 max-h-64 overflow-y-auto pr-1 scrollbar-none">
+                        {sellers.filter(s => s.id !== seller.id).map(s => {
+                          const isMod = appointedModsForThisSeller.includes(s.id);
+                          return (
+                            <div key={s.id} className="flex items-center justify-between gap-3 p-3 rounded-xl bg-[#0D1018] border border-[#242936]">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <img src={s.avatar} alt={s.name} className="w-8 h-8 rounded-full object-cover shrink-0" />
+                                <div className="min-w-0">
+                                  <p className="text-xs font-bold text-white truncate">{s.name}</p>
+                                  <p className="text-[10px] text-slate-400">{s.city}</p>
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => {
+                                  if (isMod) {
+                                    onRevokeModerator && onRevokeModerator(sellerSessionId, s.id);
+                                  } else {
+                                    onAppointModerator && onAppointModerator(sellerSessionId, s.id);
+                                  }
+                                }}
+                                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                                  isMod
+                                    ? 'bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20'
+                                    : 'bg-[#19BFFF] text-[#0D1018] hover:bg-[#00AEEF]'
+                                }`}
+                              >
+                                {isMod ? <X className="w-3 h-3" /> : <ShieldCheck className="w-3 h-3" />}
+                                <span>{isMod ? 'Revoke' : 'Assign'}</span>
+                              </button>
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <button
+                        onClick={() => setIsModeratorModalOpen(false)}
+                        className="w-full py-3 bg-[#242936] hover:bg-[#2d3343] text-white text-xs font-bold rounded-xl cursor-pointer transition-all"
+                      >
+                        Done
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Product Selection for AI actions */}
           <div className="p-4 bg-[#171A21] rounded-2xl border border-[#242936] space-y-3">

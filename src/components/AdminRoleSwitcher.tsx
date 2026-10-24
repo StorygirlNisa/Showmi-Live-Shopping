@@ -3,7 +3,6 @@ import { User, Shield, Store } from 'lucide-react';
 
 interface AdminRoleSwitcherProps {
   userRole: 'admin' | 'seller' | 'buyer';
-  setUserRole: (role: 'admin' | 'seller' | 'buyer') => void;
   currentSellerId: string;
   onSelectSeller: (sellerId: string) => void;
   sellers: { id: string; name: string }[];
@@ -13,7 +12,6 @@ interface AdminRoleSwitcherProps {
 
 export const AdminRoleSwitcher: React.FC<AdminRoleSwitcherProps> = ({
   userRole,
-  setUserRole,
   currentSellerId,
   onSelectSeller,
   sellers,
@@ -25,27 +23,10 @@ export const AdminRoleSwitcher: React.FC<AdminRoleSwitcherProps> = ({
       <div className="flex items-center gap-2 shrink-0">
         <Shield className="w-3.5 h-3.5 text-[#19BFFF]" />
         <span className="font-bold text-white uppercase tracking-wider text-[11px]">
-          Demo Control Bar
+          System Status: {userRole.toUpperCase()}
         </span>
       </div>
       
-      <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
-        <span className="text-[10px] text-slate-400 hidden sm:inline">Role:</span>
-        {(['admin', 'seller', 'buyer'] as const).map((role) => (
-          <button
-            key={role}
-            onClick={() => setUserRole(role)}
-            className={`px-2.5 py-1 rounded-md font-bold capitalize transition-all cursor-pointer ${
-              userRole === role 
-                ? 'bg-[#19BFFF] text-[#0D1018] shadow-sm' 
-                : 'bg-[#1e2330] text-slate-300 hover:text-white'
-            }`}
-          >
-            {role === 'admin' ? 'Admin' : role === 'seller' ? 'Seller' : 'Buyer'}
-          </button>
-        ))}
-      </div>
-
       <div className="flex items-center gap-2 shrink-0">
         {userRole === 'admin' && onSeedData && (
           <button

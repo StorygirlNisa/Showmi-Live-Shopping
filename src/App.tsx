@@ -68,6 +68,23 @@ const STORAGE_KEYS = {
 // In-memory fallback map to handle sandbox iframe storage restrictions or QuotaExceededError
 const memoryStorageFallback = new Map<string, string>();
 
+const cleanFirestoreData = (obj: any): any => {
+  if (obj === null || typeof obj !== 'object') {
+    return obj === undefined ? null : obj;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(cleanFirestoreData).filter(item => item !== undefined);
+  }
+  const cleaned: Record<string, any> = {};
+  for (const key of Object.keys(obj)) {
+    const val = obj[key];
+    if (val !== undefined) {
+      cleaned[key] = cleanFirestoreData(val);
+    }
+  }
+  return cleaned;
+};
+
 const safeStorage = {
   getItem: (key: string): string | null => {
     try {
@@ -130,45 +147,68 @@ export default function App() {
     return SELLERS.map(s => s.id);
   });
 
-  // Sync User Profile with Firestore
+  // Sync User Profile with Firestore (Real-time)
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    let unsubscribeUserDoc: (() => void) | null = null;
+
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
       
+      if (unsubscribeUserDoc) {
+        unsubscribeUserDoc();
+        unsubscribeUserDoc = null;
+      }
+
       if (user) {
-        try {
-          const userDocRef = doc(db, 'users', user.uid);
-          const userDoc = await getDoc(userDocRef);
-          
+        const userDocRef = doc(db, 'users', user.uid);
+        unsubscribeUserDoc = onSnapshot(userDocRef, async (userDoc) => {
           if (!userDoc.exists()) {
-            // New user registration
-            const isInitialAdmin = user.email === 'nisabardien@gmail.com';
+            // New user registration defaults to buyer
             const newUser = {
               email: user.email,
-              displayName: user.displayName,
-              role: isInitialAdmin ? 'admin' : 'buyer',
+              displayName: user.displayName || user.email?.split('@')[0] || 'Showshopper',
+              role: 'buyer',
               createdAt: serverTimestamp()
             };
-            await setDoc(userDocRef, newUser);
-            setUserRole(isInitialAdmin ? 'admin' : 'buyer');
+            try {
+              await setDoc(userDocRef, newUser);
+            } catch (err) {
+              console.error("Error setting default user profile:", err);
+            }
+            setUserRole('buyer');
+            setActiveTab('LIVE');
           } else {
-            // Existing user
+            // Existing user profile loaded/updated from Firestore
             const data = userDoc.data();
-            setUserRole(data.role || 'buyer');
-            if (data.sellerId) {
+            const role = (data?.role as 'admin' | 'buyer' | 'seller') || 'buyer';
+            setUserRole(role);
+            if (data?.sellerId) {
               setCurrentSellerId(data.sellerId);
             }
+
+            // Route authorized sellers directly to Seller Studio
+            if (role === 'seller' || role === 'admin') {
+              setActiveTab('Seller Studio');
+            } else {
+              // Buyers default to LIVE feed
+              setActiveTab((prev) => (prev === 'Seller Studio' ? 'LIVE' : prev));
+            }
           }
-        } catch (error) {
-          console.error("Error syncing user record:", error);
-        }
+          setIsAuthLoading(false);
+        }, (error) => {
+          console.error("Error listening to user record:", error);
+          setIsAuthLoading(false);
+        });
       } else {
         setUserRole('buyer');
+        setIsAuthLoading(false);
       }
-      setIsAuthLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => {
+      unsubscribeAuth();
+      if (unsubscribeUserDoc) unsubscribeUserDoc();
+    };
   }, []);
 
   // Dynamic products list persisted to localStorage (Initial/Fallback)
@@ -187,6 +227,7 @@ export default function App() {
   // 1. Sync Products from Firestore
   useEffect(() => {
     if (isAuthLoading) return;
+    setListenerErrors(prev => { const next = { ...prev }; delete next['products']; return next; });
     const q = query(collection(db, 'products'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setListenerErrors(prev => { const next = { ...prev }; delete next['products']; return next; });
@@ -196,14 +237,17 @@ export default function App() {
       });
       setFirestoreProducts(list);
     }, (error) => {
+      console.error('Products listener error:', error);
       setListenerErrors(prev => ({ ...prev, 'products': `${error.code} - ${error.message}` }));
+      setFirestoreProducts([]);
     });
     return () => unsubscribe();
-  }, [isAuthLoading]);
+  }, [isAuthLoading, currentUser]);
 
   // 2. Sync Sellers from Firestore
   useEffect(() => {
     if (isAuthLoading) return;
+    setListenerErrors(prev => { const next = { ...prev }; delete next['sellers']; return next; });
     const q = query(collection(db, 'sellers'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setListenerErrors(prev => { const next = { ...prev }; delete next['sellers']; return next; });
@@ -213,10 +257,12 @@ export default function App() {
       });
       setFirestoreSellers(list);
     }, (error) => {
+      console.error('Sellers listener error:', error);
       setListenerErrors(prev => ({ ...prev, 'sellers': `${error.code} - ${error.message}` }));
+      setFirestoreSellers([]);
     });
     return () => unsubscribe();
-  }, [isAuthLoading]);
+  }, [isAuthLoading, currentUser]);
 
   // Merge Firestore data with Mock data (Firestore takes precedence)
   const allProducts = useMemo(() => {
@@ -282,6 +328,7 @@ export default function App() {
   // 4. Sync Live Sessions from Firestore
   useEffect(() => {
     if (isAuthLoading) return;
+    setListenerErrors(prev => { const next = { ...prev }; delete next['live_sessions']; return next; });
     const q = query(collection(db, 'live_sessions'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setListenerErrors(prev => { const next = { ...prev }; delete next['live_sessions']; return next; });
@@ -291,10 +338,12 @@ export default function App() {
       });
       setFirestoreSessions(list);
     }, (error) => {
+      console.error('Live Sessions listener error:', error);
       setListenerErrors(prev => ({ ...prev, 'live_sessions': `${error.code} - ${error.message}` }));
+      setFirestoreSessions([]);
     });
     return () => unsubscribe();
-  }, [isAuthLoading]);
+  }, [isAuthLoading, currentUser]);
 
   const allSessions = useMemo(() => {
     if (firestoreSessions.length === 0) return LIVE_SESSIONS;
@@ -322,6 +371,12 @@ export default function App() {
   const [isLiveCountdownActive, setIsLiveCountdownActive] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [listenerErrors, setListenerErrors] = useState<Record<string, string>>({});
+  const [dispatchError, setDispatchError] = useState<{
+    orderId: string;
+    code?: string;
+    message: string;
+    timestamp: string;
+  } | null>(null);
 
 
   // Basket State with initial item for demonstration, persisted to localStorage
@@ -670,7 +725,8 @@ export default function App() {
             name: ci.product.name,
             quantity: ci.quantity,
             priceZAR: ci.product.priceZAR,
-            status: 'awaiting_dispatch' as const
+            status: 'pending_acceptance' as const,
+            paymentStatus: 'escrow_held' as const
           })),
           subtotalZAR: orderPayload.subtotalZAR,
           shippingZAR: orderPayload.shippingZAR,
@@ -683,7 +739,7 @@ export default function App() {
           paymentMethod: orderPayload.paymentMethod
         };
 
-        transaction.set(orderRef, newOrderRecord);
+        transaction.set(orderRef, cleanFirestoreData(newOrderRecord));
       });
 
       showNotification(`Order #${orderPayload.orderId} placed successfully!`);
@@ -702,28 +758,183 @@ export default function App() {
     tracking?: { courierPartner?: string; trackingNumber?: string }
   ) => {
     const order = allOrders.find(o => o.id === orderId);
-    if (!order) return;
+    if (!order) {
+      showNotification("Order record not found.");
+      return;
+    }
 
     const updatedItems = order.items.map(item => {
-      if (item.productId === productId && item.sellerId === sellerId) {
+      if (item.productId === productId && (item.sellerId === sellerId || !item.sellerId || item.sellerId === currentSellerId)) {
         return {
           ...item,
           status: newStatus,
-          courierPartner: tracking?.courierPartner || item.courierPartner,
-          trackingNumber: tracking?.trackingNumber || item.trackingNumber,
-          dispatchedAt: newStatus === 'in_transit' ? new Date().toISOString() : item.dispatchedAt,
-          deliveredAt: newStatus === 'delivered' ? new Date().toISOString() : item.deliveredAt,
+          courierPartner: tracking?.courierPartner || item.courierPartner || 'The Courier Guy',
+          trackingNumber: tracking?.trackingNumber || item.trackingNumber || `TCG-ZA-${Math.floor(10000000 + Math.random() * 90000000)}`,
+          dispatchedAt: newStatus === 'in_transit' ? (item.dispatchedAt || new Date().toISOString()) : item.dispatchedAt,
+          deliveredAt: newStatus === 'delivered' ? (item.deliveredAt || new Date().toISOString()) : item.deliveredAt,
         };
       }
       return item;
     });
 
     try {
-      await updateDoc(doc(db, 'orders', orderId), { items: updatedItems });
-      showNotification(`Status updated: ${newStatus.replace('_', ' ')}`);
-    } catch (error) {
+      const orderRef = doc(db, 'orders', orderId);
+      try {
+        await updateDoc(orderRef, cleanFirestoreData({ items: updatedItems }));
+      } catch (err: any) {
+        // If document doesn't exist in Firestore yet (e.g. seeded or local mock order), create it in Firestore
+        if (err?.code === 'not-found' || err?.message?.includes('No document to update') || err?.message?.includes('not-found')) {
+          await setDoc(orderRef, cleanFirestoreData({ ...order, items: updatedItems }));
+        } else {
+          throw err;
+        }
+      }
+
+      // Update local state and safeStorage so UI refreshes immediately
+      setOrdersList(prev => {
+        const exists = prev.some(o => o.id === orderId);
+        const next = exists 
+          ? prev.map(o => o.id === orderId ? { ...o, items: updatedItems } : o)
+          : [{ ...order, items: updatedItems }, ...prev];
+        safeStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(next));
+        return next;
+      });
+
+      setDispatchError(null);
+      showNotification(`Order status updated: ${newStatus.replace('_', ' ')}`);
+    } catch (error: any) {
       console.error("Failed to update order status:", error);
-      showNotification("Update failed. Permission denied?");
+      const errorCode = error?.code || 'unknown-code';
+      const errorMessage = error?.message || 'Permission denied or update failed';
+      setDispatchError({
+        orderId,
+        code: errorCode,
+        message: errorMessage,
+        timestamp: new Date().toLocaleTimeString()
+      });
+      showNotification(`Failed to update order status. See error panel.`);
+    }
+  };
+
+  const handleAcceptOrderItem = async (orderId: string, productId: string, sellerId: string) => {
+    const order = allOrders.find(o => o.id === orderId);
+    if (!order) {
+      showNotification("Order record not found.");
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const updatedItems = order.items.map(item => {
+      if (item.productId === productId && (item.sellerId === sellerId || !item.sellerId || item.sellerId === currentSellerId)) {
+        return {
+          ...item,
+          status: 'accepted' as const,
+          acceptedAt: now
+        };
+      }
+      return item;
+    });
+
+    try {
+      const orderRef = doc(db, 'orders', orderId);
+      try {
+        await updateDoc(orderRef, cleanFirestoreData({ items: updatedItems }));
+      } catch (err: any) {
+        if (err?.code === 'not-found' || err?.message?.includes('No document to update') || err?.message?.includes('not-found')) {
+          await setDoc(orderRef, cleanFirestoreData({ ...order, items: updatedItems }));
+        } else {
+          throw err;
+        }
+      }
+
+      setOrdersList(prev => {
+        const exists = prev.some(o => o.id === orderId);
+        const next = exists 
+          ? prev.map(o => o.id === orderId ? { ...o, items: updatedItems } : o)
+          : [{ ...order, items: updatedItems }, ...prev];
+        safeStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(next));
+        return next;
+      });
+
+      showNotification("Order accepted! Ready for packaging & dispatch.");
+    } catch (error: any) {
+      console.error("Failed to accept order:", error);
+      showNotification(`Failed to accept order: ${error.message || 'Permission denied'}`);
+    }
+  };
+
+  const handleRejectOrderItem = async (
+    orderId: string, 
+    productId: string, 
+    sellerId: string, 
+    rejectionReason: string, 
+    rejectionNote?: string
+  ) => {
+    const order = allOrders.find(o => o.id === orderId);
+    if (!order) {
+      showNotification("Order record not found.");
+      return;
+    }
+
+    const targetItem = order.items.find(i => i.productId === productId);
+    if (!targetItem) {
+      showNotification("Order item not found.");
+      return;
+    }
+
+    if (targetItem.status === 'rejected') {
+      showNotification("This order item has already been rejected.");
+      return;
+    }
+
+    const now = new Date().toISOString();
+    const updatedItems = order.items.map(item => {
+      if (item.productId === productId && (item.sellerId === sellerId || !item.sellerId || item.sellerId === currentSellerId)) {
+        return {
+          ...item,
+          status: 'rejected' as const,
+          rejectionReason,
+          rejectionNote: rejectionNote || '',
+          rejectedAt: now,
+          paymentStatus: 'refund_pending' as const
+        };
+      }
+      return item;
+    });
+
+    try {
+      await runTransaction(db, async (transaction) => {
+        const productRef = doc(db, 'products', productId);
+        const productDoc = await transaction.get(productRef);
+
+        if (productDoc.exists()) {
+          const currentStock = productDoc.data()?.stock || 0;
+          transaction.update(productRef, {
+            stock: currentStock + targetItem.quantity
+          });
+        }
+
+        const orderRef = doc(db, 'orders', orderId);
+        transaction.set(orderRef, cleanFirestoreData({ ...order, items: updatedItems }), { merge: true });
+      });
+
+      setOrdersList(prev => {
+        const exists = prev.some(o => o.id === orderId);
+        const next = exists 
+          ? prev.map(o => o.id === orderId ? { ...o, items: updatedItems } : o)
+          : [{ ...order, items: updatedItems }, ...prev];
+        safeStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(next));
+        return next;
+      });
+
+      setProductsList(prev =>
+        prev.map(p => p.id === productId ? { ...p, stock: p.stock + targetItem.quantity } : p)
+      );
+
+      showNotification(`Order item rejected and stock restored (${rejectionReason}). Payment flagged for refund review.`);
+    } catch (error: any) {
+      console.error("Failed to reject order item:", error);
+      showNotification(`Failed to reject order: ${error.message || 'Permission denied'}`);
     }
   };
 
@@ -755,7 +966,7 @@ export default function App() {
     }
 
     try {
-      await updateDoc(doc(db, 'orders', orderId), updateData);
+      await updateDoc(doc(db, 'orders', orderId), cleanFirestoreData(updateData));
       showNotification('Delivery confirmed! Simulated payment released to seller.');
     } catch (error) {
       console.error("Failed to confirm receipt:", error);
@@ -1001,6 +1212,7 @@ export default function App() {
 
   const handleSignOut = async () => {
     try {
+      setListenerErrors({});
       await signOut(auth);
       showNotification('Signed out');
       setActiveTab('LIVE');
@@ -1010,30 +1222,24 @@ export default function App() {
   };
 
   // Role & Authentication Handlers
-  const handleSignInAsSeller = async (sellerId: string) => {
+  const handleSignInAsSeller = (sellerId: string) => {
     if (!currentUser) {
       showNotification('Please sign in with Google first');
       handleSignIn();
       return;
     }
 
-    // Link current UID to the mock seller profile in Firestore
-    try {
-      const userDocRef = doc(db, 'users', currentUser.uid);
-      await setDoc(userDocRef, { 
-        sellerId,
-        role: 'seller' 
-      }, { merge: true });
-      
-      setUserRole('seller');
-      setCurrentSellerId(sellerId);
-      setActiveTab('Seller Studio');
-      showNotification(`Profile linked! Signed in as ${SELLERS.find(s => s.id === sellerId)?.name || 'Maker'}`);
-    } catch (error) {
-      console.error("Error linking seller profile:", error);
-      showNotification("Failed to link profile. Are you an admin?");
+    if (userRole !== 'seller' && userRole !== 'admin') {
+      showNotification('Seller access must be granted by an authorised admin. Please contact support.');
+      return;
     }
+
+    setCurrentSellerId(sellerId);
+    setActiveTab('Seller Studio');
+    setIsSellerSignInModalOpen(false);
+    showNotification(`Signed in as ${SELLERS.find(s => s.id === sellerId)?.name || 'Maker'}`);
   };
+
 
   // Navigation handlers
   const handleSelectProduct = (productId: string) => {
@@ -1103,44 +1309,90 @@ export default function App() {
     }
   };
 
-  // Moderator Appointment & Revocation Handlers (Firestore Enforced)
+  // Moderator Appointment & Revocation Handlers (Firestore Enforced & State Synced)
   const handleAppointModerator = async (sessionId: string, sellerId: string) => {
     const seller = allSellers.find(s => s.id === sellerId);
-    if (!seller || !seller.ownerUid) {
-      showNotification("Cannot appoint moderator: seller not linked to a real account.");
+    if (!seller) {
+      showNotification("Cannot appoint moderator: seller not found.");
       return;
     }
+    const targetUid = seller.ownerUid || seller.id;
+
+    // 1. Update local state and safeStorage immediately for instant feedback
+    setSessionModerators(prev => {
+      const current = prev[sessionId] || prev[sellerId] || [];
+      if (current.includes(sellerId)) return prev;
+      const next = [...current, sellerId];
+      const updatedMap = { ...prev, [sessionId]: next, [sellerId]: next };
+      safeStorage.setItem(STORAGE_KEYS.SESSION_MODERATORS, JSON.stringify(updatedMap));
+      return updatedMap;
+    });
 
     try {
       const sessionRef = doc(db, 'live_sessions', sessionId);
       const session = allSessions.find(s => s.id === sessionId);
       const currentMods = session?.moderatorUids || [];
-      if (!currentMods.includes(seller.ownerUid)) {
-        await updateDoc(sessionRef, {
-          moderatorUids: [...currentMods, seller.ownerUid]
-        });
+      if (!currentMods.includes(targetUid)) {
+        try {
+          await updateDoc(sessionRef, {
+            moderatorUids: [...currentMods, targetUid]
+          });
+        } catch (err: any) {
+          if (err?.code === 'not-found' || err?.message?.includes('No document to update') || err?.message?.includes('not-found')) {
+            await setDoc(sessionRef, {
+              id: sessionId,
+              sellerId: session?.sellerId || sellerId,
+              moderatorUids: [...currentMods, targetUid]
+            }, { merge: true });
+          } else {
+            throw err;
+          }
+        }
       }
-      showNotification(`Appointed ${seller.name} as chat moderator`);
-    } catch (error) {
+      showNotification(`Successfully appointed ${seller.name} as chat moderator!`);
+    } catch (error: any) {
       console.error("Moderator appointment failed:", error);
-      showNotification("Failed to appoint moderator. Permission denied?");
+      showNotification(`Failed to appoint moderator: ${error.message || 'Unknown error'}`);
     }
   };
 
   const handleRevokeModerator = async (sessionId: string, sellerId: string) => {
     const seller = allSellers.find(s => s.id === sellerId);
-    if (!seller || !seller.ownerUid) return;
+    if (!seller) return;
+    const targetUid = seller.ownerUid || seller.id;
+
+    // 1. Update local state and safeStorage immediately
+    setSessionModerators(prev => {
+      const current = prev[sessionId] || prev[sellerId] || [];
+      const next = current.filter(id => id !== sellerId);
+      const updatedMap = { ...prev, [sessionId]: next, [sellerId]: next };
+      safeStorage.setItem(STORAGE_KEYS.SESSION_MODERATORS, JSON.stringify(updatedMap));
+      return updatedMap;
+    });
 
     try {
       const sessionRef = doc(db, 'live_sessions', sessionId);
       const session = allSessions.find(s => s.id === sessionId);
       const currentMods = session?.moderatorUids || [];
-      await updateDoc(sessionRef, {
-        moderatorUids: currentMods.filter((uid: string) => uid !== seller.ownerUid)
-      });
+      try {
+        await updateDoc(sessionRef, {
+          moderatorUids: currentMods.filter((uid: string) => uid !== targetUid)
+        });
+      } catch (err: any) {
+        if (err?.code === 'not-found' || err?.message?.includes('No document to update') || err?.message?.includes('not-found')) {
+          await setDoc(sessionRef, {
+            id: sessionId,
+            sellerId: session?.sellerId || sellerId,
+            moderatorUids: currentMods.filter((uid: string) => uid !== targetUid)
+          }, { merge: true });
+        } else {
+          throw err;
+        }
+      }
       showNotification(`Revoked moderator status for ${seller.name}`);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Moderator revocation failed:", error);
+      showNotification(`Failed to revoke moderator: ${error.message || 'Unknown error'}`);
     }
   };
 
@@ -1214,13 +1466,9 @@ export default function App() {
 
   const handleTabChange = (tab: AppTab) => {
     // Role based navigation restriction
-    if (tab === 'Seller Studio' && userRole === 'buyer') {
-       showNotification("Oops! You have a Showshopper account. Apply to become a Showpreneur and start selling!");
-       return;
-    }
     if (tab === 'Seller Studio' && userRole !== 'seller' && userRole !== 'admin') {
-      setUserRole('seller');
-      setCurrentSellerId(currentSellerId || SELLERS[0].id);
+      setIsSellerSignInModalOpen(true);
+      return;
     }
 
     if (tab === 'Basket') {
@@ -1294,23 +1542,34 @@ export default function App() {
   const appContent = (
     <div className={`min-h-screen bg-[#0D1018] text-white flex flex-col selection:bg-[#19BFFF] selection:text-[#0D1018] ${viewportMode !== 'responsive' ? 'relative overflow-hidden' : ''}`}>
       {Object.entries(listenerErrors).map(([key, error]) => (
-        <div key={key} className="fixed top-0 left-0 w-full p-4 bg-red-600 text-white z-[9999] text-sm font-bold border-b border-red-800">
-          DIAGNOSTIC ERROR ({key}): {error}
+        <div key={key} className="fixed bottom-20 left-4 max-w-sm p-3 bg-red-950/90 text-red-200 backdrop-blur-md rounded-2xl border border-red-700/60 shadow-2xl z-30 text-xs font-mono pointer-events-auto">
+          <div className="font-bold text-red-400 uppercase tracking-wide flex justify-between items-center mb-1">
+            <span>Diagnostic Warning ({key})</span>
+            <button 
+              onClick={() => setListenerErrors(prev => { const next = { ...prev }; delete next[key]; return next; })}
+              className="text-red-300 hover:text-white text-xs font-bold cursor-pointer ml-2 px-1 rounded hover:bg-red-800/50"
+              title="Dismiss warning"
+            >
+              ✕
+            </button>
+          </div>
+          <p className="truncate text-[11px] text-slate-300">{error}</p>
         </div>
       ))}
       
-      {/* Admin Role Switcher (Hackathon Demo Only - Hidden on mobile during immersive LIVE feed or active stream) */}
-      <div className={isImmersiveLive ? "hidden md:block" : "block"}>
-        <AdminRoleSwitcher
-          userRole={userRole}
-          setUserRole={setUserRole}
-          currentSellerId={currentSellerId}
-          onSelectSeller={setCurrentSellerId}
-          sellers={allSellers.map(s => ({ id: s.id, name: s.name }))}
-          onSeedData={handleSeedFirestore}
-          isSeeding={isSeeding}
-        />
-      </div>
+      {/* Admin Control Bar (Only rendered for authorized Admin account) */}
+      {userRole === 'admin' && (
+        <div className={isImmersiveLive ? "hidden md:block" : "block"}>
+          <AdminRoleSwitcher
+            userRole={userRole}
+            currentSellerId={currentSellerId}
+            onSelectSeller={setCurrentSellerId}
+            sellers={allSellers.map(s => ({ id: s.id, name: s.name }))}
+            onSeedData={handleSeedFirestore}
+            isSeeding={isSeeding}
+          />
+        </div>
+      )}
 
       {/* Toast Notification (Non-blocking so it never interrupts video or controls) */}
       {notification && (
@@ -1320,8 +1579,52 @@ export default function App() {
         </div>
       )}
 
-      {/* Main Navigation (Hidden completely on mobile when viewing LIVE feed or active stream, visible on desktop) */}
-      <div className={isImmersiveLive ? "hidden md:block" : "block"}>
+      {/* Persistent Dispatch Error Diagnostic Panel */}
+      {dispatchError && (
+        <div className="fixed bottom-20 left-4 right-4 max-w-md mx-auto p-4 bg-red-950/95 text-red-100 backdrop-blur-md rounded-2xl border-2 border-red-600 shadow-2xl z-[60] text-xs font-mono pointer-events-auto animate-fade-in">
+          <div className="flex items-center justify-between pb-2 border-b border-red-800/80 mb-2">
+            <div className="flex items-center gap-1.5 font-bold text-red-300 text-sm">
+              <span>⚠️</span>
+              <span>Dispatch Error Diagnostic</span>
+            </div>
+            <button
+              onClick={() => setDispatchError(null)}
+              className="px-2.5 py-1 bg-red-800/80 hover:bg-red-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer border border-red-500/50"
+              title="Dismiss error panel"
+            >
+              Close ✕
+            </button>
+          </div>
+          <div className="space-y-1.5 text-left">
+            <div>
+              <span className="text-red-400 font-bold">Order ID: </span>
+              <span className="text-white font-mono bg-red-900/60 px-1.5 py-0.5 rounded">{dispatchError.orderId}</span>
+            </div>
+            {dispatchError.code && (
+              <div>
+                <span className="text-red-400 font-bold">Code: </span>
+                <span className="text-amber-300 font-mono">{dispatchError.code}</span>
+              </div>
+            )}
+            <div>
+              <span className="text-red-400 font-bold">Message: </span>
+              <span className="text-slate-200 break-words font-sans">{dispatchError.message}</span>
+            </div>
+            <div className="text-[10px] text-red-400/80 pt-1 flex justify-between items-center border-t border-red-900/40 mt-2">
+              <span>Time: {dispatchError.timestamp}</span>
+              <button
+                onClick={() => setDispatchError(null)}
+                className="underline text-red-300 hover:text-white font-bold cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Main Navigation (Always visible on mobile & desktop so users can search and sign in/out) */}
+      <div className="block">
         <Navigation
           activeTab={activeTab}
           setActiveTab={handleTabChange}
@@ -1502,6 +1805,10 @@ export default function App() {
             onRespondToIssue={handleSellerRespondIssue}
             sessionModerators={sessionModerators}
             liveSessions={LIVE_SESSIONS}
+            onAppointModerator={(sessionId, sellerId) => handleAppointModerator(sessionId, sellerId)}
+            onRevokeModerator={(sessionId, sellerId) => handleRevokeModerator(sessionId, sellerId)}
+            onAcceptOrderItem={handleAcceptOrderItem}
+            onRejectOrderItem={handleRejectOrderItem}
           />
         ) : activeTab === 'My Orders' ? (
           /* View: Buyer Orders & 14-day Protection Tracker */
@@ -1556,12 +1863,18 @@ export default function App() {
         onResetDemoData={handleResetDemoData}
       />
 
-      {/* Seller Sign-In & Account Selection Modal */}
+      {/* Seller Sign-In & Application Prompt Modal */}
       <SellerSignInModal
         isOpen={isSellerSignInModalOpen}
         onClose={() => setIsSellerSignInModalOpen(false)}
         sellers={allSellers}
+        userRole={userRole}
+        currentUser={currentUser}
         onSignInAsSeller={handleSignInAsSeller}
+        onApplySeller={() => {
+          showNotification('Application submitted! Showmi Admin will review your account for seller authorization.');
+          setIsSellerSignInModalOpen(false);
+        }}
       />
 
       {/* Fixed Black Footer: Profile | Showroom | Cart | Seller Studio */}
@@ -1633,7 +1946,6 @@ export default function App() {
         isOpen={isProfileModalOpen}
         onClose={() => setIsProfileModalOpen(false)}
         userRole={userRole}
-        setUserRole={setUserRole}
         currentSeller={currentSeller}
         sellers={allSellers}
         onSelectSeller={(sellerId) => {
