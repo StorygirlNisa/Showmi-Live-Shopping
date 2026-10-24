@@ -322,9 +322,26 @@ export default function App() {
 
   // Merge Firestore orders with local orders (Firestore takes precedence)
   const allOrders = useMemo(() => {
-    if (firestoreOrders.length === 0) return ordersList;
-    return firestoreOrders;
-  }, [firestoreOrders, ordersList]);
+    const map = new Map<string, Order>();
+    ordersList.forEach(o => {
+      if (userRole === 'admin') {
+        map.set(o.id, o);
+      } else if (userRole === 'seller' && currentSellerId) {
+        if (o.sellerIds?.includes(currentSellerId) || o.items?.some(i => i.sellerId === currentSellerId)) {
+          map.set(o.id, o);
+        }
+      } else if (currentUser) {
+        if (o.buyerId === currentUser.uid) {
+          map.set(o.id, o);
+        }
+      }
+    });
+    firestoreOrders.forEach(o => map.set(o.id, o));
+
+    const list = Array.from(map.values());
+    list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return list;
+  }, [firestoreOrders, ordersList, currentUser, userRole, currentSellerId]);
 
   const [firestoreSessions, setFirestoreSessions] = useState<LiveSession[]>([]);
 
@@ -671,84 +688,81 @@ export default function App() {
   const handlePlaceOrder = async (orderPayload: OrderPlacementPayload) => {
     if (!currentUser) {
       showNotification('Please sign in to place an order');
-      return;
+      throw new Error('Please sign in to place an order');
     }
 
     try {
+      const sellerIds = Array.from(new Set(orderPayload.items.map(item => item.product.sellerId)));
+      const newOrderRecord: Order = {
+        id: orderPayload.orderId,
+        buyerId: currentUser.uid,
+        sellerIds,
+        customerName: orderPayload.customerName,
+        customerEmail: orderPayload.customerEmail,
+        customerPhone: orderPayload.customerPhone,
+        shippingAddress: orderPayload.shippingAddress,
+        city: orderPayload.city,
+        province: orderPayload.province,
+        postalCode: orderPayload.postalCode,
+        items: orderPayload.items.map(ci => ({
+          productId: ci.product.id,
+          sellerId: ci.product.sellerId,
+          sellerName: ci.product.sellerName || 'Maker',
+          productImage: ci.product.images[0],
+          name: ci.product.name,
+          quantity: ci.quantity,
+          priceZAR: ci.product.priceZAR,
+          status: 'pending_acceptance' as const,
+          paymentStatus: 'escrow_held' as const
+        })),
+        subtotalZAR: orderPayload.subtotalZAR,
+        shippingZAR: orderPayload.shippingZAR,
+        protectionFeeZAR: orderPayload.protectionFeeZAR,
+        totalZAR: orderPayload.totalZAR,
+        createdAt: new Date().toISOString(),
+        estimatedDeliveryDate: orderPayload.estimatedDeliveryDate,
+        protectionExpiresAt: orderPayload.protectionExpiresAt,
+        deliveryMethod: orderPayload.deliveryMethod,
+        paymentMethod: orderPayload.paymentMethod
+      };
+
       await runTransaction(db, async (transaction) => {
         const productRefs = orderPayload.items.map(item => doc(db, 'products', item.product.id));
         const productDocs = await Promise.all(productRefs.map(ref => transaction.get(ref)));
 
-        // 1. Validate Stock
         for (let i = 0; i < productDocs.length; i++) {
           const productDoc = productDocs[i];
           const item = orderPayload.items[i];
-          const data = productDoc.data();
-          if (!productDoc.exists() || !data) {
-            throw new Error(`Product ${item.product.name} no longer exists.`);
-          }
-          const currentStock = data.stock;
-          if (currentStock < item.quantity) {
-            throw new Error(`Insufficient stock for ${item.product.name}. Available: ${currentStock}`);
-          }
-        }
 
-        // 2. Deduct Stock
-        for (let i = 0; i < productDocs.length; i++) {
-          const productDoc = productDocs[i];
-          const item = orderPayload.items[i];
-          const data = productDoc.data();
-          if (data) {
+          if (productDoc.exists()) {
+            const data = productDoc.data();
+            const currentStock = typeof data?.stock === 'number' ? data.stock : item.product.stock;
+            if (currentStock < item.quantity) {
+              throw new Error(`Insufficient stock for ${item.product.name}. Available: ${currentStock}`);
+            }
             transaction.update(productRefs[i], {
-              stock: data.stock - item.quantity
+              stock: Math.max(0, currentStock - item.quantity)
             });
+          } else {
+            // Product doc does not exist yet in Firestore -> upsert product document
+            const initialStock = Math.max(0, item.product.stock - item.quantity);
+            transaction.set(productRefs[i], cleanFirestoreData({
+              ...item.product,
+              stock: initialStock
+            }));
           }
         }
 
-        // 3. Create Order Record
-        const sellerIds = Array.from(new Set(orderPayload.items.map(item => item.product.sellerId)));
         const orderRef = doc(db, 'orders', orderPayload.orderId);
-        
-        const newOrderRecord: Order = {
-          id: orderPayload.orderId,
-          buyerId: currentUser.uid,
-          sellerIds,
-          customerName: orderPayload.customerName,
-          customerEmail: orderPayload.customerEmail,
-          customerPhone: orderPayload.customerPhone,
-          shippingAddress: orderPayload.shippingAddress,
-          city: orderPayload.city,
-          province: orderPayload.province,
-          postalCode: orderPayload.postalCode,
-          items: orderPayload.items.map(ci => ({
-            productId: ci.product.id,
-            sellerId: ci.product.sellerId,
-            sellerName: ci.product.sellerName || 'Maker',
-            productImage: ci.product.images[0],
-            name: ci.product.name,
-            quantity: ci.quantity,
-            priceZAR: ci.product.priceZAR,
-            status: 'pending_acceptance' as const,
-            paymentStatus: 'escrow_held' as const
-          })),
-          subtotalZAR: orderPayload.subtotalZAR,
-          shippingZAR: orderPayload.shippingZAR,
-          protectionFeeZAR: orderPayload.protectionFeeZAR,
-          totalZAR: orderPayload.totalZAR,
-          createdAt: new Date().toISOString(),
-          estimatedDeliveryDate: orderPayload.estimatedDeliveryDate,
-          protectionExpiresAt: orderPayload.protectionExpiresAt,
-          deliveryMethod: orderPayload.deliveryMethod,
-          paymentMethod: orderPayload.paymentMethod
-        };
-
         transaction.set(orderRef, cleanFirestoreData(newOrderRecord));
       });
 
+      setOrdersList(prev => [newOrderRecord, ...prev]);
       showNotification(`Order #${orderPayload.orderId} placed successfully!`);
     } catch (error: any) {
       console.error("Order transaction failed:", error);
       showNotification(error.message || "Checkout failed. Please try again.");
+      throw error;
     }
   };
 

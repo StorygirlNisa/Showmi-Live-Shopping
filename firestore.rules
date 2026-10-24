@@ -52,7 +52,7 @@ service cloud.firestore {
       return isSignedIn() && (
         isAdmin() ||
         (data != null && 'sellerId' in data && data.sellerId in sellerIds) ||
-        (sellerIds.size() > 0 && isOwnerOfSeller(sellerIds[0]))
+        request.auth.uid in sellerIds
       );
     }
 

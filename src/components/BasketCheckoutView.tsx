@@ -48,7 +48,7 @@ interface BasketCheckoutViewProps {
   onClearCart: () => void;
   onBackToDiscover: () => void;
   onSelectProduct: (productId: string) => void;
-  onPlaceOrder?: (payload: OrderPlacementPayload) => void;
+  onPlaceOrder?: (payload: OrderPlacementPayload) => Promise<void> | void;
   onSimulateStockChange?: (productId: string, newStock: number) => void;
   onViewOrders?: () => void;
   initialStep?: 'basket' | 'checkout' | 'confirmation';
@@ -355,13 +355,31 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
         protectionExpiresAt: protectionExpiry.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })
       };
 
-      setCompletedOrder(newOrder);
-      setStep('confirmation');
-      if (onPlaceOrder) {
-        onPlaceOrder(orderPayload);
-      }
-      onClearCart();
-    }, 1600);
+      const processOrderAsync = async () => {
+        if (onPlaceOrder) {
+          try {
+            await onPlaceOrder(orderPayload);
+            setCompletedOrder(newOrder);
+            setStep('confirmation');
+            onClearCart();
+          } catch (err: any) {
+            console.error("Error saving order to Firestore:", err);
+            setCheckoutStockError(err?.message || "Order placement failed. Unable to save order to Firestore.");
+          } finally {
+            setIsProcessingPayment(false);
+            submittingRef.current = false;
+          }
+        } else {
+          setCompletedOrder(newOrder);
+          setStep('confirmation');
+          onClearCart();
+          setIsProcessingPayment(false);
+          submittingRef.current = false;
+        }
+      };
+
+      processOrderAsync();
+    }, 1200);
   };
 
   // 1. Order Confirmation View
