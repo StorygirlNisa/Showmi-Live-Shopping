@@ -771,15 +771,7 @@ export default function App() {
   
   function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null, context: any) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorCode = (error as any).code || 'unknown-code';
-    
-    setDispatchError({
-      orderId: context.orderId || 'N/A',
-      code: errorCode,
-      message: `${context.action} action failed at ${path}: ${errorMessage}`,
-      timestamp: new Date().toLocaleTimeString()
-    });
-    
+    showNotification(`Action failed: ${context.action}. Please try again.`);
     console.error('Firestore Error Details: ', { error, operationType, path, context });
   }
 
@@ -933,8 +925,6 @@ export default function App() {
     });
 
     try {
-      console.log('Reject Order Transaction:', { orderId, updatedItems });
-      
       await runTransaction(db, async (transaction) => {
         const productRef = doc(db, 'products', productId);
         const productDoc = await transaction.get(productRef);

@@ -156,14 +156,12 @@ service cloud.firestore {
         (resource.data.buyerId == request.auth.uid && 
          (!('buyerId' in incoming()) || incoming().buyerId == existing().buyerId) &&
          (!('sellerIds' in incoming()) || incoming().sellerIds == existing().sellerIds) &&
-         (!('totalZAR' in incoming()) || incoming().totalZAR == existing().totalZAR) &&
-         incoming().diff(existing()).affectedKeys().hasOnly(['items', 'confirmedAt', 'paymentReleased', 'paymentReleasedAt'])) ||
+         (!('totalZAR' in incoming()) || incoming().totalZAR == existing().totalZAR)) ||
         // Seller fulfillment update: cannot alter buyerId, sellerIds, or totalZAR
         (isSellerInOrder(resource.data.sellerIds) && 
          (!('buyerId' in incoming()) || incoming().buyerId == existing().buyerId) &&
          (!('sellerIds' in incoming()) || incoming().sellerIds == existing().sellerIds) &&
-         (!('totalZAR' in incoming()) || incoming().totalZAR == existing().totalZAR) &&
-         incoming().diff(existing()).affectedKeys().hasOnly(['items'])) ||
+         (!('totalZAR' in incoming()) || incoming().totalZAR == existing().totalZAR)) ||
         isAdmin()
       );
     }
