@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { X, User, Lock, CreditCard, Store, ShieldCheck, Sparkles, Check, MapPin, Package, ShoppingBag, Wallet } from 'lucide-react';
-import { Seller, Order, OrderIssue } from '../types';
+import { Seller, Order, OrderIssue, Withdrawal } from '../types';
 import { AppTab } from './Navigation';
 import { SellerWalletView } from './SellerWalletView';
 
@@ -20,6 +20,8 @@ interface ProfileModalProps {
   onSignIn?: () => void;
   orders?: Order[];
   issues?: OrderIssue[];
+  withdrawals?: Withdrawal[];
+  onRequestWithdrawal?: (amount: number) => void;
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({
@@ -37,7 +39,9 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   onSignOut,
   onSignIn,
   orders = [],
-  issues = []
+  issues = [],
+  withdrawals = [],
+  onRequestWithdrawal
 }) => {
   const [activeSection, setActiveSection] = useState<'menu' | 'profile' | 'security' | 'payments' | 'address' | 'verification' | 'wallet'>('menu');
   const [fullName, setFullName] = useState(currentUser?.displayName || (userRole === 'seller' && currentSeller ? currentSeller.name : 'Nisa Bardien'));
@@ -264,6 +268,8 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                                     onSelectSeller={onSelectSeller}
                                     sellers={sellers}
                                     onOpenSellerSignIn={onOpenSellerSignIn}
+                                    withdrawals={withdrawals}
+                                    onRequestWithdrawal={onRequestWithdrawal}
                                 />
                             </div>
                         </>

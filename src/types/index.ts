@@ -220,6 +220,14 @@ export interface LivePromotion {
   isActive: boolean;
 }
 
+export interface Withdrawal {
+  id: string;
+  sellerId: string;
+  amount: number;
+  status: 'pending' | 'processed' | 'failed';
+  createdAt: string;
+}
+
 export type SalesCoachPromptCategory =
   | 'welcome'
   | 'demo'

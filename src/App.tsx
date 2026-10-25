@@ -43,7 +43,7 @@ import {
 import { auth, db } from './lib/firebase';
 
 import { PRODUCTS, SELLERS, LIVE_SESSIONS, INITIAL_PROMOTIONS, INITIAL_ORDERS, INITIAL_ISSUES } from './data/mockData';
-import { Product, Seller, CartItem, StreamSnippet, LivePromotion, Order, OrderItem, OrderIssue, IssueType, LiveComment, LiveSession } from './types';
+import { Product, Seller, CartItem, StreamSnippet, LivePromotion, Order, OrderItem, OrderIssue, IssueType, LiveComment, LiveSession, Withdrawal } from './types';
 import { MyOrdersView } from './components/MyOrdersView';
 import { OrderPlacementPayload } from './components/BasketCheckoutView';
 import { ProfileModal } from './components/ProfileModal';
@@ -62,7 +62,8 @@ const STORAGE_KEYS = {
   FOLLOWED_SELLERS: 'showmi_followed_sellers_v1',
   SESSION_MODERATORS: 'showmi_session_moderators_v1',
   SESSION_COMMENTS: 'showmi_session_comments_v1',
-  DELETED_COMMENTS: 'showmi_deleted_comments_v1'
+  DELETED_COMMENTS: 'showmi_deleted_comments_v1',
+  WITHDRAWALS: 'showmi_withdrawals_v1'
 };
 
 // In-memory fallback map to handle sandbox iframe storage restrictions or QuotaExceededError
@@ -567,6 +568,14 @@ export default function App() {
     return [];
   });
 
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>(() => {
+    try {
+      const saved = safeStorage.getItem(STORAGE_KEYS.WITHDRAWALS);
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return [];
+  });
+
   // Host Mode toggle: controls private host mode during live stream
   const [isSellerHostMode, setIsSellerHostMode] = useState<boolean>(false);
 
@@ -640,6 +649,11 @@ export default function App() {
   useEffect(() => {
     safeStorage.setItem(STORAGE_KEYS.DELETED_COMMENTS, JSON.stringify(deletedCommentIds));
   }, [deletedCommentIds]);
+
+  // Sync withdrawals to safe storage
+  useEffect(() => {
+    safeStorage.setItem(STORAGE_KEYS.WITHDRAWALS, JSON.stringify(withdrawals));
+  }, [withdrawals]);
 
   const showNotification = (msg: string) => {
     setNotification(msg);
@@ -1305,6 +1319,19 @@ export default function App() {
     showNotification('Reset all demo data and role to default buyer');
   };
 
+  const handleRequestWithdrawal = (amount: number) => {
+    if (!currentSellerId) return;
+    const newWithdrawal: Withdrawal = {
+      id: `WD-${Date.now()}`,
+      sellerId: currentSellerId,
+      amount,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    setWithdrawals(prev => [newWithdrawal, ...prev]);
+    showNotification(`Withdrawal request for R ${amount.toLocaleString()} submitted.`);
+  };
+
   // Follow / Unfollow Maker
   const handleToggleFollow = (sellerId: string) => {
     setFollowedSellerIds(prev => {
@@ -1954,6 +1981,8 @@ export default function App() {
             onRevokeModerator={(sessionId, sellerId) => handleRevokeModerator(sessionId, sellerId)}
             onAcceptOrderItem={handleAcceptOrderItem}
             onRejectOrderItem={handleRejectOrderItem}
+            withdrawals={withdrawals}
+            onRequestWithdrawal={handleRequestWithdrawal}
           />
         ) : activeTab === 'My Orders' ? (
           /* View: Buyer Orders & 14-day Protection Tracker */
@@ -2117,6 +2146,8 @@ export default function App() {
         currentUser={currentUser}
         onSignOut={handleSignOut}
         onSignIn={handleOpenSignIn}
+        withdrawals={withdrawals}
+        onRequestWithdrawal={handleRequestWithdrawal}
       />
 
       {/* Mandatory Host Mode AI Disclaimer Confirmation Modal */}

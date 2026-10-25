@@ -14,7 +14,7 @@ import {
   ArrowDownLeft,
   Sparkles
 } from 'lucide-react';
-import { Seller, Order, OrderItem, OrderIssue } from '../types';
+import { Seller, Order, OrderItem, OrderIssue, Withdrawal } from '../types';
 
 interface SellerWalletViewProps {
   currentSeller?: Seller;
@@ -25,6 +25,8 @@ interface SellerWalletViewProps {
   onSelectSeller?: (sellerId: string) => void;
   sellers?: Seller[];
   onOpenSellerSignIn?: () => void;
+  withdrawals?: Withdrawal[];
+  onRequestWithdrawal?: (amount: number) => void;
 }
 
 interface SellerTransaction {
@@ -57,9 +59,12 @@ export const SellerWalletView: React.FC<SellerWalletViewProps> = ({
   currentUser,
   onSelectSeller,
   sellers = [],
-  onOpenSellerSignIn
+  onOpenSellerSignIn,
+  withdrawals,
+  onRequestWithdrawal
 }) => {
   const [expandedTxnId, setExpandedTxnId] = useState<string | null>(null);
+  const [withdrawAmount, setWithdrawAmount] = useState<number>(0);
 
   // If the user is an ordinary buyer without a selected seller workshop:
   const isAuthorizedSeller = Boolean(
@@ -106,10 +111,14 @@ export const SellerWalletView: React.FC<SellerWalletViewProps> = ({
       if (sellerItems.length === 0) return;
 
       const nonRejectedItems = sellerItems.filter(item => item.status !== 'rejected');
-      const orderTotalForSeller = nonRejectedItems.reduce(
-        (sum, item) => sum + (item.priceZAR * item.quantity), 
-        0
-      );
+      
+      // Calculate earnings using Net Seller Payout formula
+      const orderNetTotalForSeller = nonRejectedItems.reduce((sum, item) => {
+        const itemGross = item.priceZAR * item.quantity;
+        const itemProtectionFee = order.subtotalZAR > 0 ? (itemGross / order.subtotalZAR) * order.protectionFeeZAR : 0;
+        const itemSellerCourierFee = 0; // No seller-paid courier fee identified in data structure
+        return sum + (itemGross - itemProtectionFee - itemSellerCourierFee);
+      }, 0);
 
       // Check for unresolved order issues or disputes
       const orderIssuesList = (issues || []).filter(i => i.orderId === order.id);
@@ -121,28 +130,30 @@ export const SellerWalletView: React.FC<SellerWalletViewProps> = ({
       // Calculate balance additions ensuring no item is counted in multiple balances
       sellerItems.forEach(item => {
         if (item.status === 'rejected' || item.paymentStatus === 'refunded') return;
-        const itemAmount = item.priceZAR * item.quantity;
+        
+        const itemGross = item.priceZAR * item.quantity;
+        const itemProtectionFee = order.subtotalZAR > 0 ? (itemGross / order.subtotalZAR) * order.protectionFeeZAR : 0;
+        const itemSellerCourierFee = 0; 
+        const itemNet = itemGross - itemProtectionFee - itemSellerCourierFee;
 
-        lifetimeSum += itemAmount;
+        lifetimeSum += itemNet;
 
         const isRefundPending = item.paymentStatus === 'refund_pending';
-        const isUnconfirmedPayment = item.paymentStatus === 'pending_payment';
         const isConfirmedReceipt = item.status === 'confirmed' || Boolean(item.confirmedAt) || Boolean(item.paymentReleased);
 
-        // Rule 1, 2, 4, 5: Earnings appear under Pending Balance while awaiting receipt confirmation or dispute resolution
+        // Rule: Buyer confirms receipt -> Move eligible earnings immediately to Available Balance
         if (isConfirmedReceipt && !hasUnresolvedDispute && !isRefundPending) {
-          availableSum += itemAmount;
+          availableSum += itemNet;
         }
+        // Earnings appear under Pending Balance while awaiting receipt confirmation or dispute resolution
         else {
-          pendingBalanceSum += itemAmount;
+          pendingBalanceSum += itemNet;
         }
       });
 
-      let txStatus: 'Pending Payment' | 'Pending Balance' | 'In Escrow' | 'Completed' | 'Rejected' = 'Pending Balance';
+      let txStatus: 'Pending Balance' | 'In Escrow' | 'Completed' | 'Rejected' = 'Pending Balance';
       if (allRejected) {
         txStatus = 'Rejected';
-      } else if (sellerItems.some(i => i.paymentStatus === 'pending_payment')) {
-        txStatus = 'Pending Payment';
       } else if (hasUnresolvedDispute) {
         txStatus = 'In Escrow';
       } else if (allReleased && !hasUnresolvedDispute) {
@@ -156,7 +167,7 @@ export const SellerWalletView: React.FC<SellerWalletViewProps> = ({
         orderId: order.id,
         orderReference: order.id.startsWith('#') ? order.id : `#${order.id}`,
         createdAt: order.createdAt || new Date().toISOString(),
-        sellerAmount: orderTotalForSeller,
+        sellerAmount: orderNetTotalForSeller,
         protectionFeeZAR: order.protectionFeeZAR || 0,
         status: txStatus,
         statusCode: txStatus.toLowerCase().replace(/\s+/g, '_'),
@@ -179,8 +190,8 @@ export const SellerWalletView: React.FC<SellerWalletViewProps> = ({
 
     return {
       transactions: txns,
-      pendingPayment: pendingPaymentSum,
-      pendingBalance: pendingBalanceSum + pendingPaymentSum,
+      pendingPayment: 0, // Removed dummy payment field
+      pendingBalance: pendingBalanceSum,
       availableBalance: availableSum,
       totalLifetimeEarnings: lifetimeSum
     };
@@ -330,6 +341,69 @@ export const SellerWalletView: React.FC<SellerWalletViewProps> = ({
           </p>
         </div>
       </div>
+
+      {/* Withdrawal Section */}
+      <div className="p-4 rounded-2xl bg-[#0c0e12] border border-[#212633] space-y-4">
+        <div className="space-y-1">
+          <h4 className="text-sm font-bold text-white flex items-center gap-2">
+            <ArrowDownLeft className="w-4 h-4 text-[#19BFFF]" />
+            Request Withdrawal (Demo)
+          </h4>
+          <p className="text-xs text-slate-400">
+            Withdraw available funds to your registered bank account.
+          </p>
+        </div>
+        
+        <div className="flex gap-2">
+          <input
+            type="number"
+            placeholder="Amount (ZAR)"
+            className="flex-1 bg-[#1e2330] rounded-xl px-4 py-2 text-sm border border-[#212633] outline-none text-white font-mono"
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              setWithdrawAmount(val);
+            }}
+            value={withdrawAmount || ''}
+          />
+          <button
+            onClick={() => {
+              if (onRequestWithdrawal && withdrawAmount > 0 && withdrawAmount <= availableBalance) {
+                onRequestWithdrawal(withdrawAmount);
+                setWithdrawAmount(0);
+              }
+            }}
+            disabled={!withdrawAmount || withdrawAmount <= 0 || withdrawAmount > availableBalance}
+            className="px-4 py-2 rounded-xl bg-[#19BFFF] text-[#0D1018] text-sm font-bold disabled:opacity-50"
+          >
+            Withdraw
+          </button>
+        </div>
+        {withdrawAmount > availableBalance && (
+          <p className="text-xs text-red-400">Amount exceeds available balance.</p>
+        )}
+      </div>
+
+      {/* Withdrawal History */}
+      {(withdrawals || []).length > 0 && (
+        <div className="space-y-3 pt-2">
+          <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider">Withdrawal History (Demo)</h4>
+          {withdrawals?.map((w: Withdrawal) => (
+            <div key={w.id} className="p-3 rounded-xl bg-[#0c0e12] border border-[#212633] flex justify-between items-center text-xs">
+              <div className="space-y-0.5">
+                <p className="font-semibold text-white">{formatZAR(w.amount)}</p>
+                <p className="text-slate-400">{formatDate(w.createdAt)}</p>
+              </div>
+              <span className={`px-2 py-1 rounded text-[10px] font-bold ${
+                w.status === 'processed' ? 'bg-emerald-950 text-emerald-300' :
+                w.status === 'failed' ? 'bg-red-950 text-red-300' :
+                'bg-amber-950 text-amber-300'
+              }`}>
+                {w.status.toUpperCase()}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Transaction History Section */}
       <div className="space-y-3 pt-2">

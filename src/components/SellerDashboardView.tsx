@@ -29,7 +29,7 @@ import {
   MessageSquare,
   Send
 } from 'lucide-react';
-import { Seller, Product, StreamSnippet, LivePromotion, Category, Order, OrderItem, OrderIssue, LiveSession } from '../types';
+import { Seller, Product, StreamSnippet, LivePromotion, Category, Order, OrderItem, OrderIssue, LiveSession, Withdrawal } from '../types';
 import { MobileSellerStudio } from './MobileSellerStudio';
 
 
@@ -70,6 +70,8 @@ interface SellerDashboardViewProps {
   onRevokeModerator?: (sessionId: string, sellerId: string) => void;
   onAcceptOrderItem?: (orderId: string, productId: string, sellerId: string) => void;
   onRejectOrderItem?: (orderId: string, productId: string, sellerId: string, rejectionReason: string, rejectionNote?: string) => void;
+  withdrawals?: Withdrawal[];
+  onRequestWithdrawal?: (amount: number) => void;
 }
 
 export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
@@ -99,7 +101,9 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
   onAppointModerator,
   onRevokeModerator,
   onAcceptOrderItem,
-  onRejectOrderItem
+  onRejectOrderItem,
+  withdrawals,
+  onRequestWithdrawal
 }) => {
   const [isModeratorModalOpen, setIsModeratorModalOpen] = useState(false);
   const currentSeller = sellers.find(s => s.id === currentSellerId) || sellers[0];
