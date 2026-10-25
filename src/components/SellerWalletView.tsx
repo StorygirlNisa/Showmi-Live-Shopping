@@ -129,16 +129,10 @@ export const SellerWalletView: React.FC<SellerWalletViewProps> = ({
         const isUnconfirmedPayment = item.paymentStatus === 'pending_payment';
         const isConfirmedReceipt = item.status === 'confirmed' || Boolean(item.confirmedAt) || Boolean(item.paymentReleased);
 
-        // Rule 1: At checkout, earnings appear under Pending Payment until payment confirmation
-        if (isUnconfirmedPayment) {
-          pendingPaymentSum += itemAmount;
-        }
-        // Rule 3: Buyer confirms receipt -> Move eligible earnings immediately to Available Balance
-        // unless there is an unresolved dispute or applicable refund hold.
-        else if (isConfirmedReceipt && !hasUnresolvedDispute && !isRefundPending) {
+        // Rule 1, 2, 4, 5: Earnings appear under Pending Balance while awaiting receipt confirmation or dispute resolution
+        if (isConfirmedReceipt && !hasUnresolvedDispute && !isRefundPending) {
           availableSum += itemAmount;
         }
-        // Rule 2, 4, 5: Payment confirmed, awaiting delivery/buyer confirmation, active dispute, or silent buyer
         else {
           pendingBalanceSum += itemAmount;
         }

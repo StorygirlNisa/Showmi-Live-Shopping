@@ -29,7 +29,6 @@ import {
 } from 'firebase/auth';
 import { 
   doc, 
-  getDoc, 
   setDoc, 
   serverTimestamp,
   onSnapshot,
@@ -806,7 +805,8 @@ export default function App() {
         estimatedDeliveryDate: orderPayload.estimatedDeliveryDate,
         protectionExpiresAt: orderPayload.protectionExpiresAt,
         deliveryMethod: orderPayload.deliveryMethod,
-        paymentMethod: orderPayload.paymentMethod
+        paymentMethod: orderPayload.paymentMethod,
+        isDemo: true
       };
 
       await runTransaction(db, async (transaction) => {
@@ -1704,7 +1704,7 @@ export default function App() {
       
       {/* Admin Control Bar (Only rendered for authorized Admin account) */}
       {userRole === 'admin' && (
-        <div className={isImmersiveLive ? "hidden md:block" : "block"}>
+        <div className="block">
           <AdminRoleSwitcher
             userRole={userRole}
             currentSellerId={currentSellerId}

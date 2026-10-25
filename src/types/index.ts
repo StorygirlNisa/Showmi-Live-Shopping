@@ -151,6 +151,7 @@ export interface Order {
   confirmedAt?: string;
   paymentReleased?: boolean;
   paymentReleasedAt?: string;
+  isDemo?: boolean;
 }
 
 export type IssueType = 

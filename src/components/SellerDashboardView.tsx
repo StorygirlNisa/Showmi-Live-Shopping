@@ -747,6 +747,19 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
             ) : (
               <span className="text-xs text-white font-bold">{currentSeller.name}</span>
             )}
+            {userRole === 'admin' && (
+              <button
+                onClick={() => {
+                  if (window.confirm('Are you sure you want to clear all transaction history? This cannot be undone.')) {
+                    (window as any).resetTransactions();
+                  }
+                }}
+                className="px-2.5 py-1 rounded-lg bg-red-500/20 text-red-400 border border-red-500/30 font-bold hover:bg-red-500/30 transition-all cursor-pointer flex items-center gap-1 ml-2 text-xs"
+              >
+                <Trash2 className="w-3 h-3" />
+                <span>Clear Transactions</span>
+              </button>
+            )}
           </div>
         </div>
 
