@@ -180,7 +180,7 @@ export const SellerWalletView: React.FC<SellerWalletViewProps> = ({
     return {
       transactions: txns,
       pendingPayment: pendingPaymentSum,
-      pendingBalance: pendingBalanceSum,
+      pendingBalance: pendingBalanceSum + pendingPaymentSum,
       availableBalance: availableSum,
       totalLifetimeEarnings: lifetimeSum
     };
