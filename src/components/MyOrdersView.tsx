@@ -101,24 +101,49 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
     }
   };
 
-  const isProtectionActive = (protectionExpiresAtStr: string) => {
-    try {
-      const t = new Date(protectionExpiresAtStr).getTime();
-      return !isNaN(t) && t > Date.now();
-    } catch {
-      return true;
-    }
-  };
+  const getInspectionWindowInfo = (order: Order) => {
+    const deliveredAtStr = (order.items || []).find(i => Boolean(i?.deliveredAt))?.deliveredAt;
+    const confirmedAtStr = (order.items || []).find(i => Boolean(i?.confirmedAt))?.confirmedAt;
+    const deliveryTimestamp = deliveredAtStr || confirmedAtStr;
 
-  const getDaysRemainingProtection = (expiresAtStr: string) => {
-    try {
-      const diffMs = new Date(expiresAtStr).getTime() - Date.now();
-      if (isNaN(diffMs) || diffMs <= 0) return 'Protection expired';
-      const days = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
-      return `${days} days remaining`;
-    } catch {
-      return '14 days remaining';
+    if (!deliveryTimestamp) {
+      return {
+        statusText: 'Awaiting delivery confirmation',
+        deadlineText: 'Will start upon delivery confirmation',
+        deliveryText: 'Awaiting delivery confirmation',
+        isExpired: false,
+        hasConfirmedDelivery: false
+      };
     }
+
+    const deliveryTime = new Date(deliveryTimestamp).getTime();
+    const deadlineTime = deliveryTime + 48 * 60 * 60 * 1000;
+    const now = Date.now();
+    const isExpired = now > deadlineTime;
+
+    const deliveryDateStr = new Date(deliveryTimestamp).toLocaleString('en-ZA', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    const deadlineDateStr = new Date(deadlineTime).toLocaleString('en-ZA', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    return {
+      statusText: isExpired ? 'Inspection period ended' : 'Active',
+      deadlineText: deadlineDateStr,
+      deliveryText: deliveryDateStr,
+      isExpired,
+      hasConfirmedDelivery: true
+    };
   };
 
   const handleOpenIssueModal = (
@@ -211,7 +236,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
         return (
           <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 shrink-0">
             <Clock className="w-3.5 h-3.5 text-amber-400" />
-            <span>Order Received</span>
+            <span>Order Placed</span>
           </span>
         );
       case 'in_transit':
@@ -229,6 +254,12 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
           </span>
         );
       case 'pending_payment':
+        return (
+          <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 shrink-0">
+            <Clock className="w-3.5 h-3.5 text-amber-400" />
+            <span>Order Placed (Pending Payment)</span>
+          </span>
+        );
       case 'confirmed':
         return (
           <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-950/80 text-emerald-300 border border-emerald-400/40 flex items-center gap-1.5 shrink-0">
@@ -247,7 +278,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
         return (
           <span className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 shrink-0">
             <Clock className="w-3.5 h-3.5 text-amber-400" />
-            <span>Order Received (Processing)</span>
+            <span>Order Placed (Processing)</span>
           </span>
         );
       default:
@@ -353,7 +384,8 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
           {orders.map((order) => {
             const isExpanded = expandedOrderId === order.id;
             const allItemsConfirmed = order.items.every(i => i.status === 'confirmed');
-            const protectionActive = isProtectionActive(order.protectionExpiresAt);
+            const inspectionInfo = getInspectionWindowInfo(order);
+            const protectionActive = !inspectionInfo.isExpired || issues.some(i => i.orderId === order.id && i.status !== 'resolved');
 
             return (
               <div 
@@ -407,68 +439,79 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                 {isExpanded && (
                   <div className="p-5 sm:p-6 space-y-6 bg-[#0e1117]/80">
                     
-                    {/* Payment Protection Highlight Banner */}
-                    <div className={`p-4 sm:p-5 rounded-2xl border space-y-3 ${
-                      protectionActive ? 'bg-[#141720] border-[#0066ff]/40' : 'bg-[#1c1518] border-amber-500/30'
-                    }`}>
-                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-                        <div className="flex items-center gap-2.5">
-                          <div className={`w-9 h-9 rounded-xl border flex items-center justify-center shrink-0 ${
-                            protectionActive ? 'bg-[#0066ff]/20 border-[#0066ff]/40 text-[#60a5fa]' : 'bg-amber-500/20 border-amber-500/40 text-amber-400'
-                          }`}>
-                            <ShieldCheck className="w-5 h-5" />
+                    {/* Showmi Buyer Protection Banner */}
+                    {(() => {
+                      const inspectionInfo = getInspectionWindowInfo(order);
+                      const hasUnresolvedIssue = issues.some(i => i.orderId === order.id && i.status !== 'resolved');
+
+                      return (
+                        <div className="p-4 sm:p-5 rounded-2xl border bg-[#141720] border-[#0066ff]/40 space-y-3">
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-9 h-9 rounded-xl border bg-[#0066ff]/20 border-[#0066ff]/40 text-[#60a5fa] flex items-center justify-center shrink-0">
+                                <ShieldCheck className="w-5 h-5" />
+                              </div>
+                              <div>
+                                <h4 className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
+                                  <span>Showmi Buyer Protection</span>
+                                  <span className={`text-[10px] px-2 py-0.5 rounded-full font-mono font-normal ${
+                                    hasUnresolvedIssue ? 'bg-amber-500/20 text-amber-300' :
+                                    inspectionInfo.statusText === 'Inspection period ended' ? 'bg-slate-500/20 text-slate-300' :
+                                    inspectionInfo.statusText === 'Awaiting delivery confirmation' ? 'bg-blue-500/20 text-blue-300' :
+                                    'bg-emerald-500/20 text-emerald-300'
+                                  }`}>
+                                    Protection Status: {hasUnresolvedIssue ? 'Awaiting Dispute Resolution' : inspectionInfo.statusText}
+                                  </span>
+                                </h4>
+                                <p className="text-[11px] text-slate-400">
+                                  Inspection Period: 48 hours from confirmed delivery.
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="bg-[#0c0e12] px-3 py-1.5 rounded-xl border border-[#212633] text-right shrink-0">
+                              <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Buyer Protection Fee (8%)</span>
+                              <span className="text-xs font-mono font-bold text-[#0066ff]">
+                                R {order.protectionFeeZAR.toLocaleString()} Included
+                              </span>
+                            </div>
                           </div>
-                          <div>
-                            <h4 className="text-xs sm:text-sm font-bold text-white flex items-center gap-2">
-                              <span>Showmi Payment Protection (14-Day Window)</span>
-                              {protectionActive ? (
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono font-normal">
-                                  Active Coverage
-                                </span>
-                              ) : (
-                                <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 font-mono font-normal">
-                                  Protection Expired
-                                </span>
-                              )}
-                            </h4>
-                            <p className="text-[11px] text-slate-400">
-                              Calculated strictly from estimated delivery date ({formatDate(order.estimatedDeliveryDate)}).
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-[#0c0e12] p-3 rounded-xl border border-[#212633]">
+                            <div>
+                              <span className="text-[11px] text-slate-400 block">Confirmed Delivery Date/Time:</span>
+                              <span className="text-xs font-bold text-white font-mono">
+                                {inspectionInfo.hasConfirmedDelivery ? inspectionInfo.deliveryText : 'Awaiting delivery confirmation'}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[11px] text-slate-400 block">48-Hour Inspection Deadline:</span>
+                              <span className={`text-xs font-bold font-mono ${inspectionInfo.hasConfirmedDelivery ? 'text-emerald-400' : 'text-slate-400'}`}>
+                                {inspectionInfo.hasConfirmedDelivery ? inspectionInfo.deadlineText : 'Will start upon delivery confirmation'}
+                              </span>
+                            </div>
+                          </div>
+
+                          <div className="p-3 rounded-xl bg-[#0c0e12] border border-[#212633] text-xs text-slate-300 space-y-1">
+                            <p className="font-semibold text-white">Report a Problem:</p>
+                            <p className="text-[11px] text-slate-400 leading-relaxed">
+                              Please report damage, missing items, or items that differ significantly from the description within 48 hours of confirmed delivery.
                             </p>
                           </div>
-                        </div>
 
-                        <div className="bg-[#0c0e12] px-3 py-1.5 rounded-xl border border-[#212633] text-right shrink-0">
-                          <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Payment Protection Fee (8%)</span>
-                          <span className="text-xs font-mono font-bold text-[#0066ff]">
-                            R {order.protectionFeeZAR.toLocaleString()} Included
-                          </span>
-                        </div>
-                      </div>
+                          {inspectionInfo.statusText === 'Inspection period ended' && (
+                            <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-700/50 text-slate-300 text-xs flex items-center gap-2">
+                              <AlertTriangle className="w-4 h-4 text-slate-400 shrink-0" />
+                              <span>Inspection period ended. No issues were reported.</span>
+                            </div>
+                          )}
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-[#0c0e12] p-3 rounded-xl border border-[#212633]">
-                        <div>
-                          <span className="text-[11px] text-slate-400 block">Estimated Arrival Date:</span>
-                          <span className="text-xs font-bold text-white font-mono">{formatDate(order.estimatedDeliveryDate)}</span>
+                          <p className="text-[11px] text-slate-400 leading-relaxed">
+                            <em>Demo values only. No real funds are held or transferred.</em>
+                          </p>
                         </div>
-                        <div>
-                          <span className="text-[11px] text-slate-400 block">Protection Valid Through:</span>
-                          <span className={`text-xs font-bold font-mono ${protectionActive ? 'text-emerald-400' : 'text-amber-400'}`}>
-                            {formatDate(order.protectionExpiresAt)} ({getDaysRemainingProtection(order.protectionExpiresAt)})
-                          </span>
-                        </div>
-                      </div>
-
-                      {!protectionActive && (
-                        <div className="p-2.5 rounded-xl bg-amber-950/40 border border-amber-500/30 text-amber-200 text-xs flex items-center gap-2">
-                          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
-                          <span>The 14-day protection window for this order has expired. New issue reporting is closed, but you may still review previously submitted reports.</span>
-                        </div>
-                      )}
-
-                      <p className="text-[11px] text-slate-400 leading-relaxed">
-                        <em>Our intended payment-protection system would use a third-party financial institution to hold payment until you confirm receipt, subject to the agreed terms. Demo only. No real funds are held or transferred.</em>
-                      </p>
-                    </div>
+                      );
+                    })()}
 
                     {/* Purchased Items & Delivery Tracking Status */}
                     <div className="space-y-3">
@@ -481,6 +524,18 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                           const existingIssue = issues.find(
                             i => i.orderId === order.id && i.productId === item.productId
                           );
+
+                          const isReceiptConfirmed = item.status === 'confirmed' || Boolean(item.confirmedAt) || Boolean(item.paymentReleased);
+                          const isDeliveredState = item.status === 'delivered' || Boolean(item.deliveredAt) || (order as any).status === 'delivered';
+                          const isUnfulfilledOrInTransit = item.status === 'in_transit' || item.status === 'awaiting_dispatch' || item.status === 'accepted' || item.status === 'pending_acceptance' || item.status === 'pending_payment' || item.status === 'rejected';
+
+                          const canConfirmReceipt = !isReceiptConfirmed && isDeliveredState && !isUnfulfilledOrInTransit;
+
+                          // Separate, explicit visibility condition for the new Item Received action
+                          const showItemReceivedButton = 
+                            (item.status === 'delivered' || item.status === 'in_transit') && 
+                            !item.confirmedAt && 
+                            !item.paymentReleased;
 
                           return (
                             <div
@@ -516,6 +571,28 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                                   {getStatusBadge(item.status)}
                                 </div>
                               </div>
+
+                              {/* Prominent Delivered Item Action Banner for Mobile & Desktop */}
+                              {showItemReceivedButton && (
+                                <div className="p-3.5 bg-emerald-950/50 rounded-xl border border-emerald-500/50 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 my-2">
+                                  <div className="flex items-center gap-2 text-xs text-emerald-200">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                                    <span>{item.status === 'delivered' ? 'Item Delivered!' : 'Item In Transit!'} Confirm receipt to release seller earnings.</span>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      onConfirmDelivery(order.id, item.productId);
+                                      setConfirmNotification(`Receipt confirmed for "${item.name}". Earnings released to Available Balance.`);
+                                      setTimeout(() => setConfirmNotification(null), 4000);
+                                    }}
+                                    className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 active:bg-emerald-700 text-white text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 cursor-pointer transition-all active:scale-95 shrink-0"
+                                  >
+                                    <CheckCircle2 className="w-4 h-4" />
+                                    <span>Item Received</span>
+                                  </button>
+                                </div>
+                              )}
 
                               {/* Tracking info row if in_transit or delivered */}
                               {item.trackingNumber && (
@@ -628,14 +705,14 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                               {/* Action Buttons Row */}
                               <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-t border-[#1e2433]">
                                 <div className="text-[11px] text-slate-400">
-                                  {item.status === 'confirmed' ? (
+                                  {isReceiptConfirmed ? (
                                     <span className="text-emerald-400 font-medium flex items-center gap-1.5">
                                       <CheckCircle2 className="w-3.5 h-3.5" />
-                                      <span>Receipt confirmed. 14-day protection active ({getDaysRemainingProtection(order.protectionExpiresAt)}).</span>
+                                      <span>Receipt confirmed. Seller earnings released to Available Balance.</span>
                                     </span>
-                                  ) : item.status === 'delivered' ? (
+                                  ) : showItemReceivedButton || canConfirmReceipt ? (
                                     <span className="text-slate-300">
-                                      Package delivered. Please check items carefully before confirming receipt.
+                                      Package delivered. 48-hour inspection period active. Please check items before confirming receipt.
                                     </span>
                                   ) : (
                                     <span className="text-slate-400">
@@ -659,16 +736,11 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
 
                                   {/* Report Issue / Query Order Button */}
                                   {!existingIssue ? (
-                                    item.status === 'confirmed' ? (
+                                    isReceiptConfirmed ? (
                                       <button
                                         onClick={() => handleOpenIssueModal(order.id, item.productId, item.sellerId, item.name, true)}
-                                        disabled={!protectionActive}
-                                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                                          protectionActive 
-                                            ? 'bg-[#1e2330] hover:bg-[#283244] text-amber-300 border border-amber-500/30' 
-                                            : 'bg-[#14171f] text-slate-500 border border-[#212633] opacity-60 cursor-not-allowed'
-                                        }`}
-                                        title={protectionActive ? 'Submit a return inquiry or query to seller' : '14-day protection window expired'}
+                                        className="px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer bg-[#1e2330] hover:bg-[#283244] text-amber-300 border border-amber-500/30"
+                                        title="Submit a return inquiry or query to seller"
                                       >
                                         <MessageSquare className="w-3.5 h-3.5" />
                                         <span>Query Order / Request Return</span>
@@ -676,13 +748,8 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                                     ) : (
                                       <button
                                         onClick={() => handleOpenIssueModal(order.id, item.productId, item.sellerId, item.name, false)}
-                                        disabled={!protectionActive}
-                                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
-                                          protectionActive 
-                                            ? 'bg-[#1e2330] hover:bg-[#283244] text-[#60a5fa] border border-[#2e374d]' 
-                                            : 'bg-[#14171f] text-slate-500 border border-[#212633] opacity-60 cursor-not-allowed'
-                                        }`}
-                                        title={protectionActive ? 'Report a delivery or quality issue' : '14-day protection window expired'}
+                                        className="px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer bg-[#1e2330] hover:bg-[#283244] text-[#60a5fa] border border-[#2e374d]"
+                                        title="Report damage, missing items, or item differing from description"
                                       >
                                         <AlertCircle className="w-3.5 h-3.5" />
                                         <span>Report Issue</span>
@@ -695,16 +762,26 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                                     </span>
                                   )}
 
-                                  {/* Confirm Receipt Button (Triggers Warning Dialog First) */}
-                                  {(item.status !== 'confirmed' && item.status !== 'pending_payment' && item.status !== 'rejected') && (
+                                  {/* Item Received / Receipt Confirmation Section */}
+                                  {isReceiptConfirmed ? (
+                                    <span className="px-3.5 py-2 rounded-xl bg-emerald-950/60 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center justify-center gap-1.5 font-mono">
+                                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                      <span>Receipt Confirmed</span>
+                                    </span>
+                                  ) : showItemReceivedButton || canConfirmReceipt ? (
                                     <button
-                                      onClick={() => setConfirmWarningModal({ orderId: order.id, productId: item.productId, productName: item.name })}
+                                      type="button"
+                                      onClick={() => {
+                                        onConfirmDelivery(order.id, item.productId);
+                                        setConfirmNotification(`Receipt confirmed for "${item.name}". Earnings released to Available Balance.`);
+                                        setTimeout(() => setConfirmNotification(null), 4000);
+                                      }}
                                       className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-600/20 cursor-pointer active:scale-95"
                                     >
                                       <CheckCircle2 className="w-3.5 h-3.5" />
                                       <span>Item Received</span>
                                     </button>
-                                  )}
+                                  ) : null}
                                 </div>
                               </div>
 
@@ -975,7 +1052,7 @@ export const MyOrdersView: React.FC<MyOrdersViewProps> = ({
                     Payment Hold Protection Active
                   </span>
                   <p className="text-[11px] leading-relaxed">
-                    A third-party financial institution would hold payment until you confirm receipt. Submitting an issue logs a formal claim within your 14-day protection window.
+                    Submitting an issue logs a formal claim within your 48-hour inspection window from confirmed delivery.
                   </p>
                 </div>
               )}

@@ -116,7 +116,7 @@ export interface OrderItem {
   rejectionNote?: string;
   rejectedAt?: string;
   acceptedAt?: string;
-  paymentStatus?: 'escrow_held' | 'refund_pending' | 'refunded';
+  paymentStatus?: 'escrow_held' | 'refund_pending' | 'refunded' | 'pending_payment';
   courierPartner?: string;
   trackingNumber?: string;
   dispatchedAt?: string;
@@ -147,6 +147,7 @@ export interface Order {
   protectionExpiresAt: string;
   deliveryMethod: string;
   paymentMethod: string;
+  status?: string;
   confirmedAt?: string;
   paymentReleased?: boolean;
   paymentReleasedAt?: string;

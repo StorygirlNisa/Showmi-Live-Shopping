@@ -111,16 +111,16 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
   const archivedSellerSnippets = sellerSnippets.filter(s => s.isArchived || new Date(s.expiresAt).getTime() <= Date.now());
 
   // Filter orders containing items for this seller (enforcing seller ownership)
-  const sellerOrders = orders.filter(o => 
-    o.items.some(item => item.sellerId === currentSeller.id)
+  const sellerOrders = (orders || []).filter(o => 
+    Boolean(o && Array.isArray(o.items) && o.items.some(item => item && item.sellerId === currentSeller.id))
   );
 
   // Filter issues for this seller only (enforcing seller ownership)
-  const sellerIssues = issues.filter(issue => issue.sellerId === currentSeller.id);
-  const openIssuesCount = sellerIssues.filter(i => i.status !== 'resolved').length;
+  const sellerIssues = (issues || []).filter(issue => Boolean(issue && issue.sellerId === currentSeller.id));
+  const openIssuesCount = sellerIssues.filter(i => i && i.status !== 'resolved').length;
 
   const awaitingDispatchCount = sellerOrders.reduce((sum, o) => 
-    sum + o.items.filter(i => i.sellerId === currentSeller.id && ['awaiting_dispatch', 'accepted', 'pending_acceptance'].includes(i.status)).length, 0
+    sum + (Array.isArray(o?.items) ? o.items.filter(i => i && i.sellerId === currentSeller.id && ['awaiting_dispatch', 'accepted', 'pending_acceptance'].includes(i.status)).length : 0), 0
   );
 
   const [activeTab, setActiveTab] = useState<'ai' | 'stock' | 'orders'>('ai');
@@ -1264,10 +1264,20 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
             ) : (
               <div className="space-y-4">
                 {sellerOrders.map((order) => {
-                  const myItems = order.items.filter(item => item.sellerId === currentSeller.id);
+                  const myItems = Array.isArray(order?.items)
+                    ? order.items.filter(item => Boolean(item && item.sellerId === currentSeller.id))
+                    : [];
                   if (myItems.length === 0) return null;
 
-                  const orderIssuesForSeller = sellerIssues.filter(i => i.orderId === order.id);
+                  const orderIssuesForSeller = (sellerIssues || []).filter(i => Boolean(i && i.orderId === order.id));
+
+                  const placedDate = order.createdAt && !isNaN(new Date(order.createdAt).getTime())
+                    ? new Date(order.createdAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : 'Recently';
+
+                  const deliveryDate = order.estimatedDeliveryDate && !isNaN(new Date(order.estimatedDeliveryDate).getTime())
+                    ? new Date(order.estimatedDeliveryDate).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : '2–4 business days';
 
                   return (
                     <div 
@@ -1280,7 +1290,7 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-mono font-bold text-sm text-[#0066ff]">{order.id}</span>
                             <span className="text-[11px] text-slate-400 font-mono">
-                              Placed: {new Date(order.createdAt).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              Placed: {placedDate}
                             </span>
                             {orderIssuesForSeller.length > 0 && (
                               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
@@ -1290,14 +1300,14 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                             )}
                           </div>
                           <p className="text-xs text-slate-300">
-                            Deliver to: <strong className="text-white">{order.customerName}</strong> ({order.city}, {order.province})
+                            Deliver to: <strong className="text-white">{order.customerName || 'Customer'}</strong> ({order.city || ''}{order.city && order.province ? ', ' : ''}{order.province || ''})
                           </p>
                         </div>
 
                         <div className="text-right">
                           <span className="text-[10px] text-slate-400 uppercase tracking-wider block">Estimated Delivery</span>
                           <span className="text-xs font-mono font-bold text-slate-200">
-                            {new Date(order.estimatedDeliveryDate).toLocaleDateString('en-ZA', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            {deliveryDate}
                           </span>
                         </div>
                       </div>
@@ -1305,13 +1315,10 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                       {/* Items from this seller */}
                       <div className="space-y-3">
                         {myItems.map((item) => {
-                          const itemKey = `${order.id}_${item.productId}`;
-                          const currentTracking = dispatchTracking[itemKey] || {
-                            courierPartner: item.courierPartner || 'The Courier Guy',
-                            trackingNumber: item.trackingNumber || `TCG-ZA-${Math.floor(10000000 + Math.random() * 90000000)}`
-                          };
-
-                          const itemIssue = sellerIssues.find(i => i.orderId === order.id && i.productId === item.productId);
+                          const itemIssue = (sellerIssues || []).find(i => Boolean(i && i.orderId === order.id && i.productId === item.productId));
+                          const itemPrice = typeof item.priceZAR === 'number' ? item.priceZAR : 0;
+                          const itemQty = typeof item.quantity === 'number' ? item.quantity : 1;
+                          const itemTotal = itemPrice * itemQty;
 
                           return (
                             <div 
@@ -1344,44 +1351,42 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                                   )}
 
                                   <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold flex items-center gap-1.5 ${
-                                      item.status === 'confirmed' || item.status === 'pending_payment'
+                                      item.status === 'confirmed'
                                         ? 'bg-emerald-950 text-emerald-300 border border-emerald-400/40' 
                                         : item.status === 'delivered'
-                                        ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-500/30'
+                                        ? 'bg-amber-950/60 text-amber-300 border border-amber-500/30'
                                         : item.status === 'in_transit'
                                         ? 'bg-blue-950 text-blue-300 border border-blue-500/30'
-                                        : item.status === 'accepted'
-                                        ? 'bg-emerald-900 text-emerald-200 border border-emerald-500/30'
+                                        : item.status === 'accepted' || item.status === 'awaiting_dispatch'
+                                        ? 'bg-indigo-950 text-indigo-300 border border-indigo-500/30'
                                         : item.status === 'rejected'
                                         ? 'bg-red-950 text-red-300 border border-red-500/30'
-                                        : item.status === 'pending_acceptance'
-                                        ? 'bg-amber-950 text-amber-300 border border-amber-500/30'
                                         : 'bg-slate-900 text-slate-300 border border-slate-700/30'
                                   }`}>
-                                    {item.status === 'confirmed' || item.status === 'pending_payment' ? (
+                                    {item.status === 'confirmed' ? (
                                       <>
-                                        <CheckCircle2 className="w-3.5 h-3.5" />
-                                        <span>Pending Payment</span>
+                                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                        <span>Receipt Confirmed (Available Balance)</span>
                                       </>
                                     ) : item.status === 'delivered' ? (
                                       <>
                                         <Package className="w-3.5 h-3.5" />
-                                        <span>Delivered</span>
+                                        <span>Delivered (48h Inspection Window)</span>
                                       </>
                                     ) : item.status === 'in_transit' ? (
                                       <>
                                         <Truck className="w-3.5 h-3.5" />
                                         <span>In Transit ({item.courierPartner || 'The Courier Guy'})</span>
                                       </>
-                                    ) : item.status === 'accepted' ? (
-                                      <>
-                                        <CheckCircle2 className="w-3.5 h-3.5" />
-                                        <span>Accepted</span>
-                                      </>
-                                    ) : item.status === 'pending_acceptance' ? (
+                                    ) : item.status === 'accepted' || item.status === 'awaiting_dispatch' ? (
                                       <>
                                         <Clock className="w-3.5 h-3.5" />
-                                        <span>Order Received (Pending Approval)</span>
+                                        <span>Order Placed (Awaiting Dispatch)</span>
+                                      </>
+                                    ) : item.status === 'pending_payment' ? (
+                                      <>
+                                        <Clock className="w-3.5 h-3.5" />
+                                        <span>Order Placed (Pending Payment)</span>
                                       </>
                                     ) : item.status === 'rejected' ? (
                                       <>
@@ -1391,30 +1396,85 @@ export const SellerDashboardView: React.FC<SellerDashboardViewProps> = ({
                                     ) : (
                                       <>
                                         <Clock className="w-3.5 h-3.5" />
-                                        <span>Order Received</span>
+                                        <span>Order Placed</span>
                                       </>
                                     )}
                                   </span>
                                 </div>
                               </div>
 
-
-
-
-
                               {item.status === 'delivered' && (
-                                <div className="p-2.5 bg-emerald-950/20 border border-emerald-500/20 rounded-xl text-xs text-slate-300 flex items-center gap-2">
-                                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                                  <span>Package delivered. Awaiting buyer receipt confirmation or automatic protection completion.</span>
+                                <div className="p-2.5 bg-amber-950/20 border border-amber-500/20 rounded-xl text-xs text-slate-300 space-y-1">
+                                  <div className="flex items-center justify-between text-[11px] font-mono">
+                                    <span className="font-bold text-amber-300">
+                                      Confirmed Delivery: {item.deliveredAt ? new Date(item.deliveredAt).toLocaleString('en-ZA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Delivery Confirmed'}
+                                    </span>
+                                    {item.deliveredAt && (
+                                      <span className="text-slate-400">
+                                        Deadline: {new Date(new Date(item.deliveredAt).getTime() + 48 * 3600000).toLocaleString('en-ZA', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className="text-[11px] text-slate-400 leading-relaxed">
+                                    {item.deliveredAt && Date.now() > new Date(item.deliveredAt).getTime() + 48 * 3600000
+                                      ? '48-hour inspection period ended. Funds remain in Pending Balance until the buyer confirms receipt or support resolves a case.'
+                                      : '48-hour inspection period active. Earnings remain in Pending Balance until buyer confirms receipt.'}
+                                  </p>
                                 </div>
                               )}
 
                               {item.status === 'confirmed' && (
                                 <div className="p-2.5 bg-emerald-950/40 border border-emerald-500/30 rounded-xl text-xs text-emerald-300 flex items-center gap-2">
                                   <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                                  <span>Customer verified delivery receipt! Payment has been simulated as released to your business.</span>
+                                  <span>Customer verified delivery receipt! Earnings moved to Available Balance.</span>
                                 </div>
                               )}
+
+
+
+
+
+                              {/* Order Action Buttons for Seller Fulfillment Sequence */}
+                              <div className="pt-2 flex flex-wrap items-center gap-2">
+                                {item.status === 'pending_acceptance' && onAcceptOrderItem && onRejectOrderItem && (
+                                  <>
+                                    <button
+                                      onClick={() => onAcceptOrderItem(order.id, item.productId, currentSellerId)}
+                                      className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md active:scale-95"
+                                    >
+                                      <CheckCircle2 className="w-3.5 h-3.5" />
+                                      <span>Accept Order</span>
+                                    </button>
+                                    <button
+                                      onClick={() => onRejectOrderItem(order.id, item.productId, currentSellerId, 'Out of Stock', 'Unable to fulfill at this time')}
+                                      className="px-3 py-1.5 rounded-xl bg-red-950/80 hover:bg-red-900 text-red-300 border border-red-500/30 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer active:scale-95"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                      <span>Reject Order</span>
+                                    </button>
+                                  </>
+                                )}
+
+                                {(item.status === 'accepted' || item.status === 'awaiting_dispatch' || (!item.status && item.status !== 'confirmed' && item.status !== 'delivered' && item.status !== 'in_transit' && item.status !== 'rejected')) && onUpdateOrderItemStatus && (
+                                  <button
+                                    onClick={() => onUpdateOrderItemStatus(order.id, item.productId, currentSellerId, 'in_transit')}
+                                    className="px-3.5 py-2 rounded-xl bg-[#0066ff] hover:bg-[#0052cc] text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md active:scale-95"
+                                  >
+                                    <Truck className="w-3.5 h-3.5" />
+                                    <span>Dispatch Order (Hand to Courier → In Transit)</span>
+                                  </button>
+                                )}
+
+                                {item.status === 'in_transit' && onUpdateOrderItemStatus && (
+                                  <button
+                                    onClick={() => onUpdateOrderItemStatus(order.id, item.productId, currentSellerId, 'delivered')}
+                                    className="px-3.5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-md active:scale-95"
+                                  >
+                                    <Package className="w-3.5 h-3.5" />
+                                    <span>Confirm Courier Delivery (Mark Delivered)</span>
+                                  </button>
+                                )}
+                              </div>
 
                               {item.status === 'rejected' && (
                                 <div className="p-3 bg-red-950/30 border border-red-500/30 rounded-xl space-y-1.5">

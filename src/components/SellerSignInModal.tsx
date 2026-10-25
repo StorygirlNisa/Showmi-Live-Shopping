@@ -10,6 +10,7 @@ interface SellerSignInModalProps {
   userRole?: 'buyer' | 'seller' | 'admin';
   currentUser?: any | null;
   onApplySeller?: () => void;
+  onOpenAuthModal?: () => void;
 }
 
 export const SellerSignInModal: React.FC<SellerSignInModalProps> = ({
@@ -19,7 +20,8 @@ export const SellerSignInModal: React.FC<SellerSignInModalProps> = ({
   onSignInAsSeller,
   userRole = 'buyer',
   currentUser = null,
-  onApplySeller
+  onApplySeller,
+  onOpenAuthModal
 }) => {
   const [selectedSellerId, setSelectedSellerId] = useState<string>(sellers[0]?.id || '');
   const [workshopName, setWorkshopName] = useState('');
@@ -131,6 +133,24 @@ export const SellerSignInModal: React.FC<SellerSignInModalProps> = ({
                 <Sparkles className="w-4 h-4" />
                 <span>Apply to Become a Seller</span>
               </button>
+
+              {onOpenAuthModal && (
+                <div className="text-center pt-1">
+                  <p className="text-[11px] text-slate-400">
+                    Already registered with a seller account?{' '}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose();
+                        onOpenAuthModal();
+                      }}
+                      className="text-[#19BFFF] hover:underline font-semibold cursor-pointer"
+                    >
+                      Sign in here
+                    </button>
+                  </p>
+                </div>
+              )}
             </form>
           ) : (
             /* Approved Seller Workshop Selector */

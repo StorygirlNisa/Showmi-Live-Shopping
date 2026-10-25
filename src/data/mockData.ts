@@ -222,5 +222,125 @@ export const SA_PROVINCES = [
 ];
 
 export const INITIAL_PROMOTIONS: LivePromotion[] = [];
-export const INITIAL_ORDERS: Order[] = [];
+export const INITIAL_ORDERS: Order[] = [
+  {
+    id: 'ORD-ZA-7821',
+    buyerId: 'buyer-demo-01',
+    sellerIds: ['seller-glow-theory'],
+    customerName: 'Sarah Van Der Merwe',
+    customerEmail: 'sarah.vdm@example.co.za',
+    customerPhone: '+27 82 456 7890',
+    shippingAddress: '42 Kloof Street, Gardens',
+    city: 'Cape Town',
+    province: 'Western Cape',
+    postalCode: '8001',
+    items: [
+      {
+        productId: 'prod-marula-elixir',
+        sellerId: 'seller-glow-theory',
+        sellerName: 'Glow Theory Skincare',
+        productImage: productMarulaImg,
+        name: 'Botanical Roots Pure Marula & Rooibos Facial Elixir (30ml)',
+        quantity: 1,
+        priceZAR: 480,
+        status: 'delivered',
+        paymentStatus: 'escrow_held',
+        courierPartner: 'The Courier Guy',
+        trackingNumber: 'TCG-ZA-8910245',
+        dispatchedAt: new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString(),
+        deliveredAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
+        paymentReleased: false
+      }
+    ],
+    subtotalZAR: 480,
+    shippingZAR: 95,
+    protectionFeeZAR: 38,
+    totalZAR: 613,
+    createdAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+    estimatedDeliveryDate: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString().split('T')[0],
+    protectionExpiresAt: new Date(Date.now() + 36 * 60 * 60 * 1000).toISOString(),
+    deliveryMethod: 'The Courier Guy Standard',
+    paymentMethod: 'Instant EFT'
+  },
+  {
+    id: 'ORD-ZA-8419',
+    buyerId: 'buyer-demo-02',
+    sellerIds: ['seller-cupcake-corner'],
+    customerName: 'David Sithole',
+    customerEmail: 'david.s@example.co.za',
+    customerPhone: '+27 71 345 6789',
+    shippingAddress: '18 Protea Way',
+    city: 'Cape Town',
+    province: 'Western Cape',
+    postalCode: '7550',
+    items: [
+      {
+        productId: 'prod-cupcake-6',
+        sellerId: 'seller-cupcake-corner',
+        sellerName: 'The Cupcake Corner',
+        productImage: 'https://images.unsplash.com/photo-1587668178277-295251f900de?auto=format&fit=crop&w=400&q=80',
+        name: 'Cupcake Six-Pack',
+        quantity: 2,
+        priceZAR: 150,
+        status: 'delivered',
+        paymentStatus: 'escrow_held',
+        courierPartner: 'Local Delivery',
+        trackingNumber: 'LOC-CPT-30291',
+        dispatchedAt: new Date(Date.now() - 80 * 60 * 60 * 1000).toISOString(),
+        deliveredAt: new Date(Date.now() - 60 * 60 * 60 * 1000).toISOString(),
+        paymentReleased: false
+      }
+    ],
+    subtotalZAR: 300,
+    shippingZAR: 50,
+    protectionFeeZAR: 24,
+    totalZAR: 374,
+    createdAt: new Date(Date.now() - 96 * 60 * 60 * 1000).toISOString(),
+    estimatedDeliveryDate: new Date(Date.now() - 60 * 60 * 60 * 1000).toISOString().split('T')[0],
+    protectionExpiresAt: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
+    deliveryMethod: 'Direct Bakery Dispatch',
+    paymentMethod: 'Credit Card'
+  },
+  {
+    id: 'ORD-ZA-9052',
+    buyerId: 'buyer-demo-03',
+    sellerIds: ['seller-style-edit'],
+    customerName: 'Nthabiseng Mokoena',
+    customerEmail: 'nthabi.m@example.co.za',
+    customerPhone: '+27 84 987 6543',
+    shippingAddress: '88 Oxford Road, Rosebank',
+    city: 'Johannesburg',
+    province: 'Gauteng',
+    postalCode: '2196',
+    items: [
+      {
+        productId: 'prod-jozi-sneakers',
+        sellerId: 'seller-style-edit',
+        sellerName: 'The Style Edit',
+        productImage: productJoziImg,
+        name: 'City Push High-Top Court Sneaker',
+        quantity: 1,
+        priceZAR: 1950,
+        status: 'confirmed',
+        paymentStatus: 'escrow_held',
+        courierPartner: 'Fastway',
+        trackingNumber: 'FW-JHB-772910',
+        dispatchedAt: new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString(),
+        deliveredAt: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
+        confirmedAt: new Date(Date.now() - 40 * 60 * 60 * 1000).toISOString(),
+        paymentReleased: true,
+        paymentReleasedAt: new Date(Date.now() - 40 * 60 * 60 * 1000).toISOString()
+      }
+    ],
+    subtotalZAR: 1950,
+    shippingZAR: 120,
+    protectionFeeZAR: 156,
+    totalZAR: 2226,
+    createdAt: new Date(Date.now() - 96 * 60 * 60 * 1000).toISOString(),
+    estimatedDeliveryDate: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString().split('T')[0],
+    protectionExpiresAt: new Date(Date.now() - 0 * 60 * 60 * 1000).toISOString(),
+    deliveryMethod: 'Fastway Express',
+    paymentMethod: 'Card'
+  }
+];
 export const INITIAL_ISSUES: OrderIssue[] = [];

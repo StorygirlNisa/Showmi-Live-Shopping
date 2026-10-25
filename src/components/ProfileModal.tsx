@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import { X, User, Lock, CreditCard, Store, ShieldCheck, Sparkles, Check, MapPin, Package, ShoppingBag } from 'lucide-react';
-import { Seller } from '../types';
+import React, { useState, useMemo } from 'react';
+import { X, User, Lock, CreditCard, Store, ShieldCheck, Sparkles, Check, MapPin, Package, ShoppingBag, Wallet } from 'lucide-react';
+import { Seller, Order, OrderIssue } from '../types';
 import { AppTab } from './Navigation';
+import { SellerWalletView } from './SellerWalletView';
 
 interface ProfileModalProps {
   isOpen: boolean;
@@ -16,6 +17,9 @@ interface ProfileModalProps {
   totalItemCount?: number;
   currentUser?: any | null;
   onSignOut?: () => void;
+  onSignIn?: () => void;
+  orders?: Order[];
+  issues?: OrderIssue[];
 }
 
 export const ProfileModal: React.FC<ProfileModalProps> = ({
@@ -25,13 +29,17 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
   currentSeller,
   sellers,
   onSelectSeller,
+  onOpenSellerSignIn,
   onOpenTab,
   ordersCount = 0,
   totalItemCount = 0,
   currentUser,
-  onSignOut
+  onSignOut,
+  onSignIn,
+  orders = [],
+  issues = []
 }) => {
-  const [activeSection, setActiveSection] = useState<'menu' | 'profile' | 'security' | 'payments' | 'address' | 'verification'>('menu');
+  const [activeSection, setActiveSection] = useState<'menu' | 'profile' | 'security' | 'payments' | 'address' | 'verification' | 'wallet'>('menu');
   const [fullName, setFullName] = useState(currentUser?.displayName || (userRole === 'seller' && currentSeller ? currentSeller.name : 'Nisa Bardien'));
   const [email, setEmail] = useState(currentUser?.email || 'nisabardien@gmail.com');
   const [phone, setPhone] = useState('+27 82 555 0192');
@@ -43,6 +51,28 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
       isSame: true
   });
   const [verificationStatus, setVerificationStatus] = useState<'Not started' | 'Pending' | 'Verified' | 'Action required'>('Not started');
+
+  const pendingSellerOrdersCount = useMemo(() => {
+    if (!currentSeller) return 0;
+    const seen = new Set<string>();
+    return (orders || []).filter(order => {
+      if (!order?.id || seen.has(order.id)) return false;
+      const sellerItems = (order.items || []).filter(item => Boolean(item && item.sellerId === currentSeller.id));
+      const orderStatusNorm = ((order.status || '') as string).toLowerCase().replace(/[\s_-]+/g, '_');
+      const isPending = sellerItems.some(i => 
+        i.status === 'pending_payment' || 
+        i.status === 'confirmed' || 
+        Boolean(i.confirmedAt) ||
+        orderStatusNorm === 'pending_payment' ||
+        Boolean(order.confirmedAt)
+      );
+      if (isPending) {
+        seen.add(order.id);
+        return true;
+      }
+      return false;
+    }).length;
+  }, [orders, currentSeller]);
 
   if (!isOpen) return null;
 
@@ -78,6 +108,17 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                             <User className="w-7 h-7 sm:w-8 sm:h-8 text-[#0066ff]"/>
                             <span className="font-semibold text-xs sm:text-sm">Personal Details</span>
                         </button>
+                        <button onClick={() => setActiveSection('wallet')} className="flex flex-col items-center justify-center p-4 sm:p-6 bg-[#1e2330] rounded-2xl text-white hover:bg-[#283042] text-center gap-2 sm:gap-3 cursor-pointer active:scale-95 transition-all relative group border border-transparent hover:border-[#19BFFF]/30">
+                            <div className="relative">
+                                <Wallet className="w-7 h-7 sm:w-8 sm:h-8 text-[#0066ff] group-hover:scale-105 transition-transform"/>
+                                {pendingSellerOrdersCount > 0 && (
+                                    <span className="absolute -top-1.5 -right-2.5 bg-amber-400 text-[#0D1018] text-[10px] font-bold px-1.5 py-0.2 rounded-full font-mono shadow-sm">
+                                        {pendingSellerOrdersCount}
+                                    </span>
+                                )}
+                            </div>
+                            <span className="font-semibold text-xs sm:text-sm">Seller Wallet</span>
+                        </button>
                         <button onClick={() => setActiveSection('security')} className="flex flex-col items-center justify-center p-4 sm:p-6 bg-[#1e2330] rounded-2xl text-white hover:bg-[#283042] text-center gap-2 sm:gap-3 cursor-pointer active:scale-95 transition-all">
                             <Lock className="w-7 h-7 sm:w-8 sm:h-8 text-[#0066ff]"/>
                             <span className="font-semibold text-xs sm:text-sm">Security & Password</span>
@@ -110,7 +151,7 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                             </div>
                             <span className="font-semibold text-xs sm:text-sm">My Orders & Tracking</span>
                         </button>
-                        {currentUser && (
+                        {currentUser ? (
                           <button 
                               onClick={() => { if (onSignOut) onSignOut(); onClose(); }} 
                               className="flex flex-col items-center justify-center p-4 sm:p-6 bg-red-900/20 rounded-2xl text-red-400 hover:bg-red-900/30 text-center gap-2 sm:gap-3 cursor-pointer active:scale-95 transition-all border border-red-900/30"
@@ -119,7 +160,16 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                               <X className="w-7 h-7 sm:w-8 sm:h-8 text-red-500"/>
                               <span className="font-semibold text-xs sm:text-sm">Sign Out</span>
                           </button>
-                        )}
+                        ) : onSignIn ? (
+                          <button 
+                              onClick={() => { onClose(); onSignIn(); }} 
+                              className="flex flex-col items-center justify-center p-4 sm:p-6 bg-[#19BFFF]/10 rounded-2xl text-[#19BFFF] hover:bg-[#19BFFF]/20 text-center gap-2 sm:gap-3 cursor-pointer active:scale-95 transition-all border border-[#19BFFF]/30"
+                              title="Sign in or create account"
+                          >
+                              <User className="w-7 h-7 sm:w-8 sm:h-8 text-[#19BFFF]"/>
+                              <span className="font-semibold text-xs sm:text-sm">Sign In / Register</span>
+                          </button>
+                        ) : null}
                     </div>
                 </div>
             </>
@@ -199,6 +249,22 @@ export const ProfileModal: React.FC<ProfileModalProps> = ({
                             <div className="p-5 space-y-4 text-slate-300 text-xs">
                                 <p>Status: <span className="font-bold">{verificationStatus}</span></p>
                                 <button className="w-full py-2 bg-[#0066ff] text-white rounded-lg">Start Verification</button>
+                            </div>
+                        </>
+                    )}
+                    {activeSection === 'wallet' && (
+                        <>
+                            {renderSectionHeader('Seller Wallet')}
+                            <div className="flex-1 overflow-y-auto">
+                                <SellerWalletView
+                                    currentSeller={currentSeller}
+                                    orders={orders}
+                                    userRole={userRole}
+                                    currentUser={currentUser}
+                                    onSelectSeller={onSelectSeller}
+                                    sellers={sellers}
+                                    onOpenSellerSignIn={onOpenSellerSignIn}
+                                />
                             </div>
                         </>
                     )}

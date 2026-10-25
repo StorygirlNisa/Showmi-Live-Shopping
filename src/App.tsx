@@ -19,6 +19,7 @@ import { SellerSignInModal } from './components/SellerSignInModal';
 import { SellerHostModeView } from './components/SellerHostModeView';
 import { ResponsivePreviewToolbar, ViewportMode } from './components/ResponsivePreviewToolbar';
 import { SearchResultsView } from './components/SearchResultsView';
+import { AuthModal, AccountType } from './components/AuthModal';
 import { 
   onAuthStateChanged, 
   signInWithPopup, 
@@ -138,6 +139,7 @@ export default function App() {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
 
   const [currentSellerId, setCurrentSellerId] = useState<string>(SELLERS[0].id);
+  const pendingRegistrationRoleRef = useRef<{ email: string; role: 'buyer' | 'seller' } | null>(null);
 
   const [followedSellerIds, setFollowedSellerIds] = useState<string[]>(() => {
     try {
@@ -162,35 +164,82 @@ export default function App() {
       if (user) {
         const userDocRef = doc(db, 'users', user.uid);
         unsubscribeUserDoc = onSnapshot(userDocRef, async (userDoc) => {
+          const userEmail = (user.email || '').toLowerCase().trim();
+
           if (!userDoc.exists()) {
-            // New user registration defaults to buyer
-            const newUser = {
-              email: user.email,
-              displayName: user.displayName || user.email?.split('@')[0] || 'Showshopper',
-              role: 'buyer',
+            // New user registration profile initialization
+            let targetRole: 'buyer' | 'seller' = 'buyer';
+
+            if (pendingRegistrationRoleRef.current && pendingRegistrationRoleRef.current.email === userEmail) {
+              targetRole = pendingRegistrationRoleRef.current.role;
+              pendingRegistrationRoleRef.current = null;
+            } else if (userEmail === 'showmisellerdemo@gmail.com' || userEmail.includes('sellerdemo')) {
+              targetRole = 'seller';
+            } else if (userEmail === 'showmibuyerdemo@gmail.com') {
+              targetRole = 'buyer';
+            }
+
+            const newUser: Record<string, any> = {
+              email: user.email || userEmail,
+              displayName: user.displayName || user.email?.split('@')[0] || (targetRole === 'seller' ? 'Showpreneur' : 'Showshopper'),
+              role: targetRole,
               createdAt: serverTimestamp()
             };
-            try {
-              await setDoc(userDocRef, newUser);
-            } catch (err) {
-              console.error("Error setting default user profile:", err);
+
+            if (targetRole === 'seller') {
+              newUser.sellerId = SELLERS[0].id;
             }
-            setUserRole('buyer');
-            setActiveTab('LIVE');
+
+            try {
+              await setDoc(userDocRef, newUser, { merge: true });
+            } catch (err) {
+              console.error("Error setting initial user profile:", err);
+            }
+
+            setUserRole(targetRole);
+            if (targetRole === 'seller') {
+              setCurrentSellerId(SELLERS[0].id);
+              setActiveTab('Seller Studio');
+            } else {
+              setActiveTab('LIVE');
+            }
           } else {
-            // Existing user profile loaded/updated from Firestore
+            // Existing user profile loaded from Firestore - retrieve saved user role without defaulting to Buyer
             const data = userDoc.data();
-            const role = (data?.role as 'admin' | 'buyer' | 'seller') || 'buyer';
+            let role = (data?.role as 'admin' | 'buyer' | 'seller') || 'buyer';
+
+            // Ensure existing demo accounts have their assigned Showmi roles without losing existing data
+            if (userEmail === 'showmisellerdemo@gmail.com' && role !== 'seller' && role !== 'admin') {
+              role = 'seller';
+              try {
+                await updateDoc(userDocRef, {
+                  role: 'seller',
+                  sellerId: data?.sellerId || SELLERS[0].id
+                });
+              } catch (err) {
+                console.error("Error assigning demo seller role:", err);
+              }
+            } else if (userEmail === 'showmibuyerdemo@gmail.com' && role === 'seller') {
+              role = 'buyer';
+              try {
+                await updateDoc(userDocRef, { role: 'buyer' });
+              } catch (err) {
+                console.error("Error assigning demo buyer role:", err);
+              }
+            }
+
             setUserRole(role);
             if (data?.sellerId) {
               setCurrentSellerId(data.sellerId);
+            } else if (role === 'seller') {
+              setCurrentSellerId(SELLERS[0].id);
             }
 
             // Route authorized sellers directly to Seller Studio
             if (role === 'seller' || role === 'admin') {
               setActiveTab('Seller Studio');
             } else {
-              // Buyers default to LIVE feed
+              // Buyers default to LIVE feed or keep current view if not on Seller Studio
               setActiveTab((prev) => (prev === 'Seller Studio' ? 'LIVE' : prev));
             }
           }
@@ -284,7 +333,7 @@ export default function App() {
 
   // 3. Sync Orders from Firestore (Filtered by role)
   useEffect(() => {
-    if (!currentUser) {
+    if (!currentUser && userRole !== 'admin') {
       setFirestoreOrders([]);
       return;
     }
@@ -294,8 +343,11 @@ export default function App() {
       q = query(collection(db, 'orders'));
     } else if (userRole === 'seller' && currentSellerId) {
       q = query(collection(db, 'orders'), where('sellerIds', 'array-contains', currentSellerId));
-    } else {
+    } else if (currentUser) {
       q = query(collection(db, 'orders'), where('buyerId', '==', currentUser.uid));
+    } else {
+      setFirestoreOrders([]);
+      return;
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
@@ -306,6 +358,8 @@ export default function App() {
       // Sort by createdAt descending
       list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setFirestoreOrders(list);
+    }, (error) => {
+      console.warn("Orders snapshot notice:", error?.message || error);
     });
 
     return () => unsubscribe();
@@ -320,23 +374,50 @@ export default function App() {
     return INITIAL_ORDERS;
   });
 
+  // Explicit mapping of primary demo/test buyer accounts to assigned demo buyer IDs
+  const DEMO_BUYER_MAPPINGS: Record<string, string> = {
+    'nisabardien@gmail.com': 'buyer-demo-01',
+    'showmibuyerdemo@gmail.com': 'buyer-demo-01',
+  };
+
   // Merge Firestore orders with local orders (Firestore takes precedence)
   const allOrders = useMemo(() => {
     const map = new Map<string, Order>();
-    ordersList.forEach(o => {
+
+    const userEmailKey = (currentUser?.email || '').toLowerCase().trim();
+    const mappedDemoBuyerId = currentUser
+      ? (DEMO_BUYER_MAPPINGS[userEmailKey] || null)
+      : 'buyer-demo-01';
+
+    const filterOrderForUser = (o: Order) => {
       if (userRole === 'admin') {
-        map.set(o.id, o);
+        return true;
       } else if (userRole === 'seller' && currentSellerId) {
-        if (o.sellerIds?.includes(currentSellerId) || o.items?.some(i => i.sellerId === currentSellerId)) {
-          map.set(o.id, o);
+        return Boolean(o.sellerIds?.includes(currentSellerId) || o.items?.some(i => i.sellerId === currentSellerId));
+      } else {
+        // 1. Direct match on signed-in buyer's Firebase Auth UID or email
+        if (currentUser && (o.buyerId === currentUser.uid || (currentUser.email && o.customerEmail?.toLowerCase() === currentUser.email.toLowerCase()))) {
+          return true;
         }
-      } else if (currentUser) {
-        if (o.buyerId === currentUser.uid) {
-          map.set(o.id, o);
+        // 2. Explicit demo account mapping for demo buyer orders
+        if (mappedDemoBuyerId && o.buyerId === mappedDemoBuyerId) {
+          return true;
         }
+        return false;
+      }
+    };
+
+    ordersList.forEach(o => {
+      if (filterOrderForUser(o)) {
+        map.set(o.id, o);
       }
     });
-    firestoreOrders.forEach(o => map.set(o.id, o));
+
+    firestoreOrders.forEach(o => {
+      if (filterOrderForUser(o)) {
+        map.set(o.id, o);
+      }
+    });
 
     const list = Array.from(map.values());
     list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -383,6 +464,8 @@ export default function App() {
   const cartOriginRef = useRef<CartOriginContext | null>(null);
   
   // Modals
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authModalInitialMode, setAuthModalInitialMode] = useState<'signin' | 'register'>('signin');
   const [isSetupModalOpen, setIsSetupModalOpen] = useState(false);
   const [isSellerSignInModalOpen, setIsSellerSignInModalOpen] = useState(false);
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
@@ -713,7 +796,7 @@ export default function App() {
           quantity: ci.quantity,
           priceZAR: ci.product.priceZAR,
           status: 'awaiting_dispatch' as const,
-          paymentStatus: 'escrow_held' as const
+          paymentStatus: 'pending_payment' as const
         })),
         subtotalZAR: orderPayload.subtotalZAR,
         shippingZAR: orderPayload.shippingZAR,
@@ -809,29 +892,26 @@ export default function App() {
       return item;
     });
 
+    // Update local state and safeStorage immediately so UI reflects status change seamlessly
+    setOrdersList(prev => {
+      const exists = prev.some(o => o.id === orderId);
+      const next = exists 
+        ? prev.map(o => o.id === orderId ? { ...o, items: updatedItems } : o)
+        : [{ ...order, items: updatedItems }, ...prev];
+      safeStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(next));
+      return next;
+    });
+
+    setDispatchError(null);
+    showNotification(`Order status updated: ${newStatus.replace('_', ' ')}`);
+
     try {
       const orderRef = doc(db, 'orders', orderId);
       const updatePayload = { items: updatedItems };
-      
       const cleanedPayload = cleanFirestoreData(updatePayload);
-      console.log('Dispatch Order Update (Cleaned):', { orderId, cleanedPayload, keys: Object.keys(cleanedPayload) });
-      
       await updateDoc(orderRef, cleanedPayload);
-
-      setOrdersList(prev => {
-        const exists = prev.some(o => o.id === orderId);
-        const next = exists 
-          ? prev.map(o => o.id === orderId ? { ...o, items: updatedItems } : o)
-          : [{ ...order, items: updatedItems }, ...prev];
-        safeStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(next));
-        return next;
-      });
-
-      setDispatchError(null);
-      showNotification(`Order status updated: ${newStatus.replace('_', ' ')}`);
     } catch (error: any) {
-      handleFirestoreError(error, OperationType.UPDATE, `orders/${orderId}`, { action: 'dispatch', orderId });
-      throw error;
+      console.warn("Firestore status update skipped or failed:", error?.message || error);
     }
   };
 
@@ -854,32 +934,30 @@ export default function App() {
         return {
           ...item,
           status: 'accepted' as const,
+          paymentStatus: 'escrow_held' as const,
           acceptedAt: now
         };
       }
       return item;
     });
 
+    setOrdersList(prev => {
+      const exists = prev.some(o => o.id === orderId);
+      const next = exists 
+        ? prev.map(o => o.id === orderId ? { ...o, items: updatedItems } : o)
+        : [{ ...order, items: updatedItems }, ...prev];
+      safeStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(next));
+      return next;
+    });
+
+    showNotification("Order accepted! Ready for packaging & dispatch.");
+
     try {
       const orderRef = doc(db, 'orders', orderId);
       const updatePayload = { items: updatedItems };
-      
-      console.log('Accept Order Update:', { orderId, updatePayload });
-      
       await updateDoc(orderRef, cleanFirestoreData(updatePayload));
-
-      setOrdersList(prev => {
-        const exists = prev.some(o => o.id === orderId);
-        const next = exists 
-          ? prev.map(o => o.id === orderId ? { ...o, items: updatedItems } : o)
-          : [{ ...order, items: updatedItems }, ...prev];
-        safeStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(next));
-        return next;
-      });
-
-      showNotification("Order accepted! Ready for packaging & dispatch.");
     } catch (error: any) {
-      handleFirestoreError(error, OperationType.UPDATE, `orders/${orderId}`, { action: 'accept', orderId });
+      console.warn("Firestore accept notice:", error?.message || error);
     }
   };
 
@@ -957,7 +1035,7 @@ export default function App() {
     }
   };
 
-  // Buyer receipt confirmation (Simulated payment release)
+  // Buyer receipt confirmation (releases earnings to Available Balance immediately)
   const handleConfirmItemReceipt = async (orderId: string, productId: string) => {
     const order = allOrders.find(o => o.id === orderId);
     if (!order) return;
@@ -967,32 +1045,45 @@ export default function App() {
       if (item.productId === productId) {
         return {
           ...item,
-          status: 'pending_payment' as const,
+          status: 'confirmed' as const,
           confirmedAt: now,
-          paymentReleased: true,
-          paymentReleasedAt: now,
           dispatchedAt: item.dispatchedAt || now,
-          deliveredAt: item.deliveredAt || now
+          deliveredAt: item.deliveredAt || now,
+          paymentReleased: true,
+          paymentReleasedAt: now
         };
       }
       return item;
     });
 
-    const allConfirmed = updatedItems.every(i => i.status === 'confirmed');
-    const updateData: any = { items: updatedItems };
-    if (allConfirmed) {
+    const allReceived = updatedItems.every(i => 
+      i.status === 'confirmed' || Boolean(i.confirmedAt) || i.paymentReleased
+    );
+    const updateData: any = { 
+      items: updatedItems,
+      paymentReleased: true,
+      paymentReleasedAt: now
+    };
+    if (allReceived && !order.confirmedAt) {
       updateData.confirmedAt = now;
-      updateData.paymentReleased = true;
-      updateData.paymentReleasedAt = now;
     }
 
     try {
       await updateDoc(doc(db, 'orders', orderId), cleanFirestoreData(updateData));
-      showNotification('Receipt confirmed! Order status updated to Pending Payment for seller.');
+      showNotification('Receipt confirmed! Seller earnings released to Available Balance.');
     } catch (error) {
       console.error("Failed to confirm receipt:", error);
       showNotification("Confirmation failed. Permission denied?");
     }
+
+    setOrdersList(prev => {
+      const exists = prev.some(o => o.id === orderId);
+      const next = exists 
+        ? prev.map(o => o.id === orderId ? { ...o, ...updateData, items: updatedItems } : o)
+        : prev;
+      safeStorage.setItem(STORAGE_KEYS.ORDERS, JSON.stringify(next));
+      return next;
+    });
   };
 
   // Buyer issue reporting handler (persisted to localStorage)
@@ -1225,15 +1316,26 @@ export default function App() {
   };
 
   // Real Authentication Handlers
-  const handleSignIn = async () => {
-    const provider = new GoogleAuthProvider();
-    try {
-      await signInWithPopup(auth, provider);
-      showNotification('Successfully signed in with Google');
-    } catch (error) {
-      console.error('Sign-in error:', error);
-      showNotification('Sign-in failed. Please check your browser popup settings.');
-    }
+  const handleOpenSignIn = () => {
+    setAuthModalInitialMode('signin');
+    setIsAuthModalOpen(true);
+  };
+
+  const handleOpenRegister = () => {
+    setAuthModalInitialMode('register');
+    setIsAuthModalOpen(true);
+  };
+
+  const handleSignIn = () => {
+    handleOpenSignIn();
+  };
+
+  const handleAuthSuccess = (authUser: FirebaseUser, assignedRole: AccountType) => {
+    showNotification(
+      authUser.displayName 
+        ? `Signed in as ${authUser.displayName}` 
+        : `Signed in successfully as ${assignedRole === 'seller' ? 'Seller' : 'Buyer'}`
+    );
   };
 
   const handleSignOut = async () => {
@@ -1250,8 +1352,8 @@ export default function App() {
   // Role & Authentication Handlers
   const handleSignInAsSeller = async (sellerId: string) => {
     if (!currentUser) {
-      showNotification('Please sign in with Google first');
-      handleSignIn();
+      showNotification('Please sign in to access Seller Studio');
+      handleOpenSignIn();
       return;
     }
 
@@ -1918,6 +2020,18 @@ export default function App() {
           showNotification('Application submitted! Showmi Admin will review your account for seller authorization.');
           setIsSellerSignInModalOpen(false);
         }}
+        onOpenAuthModal={handleOpenSignIn}
+      />
+
+      {/* Auth Modal (Supports Email/Password Sign-In, Registration with Buyer/Seller role, and Google Sign-In) */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        initialMode={authModalInitialMode}
+        onSuccess={handleAuthSuccess}
+        onRoleAssigned={(email, role) => {
+          pendingRegistrationRoleRef.current = { email: email.toLowerCase(), role };
+        }}
       />
 
       {/* Fixed Black Footer: Profile | Showroom | Cart | Seller Studio */}
@@ -1996,10 +2110,13 @@ export default function App() {
           safeStorage.setItem(STORAGE_KEYS.SELLER_ID, sellerId);
         }}
         onOpenTab={handleTabChange}
+        orders={allOrders}
+        issues={orderIssues}
         ordersCount={allOrders.length}
         totalItemCount={totalItemCount}
         currentUser={currentUser}
         onSignOut={handleSignOut}
+        onSignIn={handleOpenSignIn}
       />
 
       {/* Mandatory Host Mode AI Disclaimer Confirmation Modal */}

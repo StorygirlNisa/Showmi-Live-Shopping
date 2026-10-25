@@ -421,14 +421,14 @@ export const BasketCheckoutView: React.FC<BasketCheckoutViewProps> = ({
             <div className="flex items-center justify-between flex-wrap gap-2">
               <span className="text-sm font-bold text-white flex items-center gap-2">
                 <ShieldCheck className="w-5 h-5 text-[#0066ff]" />
-                Your payment is protected
+                Showmi Buyer Protection
               </span>
             </div>
             <p className="text-xs text-slate-200 leading-relaxed">
-              A third-party financial institution would hold your payment until you confirm receipt. Check your items carefully before confirming.
+              Inspection Period: 48 hours from confirmed delivery. Report any damage, missing items, or items that differ significantly from description within 48 hours of confirmed delivery.
             </p>
             <p className="text-xs text-slate-300 leading-relaxed">
-              After payment is released, refunds must be arranged directly with the seller.
+              Seller earnings remain in Pending Balance until you confirm receipt or a dispute is resolved.
             </p>
             <div className="pt-2 border-t border-[#212633] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
               <p className="text-[11px] text-slate-400 italic">

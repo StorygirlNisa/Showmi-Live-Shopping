@@ -352,7 +352,7 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
             {/* Trust badge */}
             <div className="pt-2 flex items-center justify-center gap-2 text-[11px] text-slate-400">
               <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              <span>Delivery & Item Match · Simulated 14-day South African protection</span>
+              <span>Showmi Buyer Protection · 48-hour inspection window from confirmed delivery</span>
             </div>
 
           </div>
