@@ -68,7 +68,7 @@ export const ProductDetailDrawer: React.FC<ProductDetailDrawerProps> = ({
       />
 
       {/* Drawer Container (Mobile Bottom Sheet / Desktop Modal) */}
-      <div className="relative z-50 w-full md:max-w-xl max-h-[88vh] md:max-h-[90vh] bg-[#12151d] border-t md:border border-[#212633] rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-slide-up">
+      <div className="relative z-50 w-full md:max-w-xl max-h-[calc(88vh-68px)] md:max-h-[90vh] bg-[#12151d] border-t md:border border-[#212633] rounded-t-3xl md:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-slide-up mb-[calc(68px+env(safe-area-inset-bottom,0px))] md:mb-0">
         
         {/* Drawer Header with Drag Handle & Close */}
         <div className="p-4 sm:p-5 border-b border-[#212633] flex items-center justify-between gap-3 bg-[#14171f] shrink-0">
